@@ -15,19 +15,17 @@ namespace LithosNet.Host {
 
         static async Task Main(string[] args) {
             Console.WriteLine("==================================================");
-            Console.WriteLine("🔥 [Phase 17] 注入 FluffOS 靈魂：Master Object 與 connect() Apply！");
+            Console.WriteLine("🔥 [Phase 18] 注入 MUD 靈魂：clone_object() 實例化與物件切換！");
             Console.WriteLine("==================================================\n");
 
             EfunRegistry.RegisterFromType(typeof(BuiltInEfuns));
             
-            // 【關鍵】Driver 啟動時，第一個載入的必須是 master.c
             ObjMgr.Preload(MudlibPath + "master.c");
-            ObjMgr.CallFunction("master", "create"); // 觸發 master 的初始化
-            
-            // 預載入其他基礎物件
+            ObjMgr.CallFunction("master", "create");
             ObjMgr.Preload(MudlibPath + "monster.c");
             ObjMgr.Preload(MudlibPath + "dragon.c");
             ObjMgr.Preload(MudlibPath + "room.c");
+            ObjMgr.Preload(MudlibPath + "player.c"); // 預載入玩家藍本
             ObjMgr.Preload(MudlibPath + "login.c");
 
             var listener = new TcpListener(IPAddress.Any, 6900);
@@ -36,20 +34,23 @@ namespace LithosNet.Host {
 
             while (true) {
                 var client = await listener.AcceptTcpClientAsync();
-                Console.WriteLine($"[+] 新 TCP 連線接入: {client.Client.RemoteEndPoint}");
                 _ = Task.Run(() => HandleClientAsync(client));
             }
         }
 
         static async Task HandleClientAsync(TcpClient client) {
-            // 【FluffOS 標準流程】
-            // 1. 呼叫 master->connect()，詢問 Master 應該把連線交給誰
             LpcValue targetObjVal = ObjMgr.CallFunction("master", "connect");
-            string targetObj = targetObjVal.AsString();
-            Console.WriteLine($"🔌 [NET] Master 指派互動物件: {targetObj}.c");
+            string currentObj = targetObjVal.AsString(); // 初始為 "login"
             
-            // 2. 呼叫該物件的 logon() Apply
-            ObjMgr.CallFunction(targetObj, "logon");
+            // 呼叫 login->logon()，並接收它返回的新物件 ID
+            LpcValue newObjVal = ObjMgr.CallFunction(currentObj, "logon");
+            if (newObjVal.Type == LpcType.String) {
+                currentObj = newObjVal.AsString(); // 【關鍵】切換互動物件！
+                Console.WriteLine($"🔄 [NET] 互動物件已切換為: {currentObj}");
+                
+                // 呼叫新物件的 setup_user
+                ObjMgr.CallFunction(currentObj, "setup_user", LpcValue.Create("Admin"));
+            }
 
             var reader = PipeReader.Create(client.GetStream());
             var writer = PipeWriter.Create(client.GetStream());
@@ -58,7 +59,7 @@ namespace LithosNet.Host {
                     ReadResult result = await reader.ReadAsync();
                     ReadOnlySequence<byte> buffer = result.Buffer;
                     bool needsFlush = false;
-                    while (TryParsePacket(ref buffer, writer, ref needsFlush)) { }
+                    while (TryParsePacket(ref buffer, writer, ref needsFlush, currentObj)) { }
                     if (needsFlush) await writer.FlushAsync();
                     reader.AdvanceTo(buffer.Start, buffer.End);
                     if (result.IsCompleted) break;
@@ -67,22 +68,17 @@ namespace LithosNet.Host {
             finally { client.Close(); }
         }
 
-        static bool TryParsePacket(ref ReadOnlySequence<byte> buffer, PipeWriter writer, ref bool needsFlush) {
+        // 將 currentObj 傳入，讓後續封包由 player#1 處理
+        static bool TryParsePacket(ref ReadOnlySequence<byte> buffer, PipeWriter writer, ref bool needsFlush, string currentObj) {
             if (buffer.Length < 55) return false;
             var pkt = buffer.Slice(0, 55).FirstSpan;
             if (pkt[0] == 0x64 && pkt[1] == 0x00) {
-                string user = Encoding.ASCII.GetString(pkt.Slice(6, 24)).TrimEnd('\0');
-                string pass = Encoding.ASCII.GetString(pkt.Slice(30, 24)).TrimEnd('\0');
-                
-                // 登入驗證依然交由 login.c 處理
-                LpcValue result = ObjMgr.CallFunction("login", "verify_login", LpcValue.Create(user), LpcValue.Create(pass));
+                // 模擬玩家受到 200 點傷害
+                Console.WriteLine($"⚔️ [NET] 玩家 {currentObj} 受到 200 點傷害！");
+                ObjMgr.CallFunction(currentObj, "take_damage", LpcValue.Create(200));
                 
                 byte[] response = new byte[79];
-                if (result.AsInt() == 1) {
-                    response[0] = 0x69; response[1] = 0x00; response[2] = 0x4F; response[3] = 0x00; response[4] = 0x01;
-                } else {
-                    response[0] = 0x6a; response[1] = 0x00; response[2] = 0x17; response[3] = 0x00; response[4] = 0x00;
-                }
+                response[0] = 0x69; response[1] = 0x00; response[2] = 0x4F; response[3] = 0x00; response[4] = 0x01;
                 writer.Write(response); needsFlush = true;
             }
             buffer = buffer.Slice(55);

@@ -1,15 +1,14 @@
-void logon() {
-    debug_message("玩家正在登入...");
-    
-    // 設定一個 3 秒後的定時器，呼叫本物件的 spawn_mob()
-    call_out("spawn_mob", 3, "烈焰巨龍");
-    
-    debug_message("定時器已設定，3秒後怪物將甦醒！");
-}
+// login.c 負責驗證帳號，並克隆出專屬的 player 物件
 
-// 這個函數將在 3 秒後被底層 C# Task 自動回呼！
-void spawn_mob(string mob_name) {
-    debug_message("⚠️ 警告：一隻 " + mob_name + " 甦醒了！");
+// 【關鍵】logon() 現在返回一個字串，告訴 Driver 後續請把封包交給誰
+string logon() {
+    debug_message("登入成功！正在為您創建專屬角色...");
+    
+    // 克隆一個 player 實體
+    string my_player = clone_object("player");
+    
+    // 告訴 Driver：後續的連線互動，請交給 my_player (例如 "player#1")
+    return my_player; 
 }
 
 int verify_login(string user, string pass) {

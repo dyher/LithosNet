@@ -159,7 +159,7 @@ namespace LithosNet.Compiler {
                     var args = new List<AstNode>();
                     while (!Check(TokenType.RightParen)) { args.Add(ParseExpression()); if (Check(TokenType.Comma)) Consume(); }
                     Expect(TokenType.RightParen);
-                    return new CallOtherNode { TargetObj = name, FuncName = funcName, Arguments = args };
+                    return new CallOtherNode { Target = new VariableRefNode { Name = name }, FuncName = funcName, Arguments = args };
                 }
                 if (Check(TokenType.LeftBracket)) {
                     Consume(); var idx = ParseExpression(); Expect(TokenType.RightBracket);
