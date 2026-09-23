@@ -7,6 +7,41 @@ using LithosNet.Core;
 namespace LithosNet.VM {
     public static class BuiltInEfuns {
 
+        // 【Mudlib 基礎】to_int 字串轉整數
+        [Efun("to_int")]
+        public static LpcValue ToInt(LpcValue[] args) {
+            if (args.Length > 0 && args[0].Type == LpcType.String) {
+                if (int.TryParse(args[0].AsString(), out int res)) return LpcValue.Create(res);
+            } else if (args.Length > 0 && args[0].Type == LpcType.Int) return args[0];
+            return LpcValue.Create(0);
+        }
+
+
+        // 【MMORPG Efun】註冊實體到空間網格
+        [Efun("map_register")]
+        public static LpcValue MapRegister(LpcValue[] args) {
+            if (args.Length >= 3) GridMapManager.Register(args[0].AsString(), args[1].AsInt(), args[2].AsInt());
+            return LpcValue.Create(1);
+        }
+
+        // 【MMORPG Efun】移動實體
+        [Efun("map_move")]
+        public static LpcValue MapMove(LpcValue[] args) {
+            if (args.Length >= 3) GridMapManager.Move(args[0].AsString(), args[1].AsInt(), args[2].AsInt());
+            return LpcValue.Create(1);
+        }
+
+        // 【MMORPG Efun】AOE 範圍查詢 (效能碾壓 rAthena 的核心)
+        [Efun("get_objects_in_radius")]
+        public static LpcValue GetObjectsInRadius(LpcValue[] args) {
+            if (args.Length < 3) return LpcValue.Create(new List<LpcValue>());
+            var list = GridMapManager.GetObjectsInRadius(args[0].AsInt(), args[1].AsInt(), args[2].AsInt());
+            var lpcList = new List<LpcValue>();
+            foreach(var s in list) lpcList.Add(LpcValue.Create(s));
+            return LpcValue.Create(lpcList);
+        }
+
+
         // 【FFI 底層委託定義】
         [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Cdecl)]
         private delegate int IntReturnDelegate();

@@ -81,6 +81,7 @@ namespace LithosNet.VM {
         public void DestructObject(string objName) {
             foreach(var inv in _inventories.Values) inv.Remove(objName);
             _inventories.Remove(objName);
+            GridMapManager.Unregister(objName);
             if (_objects.ContainsKey(objName)) { _objects.Remove(objName); Console.WriteLine($"💥 [VM] 銷毀: {objName}"); }
         }
 

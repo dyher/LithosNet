@@ -3,13 +3,17 @@
     "type": "String",
     "value": "Arthur"
   },
-  "environment": {
-    "type": "String",
-    "value": "town"
-  },
   "hp": {
     "type": "Int",
     "value": 1000
+  },
+  "x": {
+    "type": "Int",
+    "value": 50
+  },
+  "y": {
+    "type": "Int",
+    "value": 50
   },
   "user_name": {
     "type": "String",
@@ -17,33 +21,72 @@
   },
   "msg": {
     "type": "String",
-    "value": "ffi"
+    "value": "aoe 20"
   },
   "parts": {
     "type": "Array"
   },
   "verb": {
     "type": "String",
-    "value": "ffi"
-  },
-  "args": {
-    "type": "String",
-    "value": ""
+    "value": "aoe"
   },
   "i": {
     "type": "Int",
-    "value": 3
+    "value": 131
   },
-  "pid": {
+  "start": {
+    "type": "Int",
+    "value": 1769827585
+  },
+  "mob": {
+    "type": "String",
+    "value": "goblin#1002"
+  },
+  "rx": {
+    "type": "Int",
+    "value": 99
+  },
+  "ry": {
+    "type": "Int",
+    "value": 99
+  },
+  "time": {
+    "type": "Int",
+    "value": 192
+  },
+  "newX": {
+    "type": "Int",
+    "value": 50
+  },
+  "newY": {
+    "type": "Int",
+    "value": 50
+  },
+  "radius": {
+    "type": "Int",
+    "value": 20
+  },
+  "targets": {
+    "type": "Array"
+  },
+  "query_time": {
     "type": "Int",
     "value": 0
   },
-  "user_env": {
+  "dmg_start": {
     "type": "Int",
-    "value": 0
+    "value": 1769827585
   },
-  "path_env": {
+  "kill_count": {
     "type": "Int",
-    "value": 0
+    "value": 130
+  },
+  "t": {
+    "type": "String",
+    "value": "goblin#572"
+  },
+  "dmg_time": {
+    "type": "Int",
+    "value": 4
   }
 }
