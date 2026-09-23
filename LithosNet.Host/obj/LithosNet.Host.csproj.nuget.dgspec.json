@@ -4,14 +4,76 @@
     "/home/tiny/LithosNet/LithosNet.Host/LithosNet.Host.csproj": {}
   },
   "projects": {
-    "/home/tiny/LithosNet/LithosNet.Host/LithosNet.Host.csproj": {
+    "/home/tiny/LithosNet/LithosNet.Compiler/LithosNet.Compiler.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/home/tiny/LithosNet/LithosNet.Host/LithosNet.Host.csproj",
-        "projectName": "LithosNet.Host",
-        "projectPath": "/home/tiny/LithosNet/LithosNet.Host/LithosNet.Host.csproj",
+        "projectUniqueName": "/home/tiny/LithosNet/LithosNet.Compiler/LithosNet.Compiler.csproj",
+        "projectName": "LithosNet.Compiler",
+        "projectPath": "/home/tiny/LithosNet/LithosNet.Compiler/LithosNet.Compiler.csproj",
         "packagesPath": "/home/tiny/.nuget/packages/",
-        "outputPath": "/home/tiny/LithosNet/LithosNet.Host/obj/",
+        "outputPath": "/home/tiny/LithosNet/LithosNet.Compiler/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/home/tiny/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "/home/tiny/LithosNet/LithosNet.Core/LithosNet.Core.csproj": {
+                "projectPath": "/home/tiny/LithosNet/LithosNet.Core/LithosNet.Core.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/home/tiny/.dotnet/sdk/8.0.425/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "/home/tiny/LithosNet/LithosNet.Core/LithosNet.Core.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/home/tiny/LithosNet/LithosNet.Core/LithosNet.Core.csproj",
+        "projectName": "LithosNet.Core",
+        "projectPath": "/home/tiny/LithosNet/LithosNet.Core/LithosNet.Core.csproj",
+        "packagesPath": "/home/tiny/.nuget/packages/",
+        "outputPath": "/home/tiny/LithosNet/LithosNet.Core/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/home/tiny/.nuget/NuGet/NuGet.Config"
@@ -42,12 +104,145 @@
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/home/tiny/.dotnet/sdk/8.0.425/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "/home/tiny/LithosNet/LithosNet.Host/LithosNet.Host.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/home/tiny/LithosNet/LithosNet.Host/LithosNet.Host.csproj",
+        "projectName": "LithosNet.Host",
+        "projectPath": "/home/tiny/LithosNet/LithosNet.Host/LithosNet.Host.csproj",
+        "packagesPath": "/home/tiny/.nuget/packages/",
+        "outputPath": "/home/tiny/LithosNet/LithosNet.Host/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/home/tiny/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "/home/tiny/LithosNet/LithosNet.Compiler/LithosNet.Compiler.csproj": {
+                "projectPath": "/home/tiny/LithosNet/LithosNet.Compiler/LithosNet.Compiler.csproj"
+              },
+              "/home/tiny/LithosNet/LithosNet.Core/LithosNet.Core.csproj": {
+                "projectPath": "/home/tiny/LithosNet/LithosNet.Core/LithosNet.Core.csproj"
+              },
+              "/home/tiny/LithosNet/LithosNet.VM/LithosNet.VM.csproj": {
+                "projectPath": "/home/tiny/LithosNet/LithosNet.VM/LithosNet.VM.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
           "dependencies": {
             "System.IO.Pipelines": {
               "target": "Package",
               "version": "[10.0.12, )"
             }
           },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "/home/tiny/.dotnet/sdk/8.0.425/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "/home/tiny/LithosNet/LithosNet.VM/LithosNet.VM.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "/home/tiny/LithosNet/LithosNet.VM/LithosNet.VM.csproj",
+        "projectName": "LithosNet.VM",
+        "projectPath": "/home/tiny/LithosNet/LithosNet.VM/LithosNet.VM.csproj",
+        "packagesPath": "/home/tiny/.nuget/packages/",
+        "outputPath": "/home/tiny/LithosNet/LithosNet.VM/obj/",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "/home/tiny/.nuget/NuGet/NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {
+              "/home/tiny/LithosNet/LithosNet.Compiler/LithosNet.Compiler.csproj": {
+                "projectPath": "/home/tiny/LithosNet/LithosNet.Compiler/LithosNet.Compiler.csproj"
+              },
+              "/home/tiny/LithosNet/LithosNet.Core/LithosNet.Core.csproj": {
+                "projectPath": "/home/tiny/LithosNet/LithosNet.Core/LithosNet.Core.csproj"
+              }
+            }
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        }
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
           "imports": [
             "net461",
             "net462",

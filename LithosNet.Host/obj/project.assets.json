@@ -17,6 +17,43 @@
         "build": {
           "buildTransitive/net8.0/_._": {}
         }
+      },
+      "LithosNet.Compiler/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "dependencies": {
+          "LithosNet.Core": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/LithosNet.Compiler.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/LithosNet.Compiler.dll": {}
+        }
+      },
+      "LithosNet.Core/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "compile": {
+          "bin/placeholder/LithosNet.Core.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/LithosNet.Core.dll": {}
+        }
+      },
+      "LithosNet.VM/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "dependencies": {
+          "LithosNet.Compiler": "1.0.0",
+          "LithosNet.Core": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/LithosNet.VM.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/LithosNet.VM.dll": {}
+        }
       }
     }
   },
@@ -49,10 +86,28 @@
         "system.io.pipelines.nuspec",
         "useSharedDesignerContext.txt"
       ]
+    },
+    "LithosNet.Compiler/1.0.0": {
+      "type": "project",
+      "path": "../LithosNet.Compiler/LithosNet.Compiler.csproj",
+      "msbuildProject": "../LithosNet.Compiler/LithosNet.Compiler.csproj"
+    },
+    "LithosNet.Core/1.0.0": {
+      "type": "project",
+      "path": "../LithosNet.Core/LithosNet.Core.csproj",
+      "msbuildProject": "../LithosNet.Core/LithosNet.Core.csproj"
+    },
+    "LithosNet.VM/1.0.0": {
+      "type": "project",
+      "path": "../LithosNet.VM/LithosNet.VM.csproj",
+      "msbuildProject": "../LithosNet.VM/LithosNet.VM.csproj"
     }
   },
   "projectFileDependencyGroups": {
     "net8.0": [
+      "LithosNet.Compiler >= 1.0.0",
+      "LithosNet.Core >= 1.0.0",
+      "LithosNet.VM >= 1.0.0",
       "System.IO.Pipelines >= 10.0.12"
     ]
   },
@@ -80,7 +135,17 @@
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
-          "projectReferences": {}
+          "projectReferences": {
+            "/home/tiny/LithosNet/LithosNet.Compiler/LithosNet.Compiler.csproj": {
+              "projectPath": "/home/tiny/LithosNet/LithosNet.Compiler/LithosNet.Compiler.csproj"
+            },
+            "/home/tiny/LithosNet/LithosNet.Core/LithosNet.Core.csproj": {
+              "projectPath": "/home/tiny/LithosNet/LithosNet.Core/LithosNet.Core.csproj"
+            },
+            "/home/tiny/LithosNet/LithosNet.VM/LithosNet.VM.csproj": {
+              "projectPath": "/home/tiny/LithosNet/LithosNet.VM/LithosNet.VM.csproj"
+            }
+          }
         }
       },
       "warningProperties": {

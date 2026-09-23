@@ -1,0 +1,17 @@
+/home/tiny/LithosNet/LithosNet.VM/bin/Debug/net8.0/LithosNet.VM.deps.json
+/home/tiny/LithosNet/LithosNet.VM/bin/Debug/net8.0/LithosNet.VM.dll
+/home/tiny/LithosNet/LithosNet.VM/bin/Debug/net8.0/LithosNet.VM.pdb
+/home/tiny/LithosNet/LithosNet.VM/bin/Debug/net8.0/LithosNet.Compiler.dll
+/home/tiny/LithosNet/LithosNet.VM/bin/Debug/net8.0/LithosNet.Core.dll
+/home/tiny/LithosNet/LithosNet.VM/bin/Debug/net8.0/LithosNet.Core.pdb
+/home/tiny/LithosNet/LithosNet.VM/bin/Debug/net8.0/LithosNet.Compiler.pdb
+/home/tiny/LithosNet/LithosNet.VM/obj/Debug/net8.0/LithosNet.VM.csproj.AssemblyReference.cache
+/home/tiny/LithosNet/LithosNet.VM/obj/Debug/net8.0/LithosNet.VM.GeneratedMSBuildEditorConfig.editorconfig
+/home/tiny/LithosNet/LithosNet.VM/obj/Debug/net8.0/LithosNet.VM.AssemblyInfoInputs.cache
+/home/tiny/LithosNet/LithosNet.VM/obj/Debug/net8.0/LithosNet.VM.AssemblyInfo.cs
+/home/tiny/LithosNet/LithosNet.VM/obj/Debug/net8.0/LithosNet.VM.csproj.CoreCompileInputs.cache
+/home/tiny/LithosNet/LithosNet.VM/obj/Debug/net8.0/LithosNe.93DF5E6B.Up2Date
+/home/tiny/LithosNet/LithosNet.VM/obj/Debug/net8.0/LithosNet.VM.dll
+/home/tiny/LithosNet/LithosNet.VM/obj/Debug/net8.0/refint/LithosNet.VM.dll
+/home/tiny/LithosNet/LithosNet.VM/obj/Debug/net8.0/LithosNet.VM.pdb
+/home/tiny/LithosNet/LithosNet.VM/obj/Debug/net8.0/ref/LithosNet.VM.dll

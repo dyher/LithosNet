@@ -15,3 +15,9 @@
 /home/tiny/LithosNet/LithosNet.Host/obj/Debug/net8.0/LithosNet.Host.pdb
 /home/tiny/LithosNet/LithosNet.Host/obj/Debug/net8.0/LithosNet.Host.genruntimeconfig.cache
 /home/tiny/LithosNet/LithosNet.Host/obj/Debug/net8.0/ref/LithosNet.Host.dll
+/home/tiny/LithosNet/LithosNet.Host/bin/Debug/net8.0/LithosNet.Compiler.dll
+/home/tiny/LithosNet/LithosNet.Host/bin/Debug/net8.0/LithosNet.Core.dll
+/home/tiny/LithosNet/LithosNet.Host/bin/Debug/net8.0/LithosNet.Core.pdb
+/home/tiny/LithosNet/LithosNet.Host/bin/Debug/net8.0/LithosNet.Compiler.pdb
+/home/tiny/LithosNet/LithosNet.Host/bin/Debug/net8.0/LithosNet.VM.dll
+/home/tiny/LithosNet/LithosNet.Host/bin/Debug/net8.0/LithosNet.VM.pdb
