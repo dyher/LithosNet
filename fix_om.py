@@ -1,4 +1,4 @@
-#nullable disable
+code = """#nullable disable
 using System;
 using System.IO;
 using System.Collections.Generic;
@@ -87,3 +87,7 @@ namespace LithosNet.VM {
         public void Preload(string fullPath) { LoadObject(fullPath); }
     }
 }
+"""
+with open("LithosNet.VM/ObjectManager.cs", "w", encoding="utf-8") as f:
+    f.write(code)
+print("✅ ObjectManager.cs 已由 Python 完美且安全地寫入！")

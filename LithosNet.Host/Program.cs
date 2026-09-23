@@ -23,6 +23,7 @@ namespace LithosNet.Host {
             ObjMgr.Preload(MudlibPath + "obj/master.c");
             ObjMgr.CallFunction("master", "create");
             ObjMgr.Preload(MudlibPath + "obj/player.c");
+            ObjMgr.Preload(MudlibPath + "obj/room.c");
             ObjMgr.Preload(MudlibPath + "obj/benchmark.c");
             ObjMgr.Preload(MudlibPath + "obj/goblin.c");
             ObjMgr.Preload(MudlibPath + "obj/goblin.c");
