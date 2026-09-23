@@ -24,7 +24,17 @@ namespace LithosNet.Compiler {
         }
 
         private AstNode ParseVariableDeclaration() {
-            string tName = Consume().Value; string vName = Consume().Value; AstNode init = null;
+            string tName = Consume().Value; // 吃掉 int 或 string
+            
+            // 【核心修復】處理陣列類型宣告 int[] 或 string[]
+            if (Check(TokenType.LeftBracket) && _pos + 1 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.RightBracket) {
+                Consume(); // eat '['
+                Consume(); // eat ']'
+                tName += "[]"; // 標記為陣列類型
+            }
+
+            string vName = Consume().Value; // 現在正確吃掉變數名稱 (例如 drops)
+            AstNode init = null;
             if (Check(TokenType.Assign)) { Consume(); init = ParseExpression(); }
             Expect(TokenType.Semicolon);
             return new VariableDeclarationNode { TypeName = tName, VariableName = vName, Initializer = init };
@@ -49,26 +59,17 @@ namespace LithosNet.Compiler {
             if (IsTypeKeyword() && _pos + 2 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.Identifier && _tokens[_pos + 2].Type != TokenType.LeftParen) 
                 return ParseVariableDeclaration();
                 
-            // 【核心】解析賦值與陣列索引賦值 (arr[i] = 5;)
+            // 處理賦值與陣列索引賦值
             if (Check(TokenType.Identifier)) {
                 var expr = ParseExpression();
-                
-                // 檢查是否是 arr[i] = value;
                 if (expr is IndexAccessNode idx && Check(TokenType.Assign)) {
-                    Consume(); // eat '='
-                    var val = ParseExpression();
-                    Expect(TokenType.Semicolon);
+                    Consume(); var val = ParseExpression(); Expect(TokenType.Semicolon);
                     return new IndexAssignmentNode { Array = idx.Array, Index = idx.Index, Value = val };
                 }
-                
-                // 檢查是否是普通賦值 sum = 5;
                 if (expr is VariableRefNode vref && Check(TokenType.Assign)) {
-                    Consume(); // eat '='
-                    var val = ParseExpression();
-                    Expect(TokenType.Semicolon);
+                    Consume(); var val = ParseExpression(); Expect(TokenType.Semicolon);
                     return new AssignmentNode { VariableName = vref.Name, Value = val };
                 }
-                
                 Expect(TokenType.Semicolon);
                 return expr;
             }
@@ -122,7 +123,6 @@ namespace LithosNet.Compiler {
         }
 
         private AstNode ParsePrimary() {
-            // 【新增】解析陣列字面量 [1, 2, 3]
             if (Check(TokenType.LeftBracket)) {
                 Consume();
                 var elements = new List<AstNode>();
@@ -139,11 +139,8 @@ namespace LithosNet.Compiler {
             
             if (Check(TokenType.Identifier)) {
                 string name = Consume().Value;
-                // 【新增】解析陣列索引 arr[i]
                 if (Check(TokenType.LeftBracket)) {
-                    Consume();
-                    var idx = ParseExpression();
-                    Expect(TokenType.RightBracket);
+                    Consume(); var idx = ParseExpression(); Expect(TokenType.RightBracket);
                     return new IndexAccessNode { Array = new VariableRefNode { Name = name }, Index = idx };
                 }
                 if (Check(TokenType.LeftParen)) {
