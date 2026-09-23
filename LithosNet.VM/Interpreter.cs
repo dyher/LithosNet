@@ -83,6 +83,7 @@ namespace LithosNet.VM {
                     }
                     
                     // 攔截 clone_object
+                    if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "clone_object" && cArgs.Count >= 1) {
                         string blueprint = cArgs[0].AsString();
                         string cloneId = _objMgr.Clone(blueprint);
