@@ -21,11 +21,8 @@ namespace LithosNet.Core {
     public class IndexAccessNode : AstNode { public AstNode Array; public AstNode Index; }
     public class IndexAssignmentNode : AstNode { public AstNode Array; public AstNode Index; public AstNode Value; }
     public class MappingLiteralNode : AstNode { public List<AstNode> Keys = new(); public List<AstNode> Values = new(); }
+    public class CallOtherNode : AstNode { public string TargetObj; public string FuncName; public List<AstNode> Arguments = new(); }
     
-    // 【新增】Call Other 節點 (例如: room->query_name())
-    public class CallOtherNode : AstNode { 
-        public string TargetObj; 
-        public string FuncName; 
-        public List<AstNode> Arguments = new(); 
-    }
+    // 【新增】繼承節點: inherit "base";
+    public class InheritNode : AstNode { public string ParentObjName; }
 }

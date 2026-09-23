@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LithosNet.VM")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3a38edb9def57451c2faab3cea384ad6cc25eb6a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0265aa22f8764309939e92635fde4d73667d5619")]
 [assembly: System.Reflection.AssemblyProductAttribute("LithosNet.VM")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LithosNet.VM")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

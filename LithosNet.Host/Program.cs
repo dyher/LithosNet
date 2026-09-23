@@ -15,12 +15,14 @@ namespace LithosNet.Host {
 
         static async Task Main(string[] args) {
             Console.WriteLine("==================================================");
-            Console.WriteLine("🔥 [Phase 14] 注入 LPC 靈魂：跨物件通訊 (Call Other ->)！");
+            Console.WriteLine("🔥 [Phase 15] 注入 LPC 靈魂：繼承 (inherit) 與覆寫！");
             Console.WriteLine("==================================================\n");
 
             EfunRegistry.RegisterFromType(typeof(BuiltInEfuns));
             
-            // 【關鍵】預載入所有需要的 LPC 物件
+            // 預載入所有物件 (ObjectManager 會自動處理 inherit 依賴)
+            ObjMgr.Preload(MudlibPath + "monster.c");
+            ObjMgr.Preload(MudlibPath + "dragon.c");
             ObjMgr.Preload(MudlibPath + "room.c");
             ObjMgr.Preload(MudlibPath + "login.c");
 
@@ -35,7 +37,6 @@ namespace LithosNet.Host {
         }
 
         static async Task HandleClientAsync(TcpClient client) {
-            // 觸發 Apply
             ObjMgr.CallFunction("login", "logon");
 
             var reader = PipeReader.Create(client.GetStream());

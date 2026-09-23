@@ -8,14 +8,22 @@ namespace LithosNet.VM {
 
     public class Interpreter {
         private readonly Scope _scope;
-        private readonly ObjectManager _objMgr; // 【新增】持有 ObjectManager 引用
+        private readonly ObjectManager _objMgr;
 
-        public Interpreter(Scope scope, ObjectManager objMgr) { 
-            _scope = scope; 
-            _objMgr = objMgr; 
+        public Interpreter(Scope scope, ObjectManager objMgr) { _scope = scope; _objMgr = objMgr; }
+
+        public void Execute(List<AstNode> ast) { 
+            foreach (var n in ast) {
+                // 【核心】遇到 InheritNode 時，要求 ObjectManager 載入父物件並合併 Scope
+                if (n is InheritNode inh) {
+                    Console.WriteLine($"   🧬 [VM] 繼承父物件: {inh.ParentObjName}");
+                    Scope parentScope = _objMgr.LoadObject(inh.ParentObjName);
+                    _scope.InheritFrom(parentScope);
+                } else {
+                    Visit(n); 
+                }
+            }
         }
-
-        public void Execute(List<AstNode> ast) { foreach (var n in ast) Visit(n); }
 
         public LpcValue CallFunction(string name, List<LpcValue> args) {
             if (_scope.HasFunction(name)) {
@@ -62,7 +70,6 @@ namespace LithosNet.VM {
                 case FunctionCallNode c: 
                     var cArgs = new List<LpcValue>(); foreach (var a in c.Arguments) cArgs.Add(Eval(a));
                     return CallFunction(c.Name, cArgs);
-                // 【核心升級】執行 Call Other (跨物件呼叫)
                 case CallOtherNode co:
                     var coArgs = new List<LpcValue>(); foreach (var a in co.Arguments) coArgs.Add(Eval(a));
                     Console.WriteLine($"   🌐 [VM] 跨物件呼叫: {co.TargetObj}->{co.FuncName}()");
@@ -82,7 +89,12 @@ namespace LithosNet.VM {
                     var left = Eval(b.Left); var right = Eval(b.Right);
                     if (b.Op == "+") {
                         if (left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() + right.AsInt());
-                        if (left.Type == LpcType.String || right.Type == LpcType.String) return LpcValue.Create(left.ToString() + right.ToString());
+                        if (left.Type == LpcType.String || right.Type == LpcType.String) {
+                            // 【修復】字串拼接使用 AsString() 避免多餘的引號
+                            string lStr = left.Type == LpcType.String ? left.AsString() : left.ToString();
+                            string rStr = right.Type == LpcType.String ? right.AsString() : right.ToString();
+                            return LpcValue.Create(lStr + rStr);
+                        }
                     }
                     if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() - right.AsInt());
                     if (b.Op == "*" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() * right.AsInt());

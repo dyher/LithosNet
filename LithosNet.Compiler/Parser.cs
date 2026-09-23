@@ -24,6 +24,15 @@ namespace LithosNet.Compiler {
         public List<AstNode> Parse() { var nodes = new List<AstNode>(); while (!Check(TokenType.EOF)) nodes.Add(ParseTopLevel()); return nodes; }
 
         private AstNode ParseTopLevel() {
+            // 【新增】解析 inherit "parent";
+            if (Check(TokenType.Keyword_Inherit)) {
+                Consume();
+                if (!Check(TokenType.StringLiteral)) throw new Exception($"[Parser] Line {Current.Line}: inherit expects a string literal");
+                string parent = Consume().Value;
+                Expect(TokenType.Semicolon);
+                return new InheritNode { ParentObjName = parent };
+            }
+
             if (!IsTypeKeyword()) throw new Exception($"[Parser] Line {Current.Line}: Unexpected {Current.Type}");
             if (_pos + 2 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.Identifier && _tokens[_pos + 2].Type == TokenType.LeftParen)
                 return ParseFunctionDeclaration();
@@ -96,7 +105,6 @@ namespace LithosNet.Compiler {
         }
 
         private AstNode ParseExpression() { return ParseAssignment(); }
-
         private AstNode ParseAssignment() {
             var expr = ParseComparison();
             if (Check(TokenType.Assign)) {
@@ -107,7 +115,6 @@ namespace LithosNet.Compiler {
             }
             return expr;
         }
-
         private AstNode ParseComparison() {
             var left = ParseAdditive();
             while (Check(TokenType.Equal) || Check(TokenType.NotEqual) || Check(TokenType.Less) || Check(TokenType.Greater) || Check(TokenType.LessEqual) || Check(TokenType.GreaterEqual)) {
@@ -115,7 +122,6 @@ namespace LithosNet.Compiler {
             }
             return left;
         }
-
         private AstNode ParseAdditive() {
             var left = ParseMultiplicative();
             while (Check(TokenType.Plus) || Check(TokenType.Minus)) {
@@ -123,7 +129,6 @@ namespace LithosNet.Compiler {
             }
             return left;
         }
-
         private AstNode ParseMultiplicative() {
             var left = ParsePrimary();
             while (Check(TokenType.Star) || Check(TokenType.Slash) || Check(TokenType.Percent)) {
@@ -146,22 +151,16 @@ namespace LithosNet.Compiler {
             }
             if (Check(TokenType.IntLiteral)) return new LiteralNode { Value = LpcValue.Create(int.Parse(Consume().Value)) };
             if (Check(TokenType.StringLiteral)) return new LiteralNode { Value = LpcValue.Create(Consume().Value) };
-            
             if (Check(TokenType.Identifier)) {
                 string name = Consume().Value;
-                
-                // 【核心升級】解析 Call Other: obj->func(args)
                 if (Check(TokenType.Arrow)) {
-                    Consume(); // eat '->'
-                    if (!Check(TokenType.Identifier)) throw new Exception($"[Parser] Line {Current.Line}: Expected function name after ->");
-                    string funcName = Consume().Value;
-                    Expect(TokenType.LeftParen);
+                    Consume(); if (!Check(TokenType.Identifier)) throw new Exception($"[Parser] Line {Current.Line}: Expected func after ->");
+                    string funcName = Consume().Value; Expect(TokenType.LeftParen);
                     var args = new List<AstNode>();
                     while (!Check(TokenType.RightParen)) { args.Add(ParseExpression()); if (Check(TokenType.Comma)) Consume(); }
                     Expect(TokenType.RightParen);
                     return new CallOtherNode { TargetObj = name, FuncName = funcName, Arguments = args };
                 }
-
                 if (Check(TokenType.LeftBracket)) {
                     Consume(); var idx = ParseExpression(); Expect(TokenType.RightBracket);
                     return new IndexAccessNode { Array = new VariableRefNode { Name = name }, Index = idx };

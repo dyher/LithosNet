@@ -6,7 +6,7 @@ using LithosNet.Core;
 namespace LithosNet.Compiler {
     public enum TokenType {
         IntLiteral, StringLiteral, Identifier,
-        Keyword_Int, Keyword_String, Keyword_Void, Keyword_Mapping, Keyword_Return, 
+        Keyword_Int, Keyword_String, Keyword_Void, Keyword_Mapping, Keyword_Inherit, Keyword_Return, 
         Keyword_If, Keyword_Else, Keyword_While, Keyword_For,
         Assign, Semicolon, Comma, Colon,
         LeftParen, RightParen, LeftBrace, RightBrace, LeftBracket, RightBracket,
@@ -82,7 +82,7 @@ namespace LithosNet.Compiler {
                     string word = _source[start.._pos];
                     var type = word switch {
                         "int" => TokenType.Keyword_Int, "string" => TokenType.Keyword_String,
-                        "void" => TokenType.Keyword_Void, "mapping" => TokenType.Keyword_Mapping,
+                        "void" => TokenType.Keyword_Void, "mapping" => TokenType.Keyword_Mapping, "inherit" => TokenType.Keyword_Inherit,
                         "return" => TokenType.Keyword_Return,
                         "if" => TokenType.Keyword_If, "else" => TokenType.Keyword_Else,
                         "while" => TokenType.Keyword_While, "for" => TokenType.Keyword_For,
