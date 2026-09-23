@@ -7,7 +7,7 @@ namespace LithosNet.Compiler {
     public enum TokenType {
         IntLiteral, StringLiteral, Identifier,
         Keyword_Int, Keyword_String, Keyword_Void, Keyword_Mapping, Keyword_Inherit, Keyword_Return, 
-        Keyword_If, Keyword_Else, Keyword_While, Keyword_For,
+        Keyword_If, Keyword_Else, Keyword_While, Keyword_For, Keyword_Foreach, Keyword_In,
         Assign, Semicolon, Comma, Colon,
         LeftParen, RightParen, LeftBrace, RightBrace, LeftBracket, RightBracket,
         Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
@@ -94,7 +94,7 @@ namespace LithosNet.Compiler {
                         "void" => TokenType.Keyword_Void, "mapping" => TokenType.Keyword_Mapping,
                         "inherit" => TokenType.Keyword_Inherit, "return" => TokenType.Keyword_Return,
                         "if" => TokenType.Keyword_If, "else" => TokenType.Keyword_Else,
-                        "while" => TokenType.Keyword_While, "for" => TokenType.Keyword_For,
+                        "while" => TokenType.Keyword_While, "for" => TokenType.Keyword_For, "foreach" => TokenType.Keyword_Foreach, "in" => TokenType.Keyword_In,
                         _ => TokenType.Identifier
                     };
                     tokens.Add(new Token(type, word, _line));

@@ -18,6 +18,7 @@ namespace LithosNet.Core {
     public class BlockNode : AstNode { public List<AstNode> Statements = new(); }
     public class WhileNode : AstNode { public AstNode Condition; public AstNode Body; }
     public class ForNode : AstNode { public AstNode Init; public AstNode Condition; public AstNode Step; public AstNode Body; }
+    public class ForeachNode : AstNode { public string VarName; public AstNode Collection; public AstNode Body; }
     public class ArrayLiteralNode : AstNode { public List<AstNode> Elements = new(); }
     public class IndexAccessNode : AstNode { public AstNode Array; public AstNode Index; }
     public class IndexAssignmentNode : AstNode { public AstNode Array; public AstNode Index; public AstNode Value; }

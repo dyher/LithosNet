@@ -50,6 +50,11 @@ namespace LithosNet.VM {
                 case ReturnNode r: throw new ReturnSignal(r.Value != null ? Eval(r.Value) : LpcValue.Create(0));
                 case IfNode i: if (EvalBool(i.Condition)) Visit(i.ThenBranch); else if (i.ElseBranch != null) Visit(i.ElseBranch); break;
                 case WhileNode w: while (EvalBool(w.Condition)) Visit(w.Body); break;
+                case ForeachNode fe:
+                    var feCol = Eval(fe.Collection);
+                    if (feCol.Type == LpcType.Array) { foreach (var item in feCol.AsArray()) { _scope.Set(fe.VarName, item); Visit(fe.Body); } }
+                    else if (feCol.Type == LpcType.Mapping) { foreach (var kvp in feCol.AsMapping()) { _scope.Set(fe.VarName, LpcValue.Create(kvp.Key)); Visit(fe.Body); } }
+                    break;
                 case ForNode f2: 
                     if (f2.Init != null) Visit(f2.Init); 
                     while (f2.Condition == null || EvalBool(f2.Condition)) { Visit(f2.Body); if (f2.Step != null) Visit(f2.Step); } 

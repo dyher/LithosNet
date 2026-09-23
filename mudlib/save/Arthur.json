@@ -21,11 +21,11 @@
   },
   "verb": {
     "type": "String",
-    "value": "kill"
+    "value": "split"
   },
   "args": {
     "type": "String",
-    "value": ""
+    "value": "give 100 gold to Arthur"
   },
   "desc": {
     "type": "String",
@@ -34,5 +34,19 @@
   "dest": {
     "type": "String",
     "value": "forest"
+  },
+  "all": {
+    "type": "Array"
+  },
+  "list": {
+    "type": "String",
+    "value": "player#1\\n"
+  },
+  "u": {
+    "type": "String",
+    "value": "player#1"
+  },
+  "parts": {
+    "type": "Array"
   }
 }

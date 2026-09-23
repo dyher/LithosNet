@@ -42,14 +42,25 @@ namespace LithosNet.VM {
             return LpcValue.Create(list);
         }
 
-        // 【新增】objectp() - 檢查物件是否已被 destruct
-        [Efun("objectp")]
-        public static LpcValue Objectp(LpcValue[] args) {
-            if (args.Length > 0 && args[0].Type == LpcType.String) {
-                // 這裡我們需要一個靜態方法來查詢 ObjectManager，為了簡化，我們直接在 Interpreter 中攔截
-                return LpcValue.Create(1); 
-            }
-            return LpcValue.Create(0);
+        [Efun("explode")]
+        public static LpcValue Explode(LpcValue[] args) {
+            if (args.Length < 2) return LpcValue.Create(new List<LpcValue>());
+            string str = args[0].AsString();
+            string delim = args[1].AsString();
+            var parts = str.Split(new[] { delim }, StringSplitOptions.None);
+            var list = new List<LpcValue>();
+            foreach (var p in parts) list.Add(LpcValue.Create(p));
+            return LpcValue.Create(list);
+        }
+
+        [Efun("implode")]
+        public static LpcValue Implode(LpcValue[] args) {
+            if (args.Length < 2) return LpcValue.Create("");
+            var arr = args[0].AsArray();
+            string delim = args[1].AsString();
+            var strings = new List<string>();
+            foreach (var v in arr) strings.Add(v.Type == LpcType.String ? v.AsString() : v.ToString());
+            return LpcValue.Create(string.Join(delim, strings));
         }
     }
 }

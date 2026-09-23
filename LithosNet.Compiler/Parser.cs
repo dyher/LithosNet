@@ -61,6 +61,7 @@ namespace LithosNet.Compiler {
             if (Check(TokenType.Keyword_If)) return ParseIfStatement();
             if (Check(TokenType.Keyword_While)) return ParseWhileStatement();
             if (Check(TokenType.Keyword_For)) return ParseForStatement();
+            if (Check(TokenType.Keyword_Foreach)) return ParseForeachStatement();
             if (IsVariableDeclaration()) return ParseVariableDeclaration();
             
             // 【新增】處理 i++ 和 i-- (作為獨立語句)
@@ -89,6 +90,15 @@ namespace LithosNet.Compiler {
         private AstNode ParseWhileStatement() {
             Consume(); Expect(TokenType.LeftParen); var cond = ParseExpression(); Expect(TokenType.RightParen);
             return new WhileNode { Condition = cond, Body = ParseBlockOrStatement() };
+        }
+
+        private AstNode ParseForeachStatement() {
+            Consume(); Expect(TokenType.LeftParen);
+            string varName = Consume().Value;
+            Expect(TokenType.Keyword_In);
+            var collection = ParseExpression();
+            Expect(TokenType.RightParen);
+            return new ForeachNode { VarName = varName, Collection = collection, Body = ParseBlockOrStatement() };
         }
 
         private AstNode ParseForStatement() {
