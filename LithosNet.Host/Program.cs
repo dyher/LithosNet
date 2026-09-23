@@ -10,21 +10,23 @@ using LithosNet.VM;
 
 namespace LithosNet.Host {
     class Program {
-        // 【全域】物件管理器 (MUD Driver 的核心)
         static readonly ObjectManager ObjMgr = new();
         static readonly string MudlibPath = "/home/tiny/LithosNet/mudlib/obj/login.c";
 
         static async Task Main(string[] args) {
             Console.WriteLine("==================================================");
-            Console.WriteLine("🔥 [Phase 6] Lithos.NET：網路層 × LPC VM 全面對接！");
+            Console.WriteLine("🔥 [Phase 7] 注入 MUD 靈魂：Efun 與 Apply 機制！");
             Console.WriteLine("==================================================\n");
 
-            // 預載入 login 物件
+            // 【關鍵】啟動時掃描並註冊所有底層 Efun
+            EfunRegistry.RegisterFromType(typeof(BuiltInEfuns));
+            Console.WriteLine();
+
             ObjMgr.LoadObject(MudlibPath);
 
             var listener = new TcpListener(IPAddress.Any, 6900);
             listener.Start();
-            Console.WriteLine("🚀 Lithos.NET Driver 啟動！監聽端口: 6900\n");
+            Console.WriteLine("\n🚀 Lithos.NET Driver 啟動！監聽端口: 6900\n");
 
             while (true) {
                 var client = await listener.AcceptTcpClientAsync();
@@ -34,6 +36,10 @@ namespace LithosNet.Host {
         }
 
         static async Task HandleClientAsync(TcpClient client) {
+            // 【Apply 機制】玩家一連線，立刻自動呼叫 LPC 的 logon()！
+            Console.WriteLine("⚡ [NET] 觸發 Apply: 呼叫 login.c 的 logon()");
+            ObjMgr.CallFunction(MudlibPath, "logon");
+
             var reader = PipeReader.Create(client.GetStream());
             var writer = PipeWriter.Create(client.GetStream());
             try {
@@ -59,7 +65,6 @@ namespace LithosNet.Host {
                 string pass = Encoding.ASCII.GetString(pkt.Slice(30, 24)).TrimEnd('\0');
                 Console.WriteLine($"\n🔥 [NET] 收到 0x0064 登入請求: [{user}] / [{pass}]");
 
-                // 【歷史性對接】呼叫 LPC VM 中的 verify_login() 函數！
                 LpcValue result = ObjMgr.CallFunction(MudlibPath, "verify_login",
                     LpcValue.Create(user), LpcValue.Create(pass));
 

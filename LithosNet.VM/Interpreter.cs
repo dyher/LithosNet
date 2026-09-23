@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using LithosNet.Core;
 
 namespace LithosNet.VM {
-    // 用於 return 語句的中斷控制
     public class ReturnSignal : Exception {
         public LpcValue Value { get; }
         public ReturnSignal(LpcValue value) { Value = value; }
@@ -18,24 +17,29 @@ namespace LithosNet.VM {
             foreach (var node in ast) Visit(node);
         }
 
-        // 【核心】呼叫 LPC 函數
         public LpcValue CallFunction(string name, List<LpcValue> args) {
-            var func = _scope.GetFunction(name);
-            Console.WriteLine($"   ⚡ [VM] 呼叫 LPC 函數: {name}()");
-
-            // 將參數綁定到 Scope
-            for (int i = 0; i < func.Parameters.Count && i < args.Count; i++) {
-                _scope.Set(func.Parameters[i].Name, args[i]);
+            // 1. 優先尋找 LPC 物件內部的函數
+            if (_scope.HasFunction(name)) {
+                var func = _scope.GetFunction(name);
+                Console.WriteLine($"   ⚡ [VM] 呼叫 LPC 函數: {name}()");
+                for (int i = 0; i < func.Parameters.Count && i < args.Count; i++) {
+                    _scope.Set(func.Parameters[i].Name, args[i]);
+                }
+                try {
+                    foreach (var stmt in func.Body) Visit(stmt);
+                } catch (ReturnSignal ret) {
+                    return ret.Value;
+                }
+                return LpcValue.Create(0);
+            }
+            
+            // 2. 如果物件內沒有，則尋找底層 C# Efun
+            if (EfunRegistry.TryGet(name, out var efun)) {
+                Console.WriteLine($"   🔌 [VM] 呼叫底層 Efun: {name}()");
+                return efun(args.ToArray());
             }
 
-            // 執行函數體
-            try {
-                foreach (var stmt in func.Body) Visit(stmt);
-            } catch (ReturnSignal ret) {
-                Console.WriteLine($"   ⚡ [VM] 函數 {name}() 返回: {ret.Value}");
-                return ret.Value;
-            }
-            return LpcValue.Create(0); // void 函數預設返回 0
+            throw new Exception($"[VM] Function or Efun '{name}' not found.");
         }
 
         private void Visit(AstNode node) {
@@ -50,17 +54,15 @@ namespace LithosNet.VM {
         private void VisitVarDecl(VariableDeclarationNode node) {
             LpcValue val = node.Initializer != null ? Eval(node.Initializer) : LpcValue.Create(0);
             _scope.Set(node.VariableName, val);
-            Console.WriteLine($"   [VM] 已配置變數: {node.VariableName} = {val}");
         }
 
         private void VisitFuncDecl(FunctionDeclarationNode node) {
             _scope.RegisterFunction(node);
-            Console.WriteLine($"   [VM] 已註冊函數: {node.ReturnType} {node.Name}({node.Parameters.Count} params)");
         }
 
         private void VisitReturn(ReturnNode node) {
             LpcValue val = node.Value != null ? Eval(node.Value) : LpcValue.Create(0);
-            throw new ReturnSignal(val); // 用異常實現 return 中斷
+            throw new ReturnSignal(val);
         }
 
         private LpcValue Eval(AstNode node) {
