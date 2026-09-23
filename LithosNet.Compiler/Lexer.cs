@@ -6,11 +6,12 @@ using LithosNet.Core;
 namespace LithosNet.Compiler {
     public enum TokenType {
         IntLiteral, StringLiteral, Identifier,
-        Keyword_Int, Keyword_String, Keyword_Void, Keyword_Return, Keyword_If, Keyword_Else, Keyword_While,
+        Keyword_Int, Keyword_String, Keyword_Void, Keyword_Return, 
+        Keyword_If, Keyword_Else, Keyword_While, Keyword_For,
         Assign, Semicolon, Comma,
-        LeftParen, RightParen, LeftBracket, RightBracket, LeftBrace, RightBrace,
+        LeftParen, RightParen, LeftBrace, RightBrace, LeftBracket, RightBracket,
         Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
-        Plus, Minus,
+        Plus, Minus, Star, Slash, Percent,
         EOF
     }
 
@@ -43,7 +44,6 @@ namespace LithosNet.Compiler {
                 if (c == '/' && PeekNext == '/') { while (_pos < _source.Length && Peek != '\n') Advance(); continue; }
                 if (c == '/' && PeekNext == '*') { Advance(); Advance(); while (_pos + 1 < _source.Length && !(Peek == '*' && PeekNext == '/')) Advance(); if (_pos + 1 < _source.Length) { Advance(); Advance(); } continue; }
 
-                // 雙字元運算符
                 if (c == '=' && PeekNext == '=') { Advance(); Advance(); tokens.Add(new Token(TokenType.Equal, "==", _line)); continue; }
                 if (c == '!' && PeekNext == '=') { Advance(); Advance(); tokens.Add(new Token(TokenType.NotEqual, "!=", _line)); continue; }
                 if (c == '<' && PeekNext == '=') { Advance(); Advance(); tokens.Add(new Token(TokenType.LessEqual, "<=", _line)); continue; }
@@ -53,17 +53,22 @@ namespace LithosNet.Compiler {
                     case '=': Advance(); tokens.Add(new Token(TokenType.Assign, "=", _line)); continue;
                     case ';': Advance(); tokens.Add(new Token(TokenType.Semicolon, ";", _line)); continue;
                     case ',': Advance(); tokens.Add(new Token(TokenType.Comma, ",", _line)); continue;
-                    case '[': Advance(); tokens.Add(new Token(TokenType.LeftBracket, "[", _line)); continue;
                     case '(': Advance(); tokens.Add(new Token(TokenType.LeftParen, "(", _line)); continue;
-                    case ']': Advance(); tokens.Add(new Token(TokenType.RightBracket, "]", _line)); continue;
                     case ')': Advance(); tokens.Add(new Token(TokenType.RightParen, ")", _line)); continue;
                     case '{': Advance(); tokens.Add(new Token(TokenType.LeftBrace, "{", _line)); continue;
                     case '}': Advance(); tokens.Add(new Token(TokenType.RightBrace, "}", _line)); continue;
+                    case '[': Advance(); tokens.Add(new Token(TokenType.LeftBracket, "[", _line)); continue;
+                    case ']': Advance(); tokens.Add(new Token(TokenType.RightBracket, "]", _line)); continue;
                     case '<': Advance(); tokens.Add(new Token(TokenType.Less, "<", _line)); continue;
                     case '>': Advance(); tokens.Add(new Token(TokenType.Greater, ">", _line)); continue;
                     case '+': Advance(); tokens.Add(new Token(TokenType.Plus, "+", _line)); continue;
                     case '-': Advance(); tokens.Add(new Token(TokenType.Minus, "-", _line)); continue;
+                    case '*': Advance(); tokens.Add(new Token(TokenType.Star, "*", _line)); continue;
+                    case '%': Advance(); tokens.Add(new Token(TokenType.Percent, "%", _line)); continue;
                 }
+
+                // 注意：/ 要在註解判斷之後處理（上面已經排除了 // 和 /*）
+                if (c == '/') { Advance(); tokens.Add(new Token(TokenType.Slash, "/", _line)); continue; }
 
                 if (c == '"') { Advance(); int start = _pos; while (_pos < _source.Length && Peek != '"') Advance(); tokens.Add(new Token(TokenType.StringLiteral, _source[start.._pos], _line)); if (_pos < _source.Length) Advance(); continue; }
                 if (IsAsciiDigit(c)) { int start = _pos; while (_pos < _source.Length && IsAsciiDigit(Peek)) Advance(); tokens.Add(new Token(TokenType.IntLiteral, _source[start.._pos], _line)); continue; }
@@ -76,7 +81,7 @@ namespace LithosNet.Compiler {
                         "int" => TokenType.Keyword_Int, "string" => TokenType.Keyword_String,
                         "void" => TokenType.Keyword_Void, "return" => TokenType.Keyword_Return,
                         "if" => TokenType.Keyword_If, "else" => TokenType.Keyword_Else,
-                        "while" => TokenType.Keyword_While,
+                        "while" => TokenType.Keyword_While, "for" => TokenType.Keyword_For,
                         _ => TokenType.Identifier
                     };
                     tokens.Add(new Token(type, word, _line));

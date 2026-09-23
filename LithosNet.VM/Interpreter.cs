@@ -28,7 +28,6 @@ namespace LithosNet.VM {
             switch (node) {
                 case VariableDeclarationNode v: _scope.Set(v.VariableName, v.Initializer != null ? Eval(v.Initializer) : LpcValue.Create(0)); break;
                 case AssignmentNode a: _scope.Set(a.VariableName, Eval(a.Value)); break;
-                // 【新增】執行陣列索引賦值
                 case IndexAssignmentNode ia:
                     var arrVal = Eval(ia.Array).AsArray();
                     int idx = Eval(ia.Index).AsInt();
@@ -38,6 +37,7 @@ namespace LithosNet.VM {
                 case ReturnNode r: throw new ReturnSignal(r.Value != null ? Eval(r.Value) : LpcValue.Create(0));
                 case IfNode i: VisitIf(i); break;
                 case WhileNode w: VisitWhile(w); break;
+                case ForNode f2: VisitFor(f2); break;
                 case BlockNode b: foreach (var s in b.Statements) Visit(s); break;
                 case FunctionCallNode c: EvalCall(c); break;
                 default: Eval(node); break;
@@ -55,6 +55,15 @@ namespace LithosNet.VM {
             }
         }
 
+        // 【新增】for (init; cond; step) { body }
+        private void VisitFor(ForNode node) {
+            if (node.Init != null) Visit(node.Init);
+            while (node.Condition == null || EvalBool(node.Condition)) {
+                Visit(node.Body);
+                if (node.Step != null) Visit(node.Step);
+            }
+        }
+
         private bool EvalBool(AstNode node) {
             var val = Eval(node);
             if (val.Type == LpcType.Int) return val.AsInt() != 0;
@@ -66,12 +75,10 @@ namespace LithosNet.VM {
                 case LiteralNode l: return l.Value;
                 case VariableRefNode v: return _scope.Get(v.Name);
                 case FunctionCallNode c: return EvalCall(c);
-                // 【新增】執行陣列字面量解析
                 case ArrayLiteralNode al:
                     var list = new List<LpcValue>();
                     foreach (var e in al.Elements) list.Add(Eval(e));
                     return LpcValue.Create(list);
-                // 【新增】執行陣列索引讀取
                 case IndexAccessNode ia:
                     var arr = Eval(ia.Array).AsArray();
                     int i = Eval(ia.Index).AsInt();
@@ -80,8 +87,23 @@ namespace LithosNet.VM {
                     var left = Eval(b.Left);
                     var right = Eval(b.Right);
                     
-                    if (b.Op == "+" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() + right.AsInt());
-                    if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() - right.AsInt());
+                    // 【核心升級】+ 運算符同時支援整數加法與字串拼接！
+                    if (b.Op == "+") {
+                        if (left.Type == LpcType.Int && right.Type == LpcType.Int) 
+                            return LpcValue.Create(left.AsInt() + right.AsInt());
+                        if (left.Type == LpcType.String || right.Type == LpcType.String) 
+                            return LpcValue.Create(left.AsString() + right.AsString());
+                    }
+                    if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int) 
+                        return LpcValue.Create(left.AsInt() - right.AsInt());
+                    // 【新增】* 和 / 運算
+                    if (b.Op == "*" && left.Type == LpcType.Int && right.Type == LpcType.Int) 
+                        return LpcValue.Create(left.AsInt() * right.AsInt());
+                    if (b.Op == "/" && left.Type == LpcType.Int && right.Type == LpcType.Int) 
+                        return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() / right.AsInt() : 0);
+                    // 【新增】% 取餘數
+                    if (b.Op == "%" && left.Type == LpcType.Int && right.Type == LpcType.Int) 
+                        return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() % right.AsInt() : 0);
                     
                     if (left.Type == LpcType.Int && right.Type == LpcType.Int) {
                         int lVal = left.AsInt(), rVal = right.AsInt();
