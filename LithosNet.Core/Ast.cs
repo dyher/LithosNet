@@ -5,6 +5,10 @@ using System.Collections.Generic;
 namespace LithosNet.Core {
     public abstract class AstNode { }
     public class VariableDeclarationNode : AstNode { public string TypeName; public string VariableName; public AstNode Initializer; }
+    
+    // 【新增】賦值節點 (例如: sum = sum + i;)
+    public class AssignmentNode : AstNode { public string VariableName; public AstNode Value; }
+    
     public class LiteralNode : AstNode { public LpcValue Value; }
     public class FunctionDeclarationNode : AstNode { public string ReturnType; public string Name; public List<ParameterNode> Parameters = new(); public List<AstNode> Body = new(); }
     public class ParameterNode : AstNode { public string TypeName; public string Name; }
@@ -14,7 +18,5 @@ namespace LithosNet.Core {
     public class BinaryOpNode : AstNode { public AstNode Left; public string Op; public AstNode Right; }
     public class IfNode : AstNode { public AstNode Condition; public AstNode ThenBranch; public AstNode ElseBranch; }
     public class BlockNode : AstNode { public List<AstNode> Statements = new(); }
-    
-    // 【新增】While 迴圈節點
     public class WhileNode : AstNode { public AstNode Condition; public AstNode Body; }
 }

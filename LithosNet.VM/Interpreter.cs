@@ -27,13 +27,15 @@ namespace LithosNet.VM {
         private void Visit(AstNode node) {
             switch (node) {
                 case VariableDeclarationNode v: _scope.Set(v.VariableName, v.Initializer != null ? Eval(v.Initializer) : LpcValue.Create(0)); break;
+                // 【核心修復】執行賦值語句，更新 Scope 中的變數！
+                case AssignmentNode a: _scope.Set(a.VariableName, Eval(a.Value)); break; 
                 case FunctionDeclarationNode f: _scope.RegisterFunction(f); break;
                 case ReturnNode r: throw new ReturnSignal(r.Value != null ? Eval(r.Value) : LpcValue.Create(0));
                 case IfNode i: VisitIf(i); break;
-                case WhileNode w: VisitWhile(w); break; // 【新增】
+                case WhileNode w: VisitWhile(w); break;
                 case BlockNode b: foreach (var s in b.Statements) Visit(s); break;
                 case FunctionCallNode c: EvalCall(c); break;
-                case BinaryOpNode bin: EvalBinaryOp(bin); break; // 處理賦值以外的二元運算語句
+                default: Eval(node); break; // 處理其他表達式語句
             }
         }
 
@@ -42,7 +44,6 @@ namespace LithosNet.VM {
             else if (node.ElseBranch != null) Visit(node.ElseBranch);
         }
 
-        // 【新增】執行 while 迴圈
         private void VisitWhile(WhileNode node) {
             while (EvalBool(node.Condition)) {
                 Visit(node.Body);
@@ -64,11 +65,9 @@ namespace LithosNet.VM {
                     var left = Eval(b.Left);
                     var right = Eval(b.Right);
                     
-                    // 數學運算 (+, -)
                     if (b.Op == "+" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() + right.AsInt());
                     if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() - right.AsInt());
                     
-                    // 比較運算 (==, !=, <, >, <=, >=)
                     if (left.Type == LpcType.Int && right.Type == LpcType.Int) {
                         int lVal = left.AsInt(), rVal = right.AsInt();
                         bool res = b.Op switch {
