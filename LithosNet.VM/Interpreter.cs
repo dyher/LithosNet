@@ -27,15 +27,20 @@ namespace LithosNet.VM {
         private void Visit(AstNode node) {
             switch (node) {
                 case VariableDeclarationNode v: _scope.Set(v.VariableName, v.Initializer != null ? Eval(v.Initializer) : LpcValue.Create(0)); break;
-                // 【核心修復】執行賦值語句，更新 Scope 中的變數！
-                case AssignmentNode a: _scope.Set(a.VariableName, Eval(a.Value)); break; 
+                case AssignmentNode a: _scope.Set(a.VariableName, Eval(a.Value)); break;
+                // 【新增】執行陣列索引賦值
+                case IndexAssignmentNode ia:
+                    var arrVal = Eval(ia.Array).AsArray();
+                    int idx = Eval(ia.Index).AsInt();
+                    arrVal[idx] = Eval(ia.Value);
+                    break;
                 case FunctionDeclarationNode f: _scope.RegisterFunction(f); break;
                 case ReturnNode r: throw new ReturnSignal(r.Value != null ? Eval(r.Value) : LpcValue.Create(0));
                 case IfNode i: VisitIf(i); break;
                 case WhileNode w: VisitWhile(w); break;
                 case BlockNode b: foreach (var s in b.Statements) Visit(s); break;
                 case FunctionCallNode c: EvalCall(c); break;
-                default: Eval(node); break; // 處理其他表達式語句
+                default: Eval(node); break;
             }
         }
 
@@ -61,6 +66,16 @@ namespace LithosNet.VM {
                 case LiteralNode l: return l.Value;
                 case VariableRefNode v: return _scope.Get(v.Name);
                 case FunctionCallNode c: return EvalCall(c);
+                // 【新增】執行陣列字面量解析
+                case ArrayLiteralNode al:
+                    var list = new List<LpcValue>();
+                    foreach (var e in al.Elements) list.Add(Eval(e));
+                    return LpcValue.Create(list);
+                // 【新增】執行陣列索引讀取
+                case IndexAccessNode ia:
+                    var arr = Eval(ia.Array).AsArray();
+                    int i = Eval(ia.Index).AsInt();
+                    return arr[i];
                 case BinaryOpNode b:
                     var left = Eval(b.Left);
                     var right = Eval(b.Right);

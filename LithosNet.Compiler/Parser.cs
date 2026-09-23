@@ -49,16 +49,31 @@ namespace LithosNet.Compiler {
             if (IsTypeKeyword() && _pos + 2 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.Identifier && _tokens[_pos + 2].Type != TokenType.LeftParen) 
                 return ParseVariableDeclaration();
                 
-            // 【核心修復】解析賦值語句: identifier = expression;
-            if (Check(TokenType.Identifier) && _pos + 1 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.Assign) {
-                string name = Consume().Value;
-                Consume(); // eat '='
-                var val = ParseExpression();
+            // 【核心】解析賦值與陣列索引賦值 (arr[i] = 5;)
+            if (Check(TokenType.Identifier)) {
+                var expr = ParseExpression();
+                
+                // 檢查是否是 arr[i] = value;
+                if (expr is IndexAccessNode idx && Check(TokenType.Assign)) {
+                    Consume(); // eat '='
+                    var val = ParseExpression();
+                    Expect(TokenType.Semicolon);
+                    return new IndexAssignmentNode { Array = idx.Array, Index = idx.Index, Value = val };
+                }
+                
+                // 檢查是否是普通賦值 sum = 5;
+                if (expr is VariableRefNode vref && Check(TokenType.Assign)) {
+                    Consume(); // eat '='
+                    var val = ParseExpression();
+                    Expect(TokenType.Semicolon);
+                    return new AssignmentNode { VariableName = vref.Name, Value = val };
+                }
+                
                 Expect(TokenType.Semicolon);
-                return new AssignmentNode { VariableName = name, Value = val };
+                return expr;
             }
 
-            var expr = ParseExpression(); Expect(TokenType.Semicolon); return expr;
+            var e = ParseExpression(); Expect(TokenType.Semicolon); return e;
         }
 
         private AstNode ParseIfStatement() {
@@ -107,10 +122,30 @@ namespace LithosNet.Compiler {
         }
 
         private AstNode ParsePrimary() {
+            // 【新增】解析陣列字面量 [1, 2, 3]
+            if (Check(TokenType.LeftBracket)) {
+                Consume();
+                var elements = new List<AstNode>();
+                while (!Check(TokenType.RightBracket)) {
+                    elements.Add(ParseExpression());
+                    if (Check(TokenType.Comma)) Consume();
+                }
+                Expect(TokenType.RightBracket);
+                return new ArrayLiteralNode { Elements = elements };
+            }
+
             if (Check(TokenType.IntLiteral)) return new LiteralNode { Value = LpcValue.Create(int.Parse(Consume().Value)) };
             if (Check(TokenType.StringLiteral)) return new LiteralNode { Value = LpcValue.Create(Consume().Value) };
+            
             if (Check(TokenType.Identifier)) {
                 string name = Consume().Value;
+                // 【新增】解析陣列索引 arr[i]
+                if (Check(TokenType.LeftBracket)) {
+                    Consume();
+                    var idx = ParseExpression();
+                    Expect(TokenType.RightBracket);
+                    return new IndexAccessNode { Array = new VariableRefNode { Name = name }, Index = idx };
+                }
                 if (Check(TokenType.LeftParen)) {
                     Consume(); var args = new List<AstNode>();
                     while (!Check(TokenType.RightParen)) { args.Add(ParseExpression()); if (Check(TokenType.Comma)) Consume(); }
