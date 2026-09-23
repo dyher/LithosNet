@@ -45,7 +45,7 @@ For over 30 years, MUD engines (like MudOS, FluffOS, LDMud) have been built on C
 
 ### Build & Run
 ```bash
-git clone https://github.com/YOUR_USERNAME/LithosNet.git
+git clone https://github.com/dyher/LithosNet.git
 cd LithosNet
 dotnet build
 dotnet run --project LithosNet.Host

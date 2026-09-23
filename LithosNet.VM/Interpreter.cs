@@ -69,6 +69,7 @@ namespace LithosNet.VM {
                 case FunctionCallNode c: 
                     var cArgs = new List<LpcValue>(); foreach (var a in c.Arguments) cArgs.Add(Eval(a));
                     
+                    // 攔截 call_out
                     if (c.Name == "call_out" && cArgs.Count >= 2) {
                         string funcName = cArgs[0].AsString();
                         int delaySec = cArgs[1].AsInt();
@@ -81,19 +82,25 @@ namespace LithosNet.VM {
                         return LpcValue.Create(1);
                     }
                     
-                    // 【核心魔法】攔截 clone_object()
+                    // 攔截 clone_object
                     if (c.Name == "clone_object" && cArgs.Count >= 1) {
                         string blueprint = cArgs[0].AsString();
                         string cloneId = _objMgr.Clone(blueprint);
-                        return LpcValue.Create(cloneId); // 返回新物件的 ID 字串
+                        return LpcValue.Create(cloneId);
+                    }
+
+                    // 【核心魔法】攔截 send_to_user，將訊息推回 TCP 客戶端！
+                    if (c.Name == "send_to_user" && cArgs.Count >= 1) {
+                        string msg = cArgs[0].AsString();
+                        // 使用非同步發送，不阻塞 VM 執行緒
+                        Task.Run(() => SessionManager.SendAsync(this.ObjectName, msg));
+                        return LpcValue.Create(1);
                     }
 
                     return CallFunction(c.Name, cArgs);
                 case CallOtherNode co:
                     var coArgs = new List<LpcValue>(); foreach (var a in co.Arguments) coArgs.Add(Eval(a));
-                    // 【升級】評估 Target 節點，取得真正的物件名稱
                     string targetObjName = Eval(co.Target).AsString();
-                    Console.WriteLine($"   🌐 [VM] 跨物件呼叫: {targetObjName}->{co.FuncName}()");
                     return _objMgr.CallFunction(targetObjName, co.FuncName, coArgs.ToArray());
                 case ArrayLiteralNode al:
                     var list = new List<LpcValue>(); foreach (var e in al.Elements) list.Add(Eval(e)); return LpcValue.Create(list);
@@ -104,7 +111,11 @@ namespace LithosNet.VM {
                 case IndexAccessNode ia:
                     var col2 = Eval(ia.Array); var idx2 = Eval(ia.Index);
                     if (col2.Type == LpcType.Array) return col2.AsArray()[idx2.AsInt()];
-                    if (col2.Type == LpcType.Mapping) return col2.AsMapping()[idx2.AsString()];
+                    if (col2.Type == LpcType.Mapping) {
+                        var m = col2.AsMapping();
+                        string k = idx2.AsString();
+                        return m.ContainsKey(k) ? m[k] : LpcValue.Create(0); // 安全讀取
+                    }
                     return LpcValue.Create(0);
                 case BinaryOpNode b:
                     var left = Eval(b.Left); var right = Eval(b.Right);
@@ -123,6 +134,10 @@ namespace LithosNet.VM {
                     if (left.Type == LpcType.Int && right.Type == LpcType.Int) {
                         int lVal = left.AsInt(), rVal = right.AsInt();
                         bool res = b.Op switch { "==" => lVal == rVal, "!=" => lVal != rVal, "<" => lVal < rVal, ">" => lVal > rVal, "<=" => lVal <= rVal, ">=" => lVal >= rVal, _ => false };
+                        return LpcValue.Create(res ? 1 : 0);
+                    }
+                    if (left.Type == LpcType.String && right.Type == LpcType.String) {
+                        bool res = b.Op == "==" ? left.AsString() == right.AsString() : left.AsString() != right.AsString();
                         return LpcValue.Create(res ? 1 : 0);
                     }
                     return LpcValue.Create(0);
