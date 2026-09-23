@@ -30,43 +30,56 @@ namespace LithosNet.Host {
                     ReadResult result = await reader.ReadAsync();
                     ReadOnlySequence<byte> buffer = result.Buffer;
 
-                    // 嘗試解析 RO 0x0064 封包 (長度 55 bytes)
-                    if (buffer.Length >= 55) {
-                        var packet = buffer.Slice(0, 55).FirstSpan;
-                        
-                        if (packet[0] == 0x64 && packet[1] == 0x00) {
-                            string user = Encoding.ASCII.GetString(packet.Slice(6, 24)).TrimEnd('\0');
-                            string pass = Encoding.ASCII.GetString(packet.Slice(30, 24)).TrimEnd('\0');
-                            
-                            Console.WriteLine($"🔥 [Lithos.NET] 收到 0x0064 登入請求: [{user}] / [{pass}]");
+                    bool needsFlush = false;
+                    // 【黃金範式】在迴圈中呼叫同步方法處理 Span
+                    while (TryParseAndProcessPacket(ref buffer, writer, ref needsFlush)) { }
 
-                            // 構造 0x0069 封包 (79 bytes)
-                            byte[] response = new byte[79];
-                            response[0] = 0x69; response[1] = 0x00; 
-                            response[2] = 0x4F; response[3] = 0x00; 
-                            response[4] = 0x01; 
-                            
-                            byte[] serverName = Encoding.ASCII.GetBytes("Lithos.NET");
-                            Array.Copy(serverName, 0, response, 54, serverName.Length);
-
-                            await writer.WriteAsync(response);
-                            await writer.FlushAsync();
-                            Console.WriteLine("✅ [Lithos.NET] 成功發送 79 bytes 的 0x0069 封包！無損二進位傳輸！\n");
-                        }
-                        reader.AdvanceTo(buffer.GetPosition(55));
-                    } else {
-                        reader.AdvanceTo(buffer.Start, buffer.End);
+                    // 【關鍵修復】如果有寫入數據，立刻 Flush 到底層 TCP Socket！
+                    if (needsFlush) {
+                        await writer.FlushAsync();
                     }
+
+                    reader.AdvanceTo(buffer.Start, buffer.End);
 
                     if (result.IsCompleted) break;
                 }
             } catch (Exception ex) {
                 Console.WriteLine($"[-] 客戶端斷開或發生錯誤: {ex.Message}");
             } finally {
-                reader.Complete();
-                writer.Complete();
+                await reader.CompleteAsync();
+                await writer.CompleteAsync();
                 client.Close();
             }
+        }
+
+        // 【核心】同步解析方法，可以安全地使用 Span<T>
+        static bool TryParseAndProcessPacket(ref ReadOnlySequence<byte> buffer, PipeWriter writer, ref bool needsFlush) {
+            if (buffer.Length < 55) return false;
+
+            var packet = buffer.Slice(0, 55).FirstSpan;
+            
+            if (packet[0] == 0x64 && packet[1] == 0x00) {
+                string user = Encoding.ASCII.GetString(packet.Slice(6, 24)).TrimEnd('\0');
+                string pass = Encoding.ASCII.GetString(packet.Slice(30, 24)).TrimEnd('\0');
+                
+                Console.WriteLine($"🔥 [Lithos.NET] 收到 0x0064 登入請求: [{user}] / [{pass}]");
+
+                byte[] response = new byte[79];
+                response[0] = 0x69; response[1] = 0x00; 
+                response[2] = 0x4F; response[3] = 0x00; 
+                response[4] = 0x01; 
+                
+                byte[] serverName = Encoding.ASCII.GetBytes("Lithos.NET");
+                Array.Copy(serverName, 0, response, 54, serverName.Length);
+
+                // 寫入 Pipelines 緩衝區
+                writer.Write(response);
+                needsFlush = true; // 標記需要 Flush
+                Console.WriteLine("✅ [Lithos.NET] 準備發送 79 bytes 的 0x0069 封包！\n");
+            }
+            
+            buffer = buffer.Slice(55);
+            return true;
         }
     }
 }

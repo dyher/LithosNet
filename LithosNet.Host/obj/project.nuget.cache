@@ -1,8 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "nR+XobwknOY=",
+  "dgSpecHash": "SWV8KkS5gkc=",
   "success": true,
   "projectFilePath": "/home/tiny/LithosNet/LithosNet.Host/LithosNet.Host.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "/home/tiny/.nuget/packages/system.io.pipelines/10.0.12/system.io.pipelines.10.0.12.nupkg.sha512"
+  ],
   "logs": []
 }

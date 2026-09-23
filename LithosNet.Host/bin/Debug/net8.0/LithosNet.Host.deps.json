@@ -1,0 +1,41 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "LithosNet.Host/1.0.0": {
+        "dependencies": {
+          "System.IO.Pipelines": "10.0.12"
+        },
+        "runtime": {
+          "LithosNet.Host.dll": {}
+        }
+      },
+      "System.IO.Pipelines/10.0.12": {
+        "runtime": {
+          "lib/net8.0/System.IO.Pipelines.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.1226.42308"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "LithosNet.Host/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "System.IO.Pipelines/10.0.12": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-5e8M112rzbW5xKNXKipNFoTgM330QS6S6+UA6CaDyr/KDrow8bzfvOPFA4S05QC3n/m096oj+pfttvme6I0YyA==",
+      "path": "system.io.pipelines/10.0.12",
+      "hashPath": "system.io.pipelines.10.0.12.nupkg.sha512"
+    }
+  }
+}
