@@ -8,7 +8,15 @@ using System.Threading.Tasks;
 using LithosNet.Core;
 
 namespace LithosNet.VM {
+    
+    [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Cdecl)]
+    private delegate int IntReturnDelegate();
+
+    [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Cdecl)]
+    private delegate IntPtr StringArgReturnIntPtrDelegate([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPStr)] string arg);
+
     public class ReturnSignal : Exception { public LpcValue Value; public ReturnSignal(LpcValue v) { Value = v; } }
+
 
     public class Interpreter {
         private readonly Scope _scope;
@@ -133,7 +141,8 @@ namespace LithosNet.VM {
                             if (fmt[i] == '%' && i+1 < fmt.Length && argIdx < cArgs.Count) {
                                 char next = fmt[i+1];
                                 if (next == 's' || next == 'd' || next == 'i' || next == 'O' || next == 'o') {
-                                    sb.Append(cArgs[argIdx].ToString());
+                                    var val = cArgs[argIdx];
+                                    sb.Append(val.Type == LpcType.String ? val.AsString() : val.ToString());
                                     argIdx++; i++; continue;
                                 }
                             }
@@ -162,12 +171,12 @@ namespace LithosNet.VM {
                             
                             // 範例 1: 呼叫無參數，返回 int 的函數 (如 getpid)
                             if (func == "getpid" || func == "time") {
-                                var del = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<Func<int>>(ptr);
+                                var del = (IntReturnDelegate)System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(ptr, typeof(IntReturnDelegate));
                                 return LpcValue.Create(del());
                             }
                             // 範例 2: 呼叫傳入 string，返回 string (指標) 的函數 (如 getenv)
                             if (func == "getenv" && cArgs.Count >= 3) {
-                                var del = System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer<Func<string, IntPtr>>(ptr);
+                                var del = (StringArgReturnIntPtrDelegate)System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(ptr, typeof(StringArgReturnIntPtrDelegate));
                                 IntPtr res = del(cArgs[2].AsString());
                                 return LpcValue.Create(System.Runtime.InteropServices.Marshal.PtrToStringAnsi(res) ?? "");
                             }
