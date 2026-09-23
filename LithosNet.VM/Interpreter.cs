@@ -150,7 +150,10 @@ namespace LithosNet.VM {
                     return CallFunction(c.Name, cArgs);
                 case CallOtherNode co:
                     var coArgs = new List<LpcValue>(); foreach (var a in co.Arguments) coArgs.Add(Eval(a));
-                    string targetObjName = Eval(co.Target).AsString();
+                    string targetObjName;
+                    // 【FluffOS 經典特性】隱式物件引用：如果變數不存在，直接將其名稱視為物件 ID
+                    if (co.Target is VariableRefNode vref && !_scope.Has(vref.Name)) targetObjName = vref.Name;
+                    else targetObjName = Eval(co.Target).AsString();
                     return _objMgr.CallFunction(targetObjName, co.FuncName, coArgs.ToArray());
                 case ArrayLiteralNode al:
                     var list = new List<LpcValue>(); foreach (var e in al.Elements) list.Add(Eval(e)); return LpcValue.Create(list);
