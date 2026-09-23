@@ -21,7 +21,7 @@
   },
   "verb": {
     "type": "String",
-    "value": "who"
+    "value": "filter"
   },
   "args": {
     "type": "String",
@@ -43,7 +43,14 @@
     "type": "String",
     "value": "player#1"
   },
-  "all": {
+  "nums": {
+    "type": "Array"
+  },
+  "num": {
+    "type": "Int",
+    "value": 12
+  },
+  "low_nums": {
     "type": "Array"
   }
 }

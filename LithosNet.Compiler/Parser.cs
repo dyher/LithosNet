@@ -192,6 +192,14 @@ namespace LithosNet.Compiler {
                 while (!Check(TokenType.RightBracket)) { elements.Add(ParseExpression()); if (Check(TokenType.Comma)) Consume(); }
                 Expect(TokenType.RightBracket); return new ArrayLiteralNode { Elements = elements };
             }
+            // 【FluffOS 正統】解析 (: func_name :)
+            if (Check(TokenType.LeftClosure)) {
+                Consume(); // eat "(:"
+                string funcName = Consume().Value; // 讀取函數名
+                Expect(TokenType.RightClosure); // eat ":)"
+                return new FunctionPointerNode { FuncName = funcName };
+            }
+
             if (Check(TokenType.IntLiteral)) return new LiteralNode { Value = LpcValue.Create(int.Parse(Consume().Value)) };
             if (Check(TokenType.StringLiteral)) return new LiteralNode { Value = LpcValue.Create(Consume().Value) };
             if (Check(TokenType.Identifier)) {

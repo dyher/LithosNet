@@ -104,6 +104,7 @@ namespace LithosNet.VM {
         private LpcValue Eval(AstNode node) {
             switch (node) {
                 case LiteralNode l: return l.Value;
+                case FunctionPointerNode fp: return LpcValue.CreateFunction(this.ObjectName, fp.FuncName);
                 case VariableRefNode v: return _scope.Get(v.Name);
                 case FunctionCallNode c: 
                     var cArgs = new List<LpcValue>(); foreach (var a in c.Arguments) cArgs.Add(Eval(a));
@@ -130,6 +131,18 @@ namespace LithosNet.VM {
                     if (c.Name == "set_heart_beat" && cArgs.Count >= 1) {
                         HeartbeatManager.SetHeartBeat(this.ObjectName, cArgs[0].AsInt() != 0);
                         return LpcValue.Create(1);
+                    }
+                    if (c.Name == "map_array" && cArgs.Count >= 2 && cArgs[1].Type == LpcType.Function) {
+                        var arr = cArgs[0].AsArray(); var func = cArgs[1].AsFunction();
+                        var res = new List<LpcValue>();
+                        foreach (var item in arr) res.Add(_objMgr.CallFunction(func.Item1, func.Item2, item));
+                        return LpcValue.Create(res);
+                    }
+                    if (c.Name == "filter_array" && cArgs.Count >= 2 && cArgs[1].Type == LpcType.Function) {
+                        var arr = cArgs[0].AsArray(); var func = cArgs[1].AsFunction();
+                        var res = new List<LpcValue>();
+                        foreach (var item in arr) { if (_objMgr.CallFunction(func.Item1, func.Item2, item).AsInt() != 0) res.Add(item); }
+                        return LpcValue.Create(res);
                     }
                     if (c.Name == "send_to_user" && cArgs.Count >= 1) {
                         Task.Run(() => SessionManager.SendAsync(this.ObjectName, cArgs[0].AsString()));

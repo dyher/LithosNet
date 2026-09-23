@@ -19,14 +19,17 @@ namespace LithosNet.Core {
         public static LpcValue Create(int value) => new LpcValue(LpcType.Int, value, null);
         public static LpcValue Create(string value) => new LpcValue(LpcType.String, 0, value);
         public static LpcValue Create(List<LpcValue> value) => new LpcValue(LpcType.Array, 0, value);
-        // 【新增】建立 Mapping 類型
         public static LpcValue Create(Dictionary<string, LpcValue> value) => new LpcValue(LpcType.Mapping, 0, value);
+        
+        // 【新增】建立函數指標 (儲存 物件名稱 與 函數名稱)
+        public static LpcValue CreateFunction(string objName, string funcName) => 
+            new LpcValue(LpcType.Function, 0, new Tuple<string, string>(objName, funcName));
         
         public int AsInt() => (Type == LpcType.Int) ? (int)_primitiveValue : throw new InvalidCastException();
         public string AsString() => (Type == LpcType.String) ? (string)_referenceValue : throw new InvalidCastException();
         public List<LpcValue> AsArray() => (Type == LpcType.Array) ? (List<LpcValue>)_referenceValue : throw new InvalidCastException();
-        // 【新增】取得 Mapping
         public Dictionary<string, LpcValue> AsMapping() => (Type == LpcType.Mapping) ? (Dictionary<string, LpcValue>)_referenceValue : throw new InvalidCastException();
+        public Tuple<string, string> AsFunction() => (Type == LpcType.Function) ? (Tuple<string, string>)_referenceValue : throw new InvalidCastException();
 
         public override string ToString() {
             return Type switch {
@@ -34,6 +37,7 @@ namespace LithosNet.Core {
                 LpcType.String => $"\"{_referenceValue}\"",
                 LpcType.Array => $"<Array[{((List<LpcValue>)_referenceValue).Count}]>",
                 LpcType.Mapping => $"<Mapping[{((Dictionary<string, LpcValue>)_referenceValue).Count}]>",
+                LpcType.Function => $"<Function[{((Tuple<string, string>)_referenceValue).Item2}]>",
                 _ => $"<{Type}>"
             };
         }

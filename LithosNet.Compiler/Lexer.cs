@@ -14,6 +14,8 @@ namespace LithosNet.Compiler {
         Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
         Plus, Minus, Star, Slash, Percent,
         Arrow, And, Or, PlusAssign, MinusAssign, PlusPlus, MinusMinus,
+        // 【FluffOS 正統】閉包語法 (: 和 :)
+        LeftClosure, RightClosure, 
         EOF
     }
 
@@ -45,6 +47,10 @@ namespace LithosNet.Compiler {
                 if (char.IsWhiteSpace(c)) { Advance(); continue; }
                 if (c == '/' && PeekNext == '/') { while (_pos < _source.Length && Peek != '\n') Advance(); continue; }
                 if (c == '/' && PeekNext == '*') { Advance(); Advance(); while (_pos + 1 < _source.Length && !(Peek == '*' && PeekNext == '/')) Advance(); if (_pos + 1 < _source.Length) { Advance(); Advance(); } continue; }
+
+                // 【FluffOS 正統】解析 (: 和 :)
+                if (c == '(' && PeekNext == ':') { Advance(); Advance(); tokens.Add(new Token(TokenType.LeftClosure, "(:", _line)); continue; }
+                if (c == ':' && PeekNext == ')') { Advance(); Advance(); tokens.Add(new Token(TokenType.RightClosure, ":)", _line)); continue; }
 
                 if (c == '&' && PeekNext == '&') { Advance(); Advance(); tokens.Add(new Token(TokenType.And, "&&", _line)); continue; }
                 if (c == '|' && PeekNext == '|') { Advance(); Advance(); tokens.Add(new Token(TokenType.Or, "||", _line)); continue; }
@@ -79,14 +85,12 @@ namespace LithosNet.Compiler {
 
                 if (c == '/') { Advance(); tokens.Add(new Token(TokenType.Slash, "/", _line)); continue; }
 
-                // 【核心修復】完美處理字串轉義序列 (\n, \t, \\, \")
                 if (c == '"') {
                     Advance();
                     var sb = new StringBuilder();
                     while (_pos < _source.Length && Peek != '"') {
                         if (Peek == '\\' && _pos + 1 < _source.Length) {
-                            Advance(); // eat backslash
-                            char esc = Advance();
+                            Advance(); char esc = Advance();
                             switch (esc) {
                                 case 'n': sb.Append('\n'); break;
                                 case 't': sb.Append('\t'); break;
@@ -94,11 +98,9 @@ namespace LithosNet.Compiler {
                                 case '"': sb.Append('"'); break;
                                 default: sb.Append('\\'); sb.Append(esc); break;
                             }
-                        } else {
-                            sb.Append(Advance());
-                        }
+                        } else { sb.Append(Advance()); }
                     }
-                    if (_pos < _source.Length) Advance(); // eat closing "
+                    if (_pos < _source.Length) Advance();
                     tokens.Add(new Token(TokenType.StringLiteral, sb.ToString(), _line));
                     continue;
                 }
