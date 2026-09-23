@@ -1,25 +1,15 @@
-// Lithos.NET Phase 13: Mapping (字典) 綜合測試
+// Lithos.NET Phase 14: 測試跨物件通訊 (Call Other)
 
 void logon() {
-    debug_message("正在測試 LPC 經典的 Mapping (字典) 語法...");
+    debug_message("玩家正在登入...");
     
-    // 建立玩家屬性 Mapping
-    mapping stats = ([ "hp": 1000, "mp": 500, "str": 99 ]);
+    // 【歷史性對接】透過 -> 運算符，跨越記憶體邊界呼叫 room.c 的函數！
+    string location = room->query_name();
+    int mobs = room->get_monster_count();
     
-    // 讀取 Mapping 中的值
-    int current_hp = stats["hp"];
-    debug_message("玩家當前 HP：");
-    debug_int(current_hp);
-    
-    // 動態新增/修改 Mapping 中的值
-    stats["agi"] = 50;
-    stats["hp"] = 950; // 玩家受傷了
-    
-    debug_message("受傷後的 HP：");
-    debug_int(stats["hp"]);
-    
-    debug_message("玩家的新屬性 AGI：");
-    debug_int(stats["agi"]);
+    debug_message("玩家目前位於: " + location);
+    debug_message("當前房間怪物數量: ");
+    debug_int(mobs);
 }
 
 int verify_login(string user, string pass) {

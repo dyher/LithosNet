@@ -12,6 +12,7 @@ namespace LithosNet.Compiler {
         LeftParen, RightParen, LeftBrace, RightBrace, LeftBracket, RightBracket,
         Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
         Plus, Minus, Star, Slash, Percent,
+        Arrow, // 【新增】-> 運算符
         EOF
     }
 
@@ -19,7 +20,6 @@ namespace LithosNet.Compiler {
         public TokenType Type;
         public string Value;
         public int Line;
-        // 嚴格保持 3 個參數的建構子
         public Token(TokenType type, string value, int line = 0) { Type = type; Value = value; Line = line; }
     }
 
@@ -49,6 +49,8 @@ namespace LithosNet.Compiler {
                 if (c == '!' && PeekNext == '=') { Advance(); Advance(); tokens.Add(new Token(TokenType.NotEqual, "!=", _line)); continue; }
                 if (c == '<' && PeekNext == '=') { Advance(); Advance(); tokens.Add(new Token(TokenType.LessEqual, "<=", _line)); continue; }
                 if (c == '>' && PeekNext == '=') { Advance(); Advance(); tokens.Add(new Token(TokenType.GreaterEqual, ">=", _line)); continue; }
+                // 【新增】解析 -> 箭頭
+                if (c == '-' && PeekNext == '>') { Advance(); Advance(); tokens.Add(new Token(TokenType.Arrow, "->", _line)); continue; }
 
                 switch (c) {
                     case '=': Advance(); tokens.Add(new Token(TokenType.Assign, "=", _line)); continue;
@@ -79,10 +81,8 @@ namespace LithosNet.Compiler {
                     while (_pos < _source.Length && IsIdentChar(Peek)) Advance();
                     string word = _source[start.._pos];
                     var type = word switch {
-                        "int" => TokenType.Keyword_Int, 
-                        "string" => TokenType.Keyword_String,
-                        "void" => TokenType.Keyword_Void, 
-                        "mapping" => TokenType.Keyword_Mapping, // 【關鍵修復】加入 mapping 關鍵字
+                        "int" => TokenType.Keyword_Int, "string" => TokenType.Keyword_String,
+                        "void" => TokenType.Keyword_Void, "mapping" => TokenType.Keyword_Mapping,
                         "return" => TokenType.Keyword_Return,
                         "if" => TokenType.Keyword_If, "else" => TokenType.Keyword_Else,
                         "while" => TokenType.Keyword_While, "for" => TokenType.Keyword_For,

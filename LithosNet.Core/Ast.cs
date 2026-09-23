@@ -20,7 +20,12 @@ namespace LithosNet.Core {
     public class ArrayLiteralNode : AstNode { public List<AstNode> Elements = new(); }
     public class IndexAccessNode : AstNode { public AstNode Array; public AstNode Index; }
     public class IndexAssignmentNode : AstNode { public AstNode Array; public AstNode Index; public AstNode Value; }
-    
-    // 【新增】Mapping 字面量節點 ([ "key" : value ])
     public class MappingLiteralNode : AstNode { public List<AstNode> Keys = new(); public List<AstNode> Values = new(); }
+    
+    // 【新增】Call Other 節點 (例如: room->query_name())
+    public class CallOtherNode : AstNode { 
+        public string TargetObj; 
+        public string FuncName; 
+        public List<AstNode> Arguments = new(); 
+    }
 }

@@ -17,10 +17,7 @@ namespace LithosNet.Compiler {
         private bool IsVariableDeclaration() {
             if (!IsTypeKeyword()) return false;
             if (_pos + 1 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.Identifier) return true;
-            if (_pos + 3 < _tokens.Count && 
-                _tokens[_pos + 1].Type == TokenType.LeftBracket && 
-                _tokens[_pos + 2].Type == TokenType.RightBracket && 
-                _tokens[_pos + 3].Type == TokenType.Identifier) return true;
+            if (_pos + 3 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.LeftBracket && _tokens[_pos + 2].Type == TokenType.RightBracket && _tokens[_pos + 3].Type == TokenType.Identifier) return true;
             return false;
         }
 
@@ -35,9 +32,7 @@ namespace LithosNet.Compiler {
 
         private AstNode ParseVariableDeclaration() {
             string tName = Consume().Value;
-            if (Check(TokenType.LeftBracket) && _pos + 1 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.RightBracket) {
-                Consume(); Consume(); tName += "[]";
-            }
+            if (Check(TokenType.LeftBracket) && _pos + 1 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.RightBracket) { Consume(); Consume(); tName += "[]"; }
             string vName = Consume().Value;
             AstNode init = null;
             if (Check(TokenType.Assign)) { Consume(); init = ParseExpression(); }
@@ -67,10 +62,7 @@ namespace LithosNet.Compiler {
             if (Check(TokenType.Keyword_While)) return ParseWhileStatement();
             if (Check(TokenType.Keyword_For)) return ParseForStatement();
             if (IsVariableDeclaration()) return ParseVariableDeclaration();
-            
-            var expr = ParseExpression();
-            Expect(TokenType.Semicolon);
-            return expr;
+            var expr = ParseExpression(); Expect(TokenType.Semicolon); return expr;
         }
 
         private AstNode ParseIfStatement() {
@@ -88,16 +80,9 @@ namespace LithosNet.Compiler {
         private AstNode ParseForStatement() {
             Consume(); Expect(TokenType.LeftParen);
             AstNode init = null;
-            if (!Check(TokenType.Semicolon)) {
-                if (IsVariableDeclaration()) init = ParseVariableDeclaration();
-                else { init = ParseExpression(); Expect(TokenType.Semicolon); }
-            } else { Consume(); }
-            AstNode cond = null;
-            if (!Check(TokenType.Semicolon)) cond = ParseExpression();
-            Expect(TokenType.Semicolon);
-            AstNode step = null;
-            if (!Check(TokenType.RightParen)) step = ParseExpression();
-            Expect(TokenType.RightParen);
+            if (!Check(TokenType.Semicolon)) { if (IsVariableDeclaration()) init = ParseVariableDeclaration(); else { init = ParseExpression(); Expect(TokenType.Semicolon); } } else { Consume(); }
+            AstNode cond = null; if (!Check(TokenType.Semicolon)) cond = ParseExpression(); Expect(TokenType.Semicolon);
+            AstNode step = null; if (!Check(TokenType.RightParen)) step = ParseExpression(); Expect(TokenType.RightParen);
             return new ForNode { Init = init, Condition = cond, Step = step, Body = ParseBlockOrStatement() };
         }
 
@@ -105,8 +90,7 @@ namespace LithosNet.Compiler {
             if (Check(TokenType.LeftBrace)) {
                 Consume(); var stmts = new List<AstNode>();
                 while (!Check(TokenType.RightBrace) && !Check(TokenType.EOF)) stmts.Add(ParseStatement());
-                Expect(TokenType.RightBrace);
-                return new BlockNode { Statements = stmts };
+                Expect(TokenType.RightBrace); return new BlockNode { Statements = stmts };
             }
             return ParseStatement();
         }
@@ -116,8 +100,7 @@ namespace LithosNet.Compiler {
         private AstNode ParseAssignment() {
             var expr = ParseComparison();
             if (Check(TokenType.Assign)) {
-                Consume();
-                var val = ParseAssignment();
+                Consume(); var val = ParseAssignment();
                 if (expr is VariableRefNode vref) return new AssignmentNode { VariableName = vref.Name, Value = val };
                 if (expr is IndexAccessNode idx) return new IndexAssignmentNode { Array = idx.Array, Index = idx.Index, Value = val };
                 throw new Exception($"[Parser] Line {Current.Line}: Invalid assignment target");
@@ -150,36 +133,35 @@ namespace LithosNet.Compiler {
         }
 
         private AstNode ParsePrimary() {
-            // 【核心升級】解析 LPC 經典的 Mapping 語法: ([ "key" : value ])
             if (Check(TokenType.LeftParen) && _pos + 1 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.LeftBracket) {
-                Consume(); Consume(); // eat ([
-                var keys = new List<AstNode>(); var values = new List<AstNode>();
-                while (!Check(TokenType.RightBracket)) {
-                    keys.Add(ParseExpression());
-                    Expect(TokenType.Colon); // 必須是 :
-                    values.Add(ParseExpression());
-                    if (Check(TokenType.Comma)) Consume();
-                }
-                Expect(TokenType.RightBracket); Expect(TokenType.RightParen); // eat ])
+                Consume(); Consume(); var keys = new List<AstNode>(); var values = new List<AstNode>();
+                while (!Check(TokenType.RightBracket)) { keys.Add(ParseExpression()); Expect(TokenType.Colon); values.Add(ParseExpression()); if (Check(TokenType.Comma)) Consume(); }
+                Expect(TokenType.RightBracket); Expect(TokenType.RightParen);
                 return new MappingLiteralNode { Keys = keys, Values = values };
             }
-
             if (Check(TokenType.LeftBracket)) {
-                Consume();
-                var elements = new List<AstNode>();
-                while (!Check(TokenType.RightBracket)) {
-                    elements.Add(ParseExpression());
-                    if (Check(TokenType.Comma)) Consume();
-                }
-                Expect(TokenType.RightBracket);
-                return new ArrayLiteralNode { Elements = elements };
+                Consume(); var elements = new List<AstNode>();
+                while (!Check(TokenType.RightBracket)) { elements.Add(ParseExpression()); if (Check(TokenType.Comma)) Consume(); }
+                Expect(TokenType.RightBracket); return new ArrayLiteralNode { Elements = elements };
             }
-
             if (Check(TokenType.IntLiteral)) return new LiteralNode { Value = LpcValue.Create(int.Parse(Consume().Value)) };
             if (Check(TokenType.StringLiteral)) return new LiteralNode { Value = LpcValue.Create(Consume().Value) };
             
             if (Check(TokenType.Identifier)) {
                 string name = Consume().Value;
+                
+                // 【核心升級】解析 Call Other: obj->func(args)
+                if (Check(TokenType.Arrow)) {
+                    Consume(); // eat '->'
+                    if (!Check(TokenType.Identifier)) throw new Exception($"[Parser] Line {Current.Line}: Expected function name after ->");
+                    string funcName = Consume().Value;
+                    Expect(TokenType.LeftParen);
+                    var args = new List<AstNode>();
+                    while (!Check(TokenType.RightParen)) { args.Add(ParseExpression()); if (Check(TokenType.Comma)) Consume(); }
+                    Expect(TokenType.RightParen);
+                    return new CallOtherNode { TargetObj = name, FuncName = funcName, Arguments = args };
+                }
+
                 if (Check(TokenType.LeftBracket)) {
                     Consume(); var idx = ParseExpression(); Expect(TokenType.RightBracket);
                     return new IndexAccessNode { Array = new VariableRefNode { Name = name }, Index = idx };
@@ -191,9 +173,7 @@ namespace LithosNet.Compiler {
                 }
                 return new VariableRefNode { Name = name };
             }
-            if (Check(TokenType.LeftParen)) {
-                Consume(); var expr = ParseExpression(); Expect(TokenType.RightParen); return expr;
-            }
+            if (Check(TokenType.LeftParen)) { Consume(); var expr = ParseExpression(); Expect(TokenType.RightParen); return expr; }
             throw new Exception($"[Parser] Line {Current.Line}: Cannot parse {Current.Type} ('{Current.Value}')");
         }
     }
