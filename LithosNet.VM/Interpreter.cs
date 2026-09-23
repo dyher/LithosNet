@@ -154,6 +154,16 @@ namespace LithosNet.VM {
                         SaveScope(cArgs[0].AsString());
                         return LpcValue.Create(1);
                     }
+                    if (c.Name == "update_object" && cArgs.Count >= 1) {
+                        string target = cArgs[0].AsString();
+                        string path = "/home/tiny/LithosNet/mudlib/obj/" + target + ".c";
+                        if (!File.Exists(path)) path = "/home/tiny/LithosNet/mudlib/room/" + target + ".c";
+                        if (File.Exists(path)) {
+                            _objMgr.ReloadObject(path);
+                            return LpcValue.Create(1);
+                        }
+                        return LpcValue.Create(0);
+                    }
                     if (c.Name == "destruct" && cArgs.Count >= 1) {
                         _objMgr.DestructObject(cArgs[0].AsString());
                         return LpcValue.Create(1);

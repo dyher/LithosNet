@@ -13,7 +13,18 @@ namespace LithosNet.VM {
         public Scope LoadObject(string path) {
             string objName = Path.GetFileNameWithoutExtension(path);
             if (_objects.ContainsKey(objName)) return _objects[objName].scope;
+            return CompileAndRegister(path, objName);
+        }
 
+        // 【核心】重新編譯並替換藍本 (Hot-Reload)
+        public void ReloadObject(string path) {
+            string objName = Path.GetFileNameWithoutExtension(path);
+            Console.WriteLine($"🔄 [VM] 偵測到檔案變更，正在熱更新: {objName}.c");
+            CompileAndRegister(path, objName);
+            Console.WriteLine($"✅ [VM] 熱更新完成: {objName}.c 已替換！新 clone 將使用新程式碼。");
+        }
+
+        private Scope CompileAndRegister(string path, string objName) {
             string src = File.ReadAllText(path);
             var tokens = new Lexer(src).Tokenize();
             var ast = new Parser(tokens).Parse();
@@ -43,17 +54,15 @@ namespace LithosNet.VM {
             return cloneId;
         }
 
-        // 【核心魔法】徹底銷毀物件，釋放記憶體
         public void DestructObject(string objName) {
             if (_objects.ContainsKey(objName)) {
-                // 如果物件有 net_dead 或 destruct_apply，可以在這裡觸發
                 _objects.Remove(objName);
-                Console.WriteLine($"💥 [VM] 物件已徹底銷毀，記憶體已釋放: {objName}");
+                Console.WriteLine($"💥 [VM] 物件已徹底銷毀: {objName}");
             }
         }
 
         public LpcValue CallFunction(string objName, string funcName, params LpcValue[] args) {
-            if (!_objects.ContainsKey(objName)) throw new Exception($"[VM] Object '{objName}' not loaded or destructed.");
+            if (!_objects.ContainsKey(objName)) throw new Exception($"[VM] Object '{objName}' not loaded.");
             return _objects[objName].interp.CallFunction(funcName, new List<LpcValue>(args));
         }
         

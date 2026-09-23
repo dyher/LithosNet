@@ -13,7 +13,7 @@
   },
   "target_mob": {
     "type": "String",
-    "value": "goblin#2"
+    "value": ""
   },
   "user_name": {
     "type": "String",
@@ -21,7 +21,7 @@
   },
   "verb": {
     "type": "String",
-    "value": "filter"
+    "value": "kill"
   },
   "args": {
     "type": "String",
@@ -43,14 +43,8 @@
     "type": "String",
     "value": "player#1"
   },
-  "nums": {
-    "type": "Array"
-  },
   "num": {
     "type": "Int",
     "value": 12
-  },
-  "low_nums": {
-    "type": "Array"
   }
 }
