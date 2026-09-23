@@ -115,6 +115,18 @@ namespace LithosNet.VM {
                     var cArgs = new List<LpcValue>(); foreach (var a in c.Arguments) cArgs.Add(Eval(a));
                     
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
+                    if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
+                    if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");
+                    if (c.Name == "move" && cArgs.Count >= 1) { _objMgr.MoveObject(this.ObjectName, cArgs[0].AsString()); return LpcValue.Create(1); }
+                    if (c.Name == "all_inventory" && cArgs.Count >= 1) {
+                        var inv = _objMgr.GetInventory(cArgs[0].AsString()); var list = new List<LpcValue>(); foreach(var i in inv) list.Add(LpcValue.Create(i)); return LpcValue.Create(list);
+                    }
+                    if (c.Name == "message" && cArgs.Count >= 2) {
+                        string env = _scope.Has("environment") ? _scope.Get("environment").AsString() : "";
+                        string msg = cArgs[1].AsString(); var inv = _objMgr.GetInventory(env);
+                        foreach(var obj in inv) { if (obj != this.ObjectName) { try { _objMgr.CallFunction(obj, "receive_message", LpcValue.Create(msg), LpcValue.Create(this.ObjectName)); } catch {} } }
+                        return LpcValue.Create(1);
+                    }
                     if (c.Name == "objectp" && cArgs.Count >= 1) return LpcValue.Create(_objMgr.ObjectExists(cArgs[0].AsString()) ? 1 : 0);
                     
                     // 🔥 觸發 JIT 編譯
