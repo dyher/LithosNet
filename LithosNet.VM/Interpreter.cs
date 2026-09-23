@@ -119,7 +119,7 @@ namespace LithosNet.VM {
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");
                     if (c.Name == "move" && cArgs.Count >= 1) { _objMgr.MoveObject(this.ObjectName, cArgs[0].AsString()); return LpcValue.Create(1); }
                     if (c.Name == "all_inventory" && cArgs.Count >= 1) {
-                        var inv = _objMgr.GetInventory(cArgs[0].AsString()); var list = new List<LpcValue>(); foreach(var i in inv) list.Add(LpcValue.Create(i)); return LpcValue.Create(list);
+                        var inv = _objMgr.GetInventory(cArgs[0].AsString()); var invList = new List<LpcValue>(); foreach(var i in inv) invList.Add(LpcValue.Create(i)); return LpcValue.Create(invList);
                     }
                     if (c.Name == "message" && cArgs.Count >= 2) {
                         string env = _scope.Has("environment") ? _scope.Get("environment").AsString() : "";

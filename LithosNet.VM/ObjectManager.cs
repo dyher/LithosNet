@@ -13,7 +13,13 @@ namespace LithosNet.VM {
         private readonly string _mudlibBase = "/home/tiny/LithosNet/mudlib/";
 
         public Scope LoadObject(string pathOrName) {
-            string fullPath = ResolvePath(pathOrName);
+            string fullPath = pathOrName;
+            if (System.IO.File.Exists(fullPath) == false) {
+                string[] dirs = { "/home/tiny/LithosNet/mudlib/obj/", "/home/tiny/LithosNet/mudlib/room/", "/home/tiny/LithosNet/mudlib/" };
+                foreach(var d in dirs) {
+                    if(System.IO.File.Exists(d + pathOrName + ".c")) { fullPath = d + pathOrName + ".c"; break; }
+                }
+            }
             string objName = Path.GetFileNameWithoutExtension(fullPath);
             if (_objects.ContainsKey(objName)) return _objects[objName].scope;
             return CompileAndRegister(fullPath, objName);
