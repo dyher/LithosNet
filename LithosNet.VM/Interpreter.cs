@@ -27,6 +27,15 @@ namespace LithosNet.VM {
         }
 
         public LpcValue CallFunction(string name, List<LpcValue> args) {
+            // 🔥【極致效能】優先呼叫 JIT 編譯後的 Delegate (納秒級跳轉)
+            var compiled = _scope.GetCompiled(name);
+            if (compiled != null) {
+                int arg1 = args.Count > 0 ? args[0].AsInt() : 0;
+                int arg2 = args.Count > 1 ? args[1].AsInt() : 0;
+                int result = ((Func<int, int, int>)compiled).Invoke(arg1, arg2);
+                return LpcValue.Create(result);
+            }
+
             if (_scope.HasFunction(name)) {
                 var func = _scope.GetFunction(name);
                 for (int i = 0; i < func.Parameters.Count && i < args.Count; i++) _scope.Set(func.Parameters[i].Name, args[i]);
@@ -50,14 +59,14 @@ namespace LithosNet.VM {
                 case ReturnNode r: throw new ReturnSignal(r.Value != null ? Eval(r.Value) : LpcValue.Create(0));
                 case IfNode i: if (EvalBool(i.Condition)) Visit(i.ThenBranch); else if (i.ElseBranch != null) Visit(i.ElseBranch); break;
                 case WhileNode w: while (EvalBool(w.Condition)) Visit(w.Body); break;
+                case ForNode f2: 
+                    if (f2.Init != null) Visit(f2.Init); 
+                    while (f2.Condition == null || EvalBool(f2.Condition)) { Visit(f2.Body); if (f2.Step != null) Visit(f2.Step); } 
+                    break;
                 case ForeachNode fe:
                     var feCol = Eval(fe.Collection);
                     if (feCol.Type == LpcType.Array) { foreach (var item in feCol.AsArray()) { _scope.Set(fe.VarName, item); Visit(fe.Body); } }
                     else if (feCol.Type == LpcType.Mapping) { foreach (var kvp in feCol.AsMapping()) { _scope.Set(fe.VarName, LpcValue.Create(kvp.Key)); Visit(fe.Body); } }
-                    break;
-                case ForNode f2: 
-                    if (f2.Init != null) Visit(f2.Init); 
-                    while (f2.Condition == null || EvalBool(f2.Condition)) { Visit(f2.Body); if (f2.Step != null) Visit(f2.Step); } 
                     break;
                 case BlockNode b: foreach (var s in b.Statements) Visit(s); break;
                 default: Eval(node); break;
@@ -69,7 +78,6 @@ namespace LithosNet.VM {
             return val.Type == LpcType.Int && val.AsInt() != 0;
         }
 
-        // 【核心魔法】存檔與讀檔邏輯
         private void SaveScope(string filename) {
             var dict = new Dictionary<string, Dictionary<string, object>>();
             foreach (var kvp in _scope.GetAllVariables()) {
@@ -83,13 +91,11 @@ namespace LithosNet.VM {
             string path = Path.Combine("/home/tiny/LithosNet/mudlib/save", filename + ".json");
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllText(path, json);
-            Console.WriteLine($"💾 [VM] 已存檔: {path}");
         }
 
         private bool RestoreScope(string filename) {
             string path = Path.Combine("/home/tiny/LithosNet/mudlib/save", filename + ".json");
             if (!File.Exists(path)) return false;
-            
             string json = File.ReadAllText(path);
             var dict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json);
             foreach (var kvp in dict) {
@@ -97,81 +103,49 @@ namespace LithosNet.VM {
                 if (typeStr == "Int") _scope.Set(kvp.Key, LpcValue.Create(kvp.Value.GetProperty("value").GetInt32()));
                 else if (typeStr == "String") _scope.Set(kvp.Key, LpcValue.Create(kvp.Value.GetProperty("value").GetString()));
             }
-            Console.WriteLine($"📂 [VM] 已讀檔: {path}");
             return true;
         }
 
         private LpcValue Eval(AstNode node) {
             switch (node) {
                 case LiteralNode l: return l.Value;
-                case FunctionPointerNode fp: return LpcValue.CreateFunction(this.ObjectName, fp.FuncName);
                 case VariableRefNode v: return _scope.Get(v.Name);
+                case FunctionPointerNode fp: return LpcValue.CreateFunction(this.ObjectName, fp.FuncName);
                 case FunctionCallNode c: 
                     var cArgs = new List<LpcValue>(); foreach (var a in c.Arguments) cArgs.Add(Eval(a));
                     
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "objectp" && cArgs.Count >= 1) return LpcValue.Create(_objMgr.ObjectExists(cArgs[0].AsString()) ? 1 : 0);
                     
+                    // 🔥 觸發 JIT 編譯
+                    if (c.Name == "compile_function" && cArgs.Count >= 1) {
+                        string fName = cArgs[0].AsString();
+                        var funcNode = _scope.GetFunction(fName);
+                        var del = JitCompiler.Compile(funcNode);
+                        _scope.SetCompiled(fName, del);
+                        Console.WriteLine($"⚡ [JIT] 函數 {fName} 已編譯為原生 IL 機器碼！");
+                        return LpcValue.Create(1);
+                    }
+
                     if (c.Name == "call_out" && cArgs.Count >= 2) {
-                        string funcName = cArgs[0].AsString();
-                        int delaySec = cArgs[1].AsInt();
-                        var passArgs = cArgs.Skip(2).ToList();
-                        string targetObj = this.ObjectName; 
-                        Task.Run(async () => {
-                            await Task.Delay(delaySec * 1000);
-                            _objMgr.CallFunction(targetObj, funcName, passArgs.ToArray());
-                        });
+                        string funcName = cArgs[0].AsString(); int delaySec = cArgs[1].AsInt();
+                        var passArgs = cArgs.Skip(2).ToList(); string targetObj = this.ObjectName; 
+                        Task.Run(async () => { await Task.Delay(delaySec * 1000); _objMgr.CallFunction(targetObj, funcName, passArgs.ToArray()); });
                         return LpcValue.Create(1);
                     }
-                    
-                    if (c.Name == "clone_object" && cArgs.Count >= 1) {
-                        return LpcValue.Create(_objMgr.Clone(cArgs[0].AsString()));
-                    }
-
-                    if (c.Name == "set_heart_beat" && cArgs.Count >= 1) {
-                        HeartbeatManager.SetHeartBeat(this.ObjectName, cArgs[0].AsInt() != 0);
-                        return LpcValue.Create(1);
-                    }
-                    if (c.Name == "map_array" && cArgs.Count >= 2 && cArgs[1].Type == LpcType.Function) {
-                        var arr = cArgs[0].AsArray(); var func = cArgs[1].AsFunction();
-                        var res = new List<LpcValue>();
-                        foreach (var item in arr) res.Add(_objMgr.CallFunction(func.Item1, func.Item2, item));
-                        return LpcValue.Create(res);
-                    }
-                    if (c.Name == "filter_array" && cArgs.Count >= 2 && cArgs[1].Type == LpcType.Function) {
-                        var arr = cArgs[0].AsArray(); var func = cArgs[1].AsFunction();
-                        var res = new List<LpcValue>();
-                        foreach (var item in arr) { if (_objMgr.CallFunction(func.Item1, func.Item2, item).AsInt() != 0) res.Add(item); }
-                        return LpcValue.Create(res);
-                    }
-                    if (c.Name == "send_to_user" && cArgs.Count >= 1) {
-                        Task.Run(() => SessionManager.SendAsync(this.ObjectName, cArgs[0].AsString()));
-                        return LpcValue.Create(1);
-                    }
-
-                    // 【核心】攔截 save_object 與 restore_object
-                    if (c.Name == "save_object" && cArgs.Count >= 1) {
-                        SaveScope(cArgs[0].AsString());
-                        return LpcValue.Create(1);
-                    }
+                    if (c.Name == "clone_object" && cArgs.Count >= 1) return LpcValue.Create(_objMgr.Clone(cArgs[0].AsString()));
+                    if (c.Name == "destruct" && cArgs.Count >= 1) { _objMgr.DestructObject(cArgs[0].AsString()); return LpcValue.Create(1); }
+                    if (c.Name == "send_to_user" && cArgs.Count >= 1) { Task.Run(() => SessionManager.SendAsync(this.ObjectName, cArgs[0].AsString())); return LpcValue.Create(1); }
+                    if (c.Name == "save_object" && cArgs.Count >= 1) { SaveScope(cArgs[0].AsString()); return LpcValue.Create(1); }
+                    if (c.Name == "restore_object" && cArgs.Count >= 1) return LpcValue.Create(RestoreScope(cArgs[0].AsString()) ? 1 : 0);
                     if (c.Name == "update_object" && cArgs.Count >= 1) {
                         string target = cArgs[0].AsString();
                         string path = "/home/tiny/LithosNet/mudlib/obj/" + target + ".c";
                         if (!File.Exists(path)) path = "/home/tiny/LithosNet/mudlib/room/" + target + ".c";
-                        if (File.Exists(path)) {
-                            _objMgr.ReloadObject(path);
-                            return LpcValue.Create(1);
-                        }
+                        if (File.Exists(path)) { _objMgr.ReloadObject(path); return LpcValue.Create(1); }
                         return LpcValue.Create(0);
                     }
-                    if (c.Name == "destruct" && cArgs.Count >= 1) {
-                        _objMgr.DestructObject(cArgs[0].AsString());
-                        return LpcValue.Create(1);
-                    }
-                    if (c.Name == "restore_object" && cArgs.Count >= 1) {
-                        bool success = RestoreScope(cArgs[0].AsString());
-                        return LpcValue.Create(success ? 1 : 0);
-                    }
+                    if (c.Name == "set_heart_beat" && cArgs.Count >= 1) { HeartbeatManager.SetHeartBeat(this.ObjectName, cArgs[0].AsInt() != 0); return LpcValue.Create(1); }
 
                     return CallFunction(c.Name, cArgs);
                 case CallOtherNode co:
@@ -187,10 +161,7 @@ namespace LithosNet.VM {
                 case IndexAccessNode ia:
                     var col2 = Eval(ia.Array); var idx2 = Eval(ia.Index);
                     if (col2.Type == LpcType.Array) return col2.AsArray()[idx2.AsInt()];
-                    if (col2.Type == LpcType.Mapping) {
-                        var m = col2.AsMapping(); string k = idx2.AsString();
-                        return m.ContainsKey(k) ? m[k] : LpcValue.Create(0);
-                    }
+                    if (col2.Type == LpcType.Mapping) { var m = col2.AsMapping(); string k = idx2.AsString(); return m.ContainsKey(k) ? m[k] : LpcValue.Create(0); }
                     return LpcValue.Create(0);
                 case LogicalOpNode l:
                     bool lBool = EvalBool(l.Left);
@@ -201,11 +172,7 @@ namespace LithosNet.VM {
                     var left = Eval(b.Left); var right = Eval(b.Right);
                     if (b.Op == "+") {
                         if (left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() + right.AsInt());
-                        if (left.Type == LpcType.String || right.Type == LpcType.String) {
-                            string lStr = left.Type == LpcType.String ? left.AsString() : left.ToString();
-                            string rStr = right.Type == LpcType.String ? right.AsString() : right.ToString();
-                            return LpcValue.Create(lStr + rStr);
-                        }
+                        if (left.Type == LpcType.String || right.Type == LpcType.String) return LpcValue.Create((left.Type == LpcType.String ? left.AsString() : left.ToString()) + (right.Type == LpcType.String ? right.AsString() : right.ToString()));
                     }
                     if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() - right.AsInt());
                     if (b.Op == "*" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() * right.AsInt());
@@ -214,10 +181,6 @@ namespace LithosNet.VM {
                     if (left.Type == LpcType.Int && right.Type == LpcType.Int) {
                         int lVal = left.AsInt(), rVal = right.AsInt();
                         bool res = b.Op switch { "==" => lVal == rVal, "!=" => lVal != rVal, "<" => lVal < rVal, ">" => lVal > rVal, "<=" => lVal <= rVal, ">=" => lVal >= rVal, _ => false };
-                        return LpcValue.Create(res ? 1 : 0);
-                    }
-                    if (left.Type == LpcType.String && right.Type == LpcType.String) {
-                        bool res = b.Op == "==" ? left.AsString() == right.AsString() : left.AsString() != right.AsString();
                         return LpcValue.Create(res ? 1 : 0);
                     }
                     return LpcValue.Create(0);

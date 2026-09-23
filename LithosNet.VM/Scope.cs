@@ -7,6 +7,7 @@ namespace LithosNet.VM {
     public class Scope {
         private readonly Dictionary<string, LpcValue> _variables = new();
         private readonly Dictionary<string, FunctionDeclarationNode> _functions = new();
+        private readonly Dictionary<string, Delegate> _compiledFunctions = new(); // 【JIT】原生 Delegate 快取
 
         public void Set(string name, LpcValue value) => _variables[name] = value;
         public LpcValue Get(string name) {
@@ -19,17 +20,17 @@ namespace LithosNet.VM {
             throw new Exception($"[VM] Function '{name}' not found.");
         }
         public bool HasFunction(string name) => _functions.ContainsKey(name);
-        public Dictionary<string, LpcValue> GetAllVariables() => _variables;
         public bool Has(string name) => _variables.ContainsKey(name);
 
-        // 【新增】從父 Scope 繼承所有變數與函數
+        // 【JIT】存取編譯後的 Delegate
+        public void SetCompiled(string name, Delegate del) => _compiledFunctions[name] = del;
+        public Delegate GetCompiled(string name) => _compiledFunctions.TryGetValue(name, out var d) ? d : null;
+
         public void InheritFrom(Scope parent) {
-            foreach (var kvp in parent._variables) {
-                if (!_variables.ContainsKey(kvp.Key)) _variables[kvp.Key] = kvp.Value;
-            }
-            foreach (var kvp in parent._functions) {
-                if (!_functions.ContainsKey(kvp.Key)) _functions[kvp.Key] = kvp.Value;
-            }
+            foreach (var kvp in parent._variables) if (!_variables.ContainsKey(kvp.Key)) _variables[kvp.Key] = kvp.Value;
+            foreach (var kvp in parent._functions) if (!_functions.ContainsKey(kvp.Key)) _functions[kvp.Key] = kvp.Value;
         }
+        
+        public Dictionary<string, LpcValue> GetAllVariables() => _variables;
     }
 }
