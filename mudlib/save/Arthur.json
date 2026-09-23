@@ -11,13 +11,17 @@
     "type": "Int",
     "value": 1000
   },
+  "target_mob": {
+    "type": "String",
+    "value": ""
+  },
   "user_name": {
     "type": "String",
     "value": "Arthur"
   },
   "verb": {
     "type": "String",
-    "value": "hp"
+    "value": "spawn"
   },
   "args": {
     "type": "String",

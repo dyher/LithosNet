@@ -35,14 +35,21 @@ namespace LithosNet.VM {
             return LpcValue.Create(0);
         }
 
-        // 【核心】users() - 返回所有在線玩家的 Array
         [Efun("users")]
         public static LpcValue Users(LpcValue[] args) {
             var list = new List<LpcValue>();
-            foreach (var u in SessionManager.GetAllSessions()) {
-                list.Add(LpcValue.Create(u));
-            }
+            foreach (var u in SessionManager.GetAllSessions()) list.Add(LpcValue.Create(u));
             return LpcValue.Create(list);
+        }
+
+        // 【新增】objectp() - 檢查物件是否已被 destruct
+        [Efun("objectp")]
+        public static LpcValue Objectp(LpcValue[] args) {
+            if (args.Length > 0 && args[0].Type == LpcType.String) {
+                // 這裡我們需要一個靜態方法來查詢 ObjectManager，為了簡化，我們直接在 Interpreter 中攔截
+                return LpcValue.Create(1); 
+            }
+            return LpcValue.Create(0);
         }
     }
 }

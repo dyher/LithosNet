@@ -104,6 +104,7 @@ namespace LithosNet.VM {
                     var cArgs = new List<LpcValue>(); foreach (var a in c.Arguments) cArgs.Add(Eval(a));
                     
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
+                    if (c.Name == "objectp" && cArgs.Count >= 1) return LpcValue.Create(_objMgr.ObjectExists(cArgs[0].AsString()) ? 1 : 0);
                     
                     if (c.Name == "call_out" && cArgs.Count >= 2) {
                         string funcName = cArgs[0].AsString();
@@ -129,6 +130,10 @@ namespace LithosNet.VM {
                     // 【核心】攔截 save_object 與 restore_object
                     if (c.Name == "save_object" && cArgs.Count >= 1) {
                         SaveScope(cArgs[0].AsString());
+                        return LpcValue.Create(1);
+                    }
+                    if (c.Name == "destruct" && cArgs.Count >= 1) {
+                        _objMgr.DestructObject(cArgs[0].AsString());
                         return LpcValue.Create(1);
                     }
                     if (c.Name == "restore_object" && cArgs.Count >= 1) {

@@ -23,6 +23,7 @@ namespace LithosNet.Host {
             ObjMgr.Preload(MudlibPath + "obj/master.c");
             ObjMgr.CallFunction("master", "create");
             ObjMgr.Preload(MudlibPath + "obj/player.c");
+            ObjMgr.Preload(MudlibPath + "obj/goblin.c");
             ObjMgr.Preload(MudlibPath + "obj/login.c");
             ObjMgr.Preload(MudlibPath + "room/town.c");
             ObjMgr.Preload(MudlibPath + "room/forest.c");
@@ -77,7 +78,11 @@ namespace LithosNet.Host {
                 }
             } catch { }
             finally { 
-                if (isLoggedIn) { try { ObjMgr.CallFunction(currentObj, "logoff"); } catch {} SessionManager.Unbind(currentObj); }
+                if (isLoggedIn) { 
+                        try { ObjMgr.CallFunction(currentObj, "logoff"); } catch {} 
+                        SessionManager.Unbind(currentObj);
+                        ObjMgr.DestructObject(currentObj); 
+                    }
                 client.Close(); 
             }
         }
