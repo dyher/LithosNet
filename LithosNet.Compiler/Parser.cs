@@ -24,18 +24,9 @@ namespace LithosNet.Compiler {
         public List<AstNode> Parse() { var nodes = new List<AstNode>(); while (!Check(TokenType.EOF)) nodes.Add(ParseTopLevel()); return nodes; }
 
         private AstNode ParseTopLevel() {
-            // 【新增】解析 inherit "parent";
-            if (Check(TokenType.Keyword_Inherit)) {
-                Consume();
-                if (!Check(TokenType.StringLiteral)) throw new Exception($"[Parser] Line {Current.Line}: inherit expects a string literal");
-                string parent = Consume().Value;
-                Expect(TokenType.Semicolon);
-                return new InheritNode { ParentObjName = parent };
-            }
-
+            if (Check(TokenType.Keyword_Inherit)) { Consume(); string p = Consume().Value; Expect(TokenType.Semicolon); return new InheritNode { ParentObjName = p }; }
             if (!IsTypeKeyword()) throw new Exception($"[Parser] Line {Current.Line}: Unexpected {Current.Type}");
-            if (_pos + 2 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.Identifier && _tokens[_pos + 2].Type == TokenType.LeftParen)
-                return ParseFunctionDeclaration();
+            if (_pos + 2 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.Identifier && _tokens[_pos + 2].Type == TokenType.LeftParen) return ParseFunctionDeclaration();
             return ParseVariableDeclaration();
         }
 
@@ -71,6 +62,20 @@ namespace LithosNet.Compiler {
             if (Check(TokenType.Keyword_While)) return ParseWhileStatement();
             if (Check(TokenType.Keyword_For)) return ParseForStatement();
             if (IsVariableDeclaration()) return ParseVariableDeclaration();
+            
+            // 【新增】處理 i++ 和 i-- (作為獨立語句)
+            if (Check(TokenType.Identifier) && _pos + 1 < _tokens.Count && 
+                (Current.Type == TokenType.PlusPlus || Current.Type == TokenType.MinusMinus || _tokens[_pos+1].Type == TokenType.PlusPlus || _tokens[_pos+1].Type == TokenType.MinusMinus)) {
+                // 這裡簡單處理：如果是 identifier++ 或 identifier--
+                if (_tokens[_pos+1].Type == TokenType.PlusPlus || _tokens[_pos+1].Type == TokenType.MinusMinus) {
+                    string name = Consume().Value;
+                    string op = Consume().Value;
+                    Expect(TokenType.Semicolon);
+                    string binOp = op == "++" ? "+" : "-";
+                    return new AssignmentNode { VariableName = name, Value = new BinaryOpNode { Left = new VariableRefNode { Name = name }, Op = binOp, Right = new LiteralNode { Value = LpcValue.Create(1) } } };
+                }
+            }
+
             var expr = ParseExpression(); Expect(TokenType.Semicolon); return expr;
         }
 
@@ -104,17 +109,43 @@ namespace LithosNet.Compiler {
             return ParseStatement();
         }
 
+        // 【核心】全新的優先級鏈
         private AstNode ParseExpression() { return ParseAssignment(); }
+
         private AstNode ParseAssignment() {
-            var expr = ParseComparison();
+            var expr = ParseLogicalOr();
             if (Check(TokenType.Assign)) {
                 Consume(); var val = ParseAssignment();
                 if (expr is VariableRefNode vref) return new AssignmentNode { VariableName = vref.Name, Value = val };
                 if (expr is IndexAccessNode idx) return new IndexAssignmentNode { Array = idx.Array, Index = idx.Index, Value = val };
                 throw new Exception($"[Parser] Line {Current.Line}: Invalid assignment target");
             }
+            // 【新增】複合賦值 +=, -=
+            if (Check(TokenType.PlusAssign) || Check(TokenType.MinusAssign)) {
+                string op = Consume().Value; 
+                var val = ParseAssignment();
+                if (expr is VariableRefNode vref) {
+                    string binOp = op == "+=" ? "+" : "-";
+                    return new AssignmentNode { VariableName = vref.Name, Value = new BinaryOpNode { Left = expr, Op = binOp, Right = val } };
+                }
+            }
             return expr;
         }
+
+        // 【新增】邏輯 OR (||)
+        private AstNode ParseLogicalOr() {
+            var left = ParseLogicalAnd();
+            while (Check(TokenType.Or)) { Consume(); left = new LogicalOpNode { Left = left, Op = "||", Right = ParseLogicalAnd() }; }
+            return left;
+        }
+
+        // 【新增】邏輯 AND (&&)
+        private AstNode ParseLogicalAnd() {
+            var left = ParseComparison();
+            while (Check(TokenType.And)) { Consume(); left = new LogicalOpNode { Left = left, Op = "&&", Right = ParseComparison() }; }
+            return left;
+        }
+
         private AstNode ParseComparison() {
             var left = ParseAdditive();
             while (Check(TokenType.Equal) || Check(TokenType.NotEqual) || Check(TokenType.Less) || Check(TokenType.Greater) || Check(TokenType.LessEqual) || Check(TokenType.GreaterEqual)) {
@@ -122,6 +153,7 @@ namespace LithosNet.Compiler {
             }
             return left;
         }
+
         private AstNode ParseAdditive() {
             var left = ParseMultiplicative();
             while (Check(TokenType.Plus) || Check(TokenType.Minus)) {
@@ -129,6 +161,7 @@ namespace LithosNet.Compiler {
             }
             return left;
         }
+
         private AstNode ParseMultiplicative() {
             var left = ParsePrimary();
             while (Check(TokenType.Star) || Check(TokenType.Slash) || Check(TokenType.Percent)) {

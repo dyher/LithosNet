@@ -160,6 +160,11 @@ namespace LithosNet.VM {
                         return m.ContainsKey(k) ? m[k] : LpcValue.Create(0);
                     }
                     return LpcValue.Create(0);
+                case LogicalOpNode l:
+                    bool lBool = EvalBool(l.Left);
+                    if (l.Op == "&&") return LpcValue.Create(lBool && EvalBool(l.Right) ? 1 : 0);
+                    if (l.Op == "||") return LpcValue.Create(lBool || EvalBool(l.Right) ? 1 : 0);
+                    return LpcValue.Create(0);
                 case BinaryOpNode b:
                     var left = Eval(b.Left); var right = Eval(b.Right);
                     if (b.Op == "+") {

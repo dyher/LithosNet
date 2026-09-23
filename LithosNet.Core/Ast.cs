@@ -13,6 +13,7 @@ namespace LithosNet.Core {
     public class FunctionCallNode : AstNode { public string Name; public List<AstNode> Arguments = new(); }
     public class VariableRefNode : AstNode { public string Name; }
     public class BinaryOpNode : AstNode { public AstNode Left; public string Op; public AstNode Right; }
+    public class LogicalOpNode : AstNode { public AstNode Left; public string Op; public AstNode Right; }
     public class IfNode : AstNode { public AstNode Condition; public AstNode ThenBranch; public AstNode ElseBranch; }
     public class BlockNode : AstNode { public List<AstNode> Statements = new(); }
     public class WhileNode : AstNode { public AstNode Condition; public AstNode Body; }
