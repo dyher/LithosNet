@@ -61,29 +61,17 @@ namespace LithosNet.Compiler {
             return new FunctionDeclarationNode { ReturnType = ret, Name = name, Parameters = parms, Body = body };
         }
 
+        // 【極簡化】ParseStatement 不再處理賦值，全部交給 ParseExpression！
         private AstNode ParseStatement() {
             if (Check(TokenType.Keyword_Return)) { Consume(); var v = ParseExpression(); Expect(TokenType.Semicolon); return new ReturnNode { Value = v }; }
             if (Check(TokenType.Keyword_If)) return ParseIfStatement();
             if (Check(TokenType.Keyword_While)) return ParseWhileStatement();
             if (Check(TokenType.Keyword_For)) return ParseForStatement();
-            
             if (IsVariableDeclaration()) return ParseVariableDeclaration();
-                
-            if (Check(TokenType.Identifier)) {
-                var expr = ParseExpression();
-                if (expr is IndexAccessNode idx && Check(TokenType.Assign)) {
-                    Consume(); var val = ParseExpression(); Expect(TokenType.Semicolon);
-                    return new IndexAssignmentNode { Array = idx.Array, Index = idx.Index, Value = val };
-                }
-                if (expr is VariableRefNode vref && Check(TokenType.Assign)) {
-                    Consume(); var val = ParseExpression(); Expect(TokenType.Semicolon);
-                    return new AssignmentNode { VariableName = vref.Name, Value = val };
-                }
-                Expect(TokenType.Semicolon);
-                return expr;
-            }
-
-            var e = ParseExpression(); Expect(TokenType.Semicolon); return e;
+            
+            var expr = ParseExpression();
+            Expect(TokenType.Semicolon);
+            return expr;
         }
 
         private AstNode ParseIfStatement() {
@@ -98,30 +86,20 @@ namespace LithosNet.Compiler {
             return new WhileNode { Condition = cond, Body = ParseBlockOrStatement() };
         }
 
-        // 【新增】for (init; cond; step) { body }
         private AstNode ParseForStatement() {
-            Consume(); // eat 'for'
-            Expect(TokenType.LeftParen);
-            
-            // init: int i = 0; 或 i = 0;
+            Consume(); Expect(TokenType.LeftParen);
             AstNode init = null;
             if (!Check(TokenType.Semicolon)) {
-                if (IsVariableDeclaration()) init = ParseVariableDeclaration(); // 這會自己吃掉 ;
+                if (IsVariableDeclaration()) init = ParseVariableDeclaration();
                 else { init = ParseExpression(); Expect(TokenType.Semicolon); }
-            } else {
-                Consume(); // eat ';'
-            }
+            } else { Consume(); }
             
-            // condition: i < 10
             AstNode cond = null;
             if (!Check(TokenType.Semicolon)) cond = ParseExpression();
             Expect(TokenType.Semicolon);
             
-            // step: i = i + 1
             AstNode step = null;
-            if (!Check(TokenType.RightParen)) {
-                step = ParseExpression();
-            }
+            if (!Check(TokenType.RightParen)) step = ParseExpression(); // 【關鍵】這裡現在能完美解析 i = i + 1 了！
             Expect(TokenType.RightParen);
             
             return new ForNode { Init = init, Condition = cond, Step = step, Body = ParseBlockOrStatement() };
@@ -137,40 +115,58 @@ namespace LithosNet.Compiler {
             return ParseStatement();
         }
 
-        // 表達式優先級: 比較 < 加減 < 乘除
-        private AstNode ParseExpression() {
+        // 【教科書級別的優先級鏈】
+        // 1. 表達式入口
+        private AstNode ParseExpression() { return ParseAssignment(); }
+
+        // 2. 賦值優先級最低，且為右結合 (支援 a = b = 5)
+        private AstNode ParseAssignment() {
+            var expr = ParseComparison();
+            if (Check(TokenType.Assign)) {
+                Consume();
+                var val = ParseAssignment(); // 右結合遞迴
+                if (expr is VariableRefNode vref) 
+                    return new AssignmentNode { VariableName = vref.Name, Value = val };
+                if (expr is IndexAccessNode idx) 
+                    return new IndexAssignmentNode { Array = idx.Array, Index = idx.Index, Value = val };
+                throw new Exception($"[Parser] Line {Current.Line}: Invalid assignment target");
+            }
+            return expr;
+        }
+
+        // 3. 比較運算符
+        private AstNode ParseComparison() {
             var left = ParseAdditive();
             while (Check(TokenType.Equal) || Check(TokenType.NotEqual) || 
                    Check(TokenType.Less) || Check(TokenType.Greater) ||
                    Check(TokenType.LessEqual) || Check(TokenType.GreaterEqual)) {
                 string op = Consume().Value;
-                var right = ParseAdditive();
-                left = new BinaryOpNode { Left = left, Op = op, Right = right };
+                left = new BinaryOpNode { Left = left, Op = op, Right = ParseAdditive() };
             }
             return left;
         }
 
+        // 4. 加減法
         private AstNode ParseAdditive() {
             var left = ParseMultiplicative();
             while (Check(TokenType.Plus) || Check(TokenType.Minus)) {
                 string op = Consume().Value;
-                var right = ParseMultiplicative();
-                left = new BinaryOpNode { Left = left, Op = op, Right = right };
+                left = new BinaryOpNode { Left = left, Op = op, Right = ParseMultiplicative() };
             }
             return left;
         }
 
-        // 【新增】乘除取餘優先級
+        // 5. 乘除與取餘
         private AstNode ParseMultiplicative() {
             var left = ParsePrimary();
             while (Check(TokenType.Star) || Check(TokenType.Slash) || Check(TokenType.Percent)) {
                 string op = Consume().Value;
-                var right = ParsePrimary();
-                left = new BinaryOpNode { Left = left, Op = op, Right = right };
+                left = new BinaryOpNode { Left = left, Op = op, Right = ParsePrimary() };
             }
             return left;
         }
 
+        // 6. 基礎元素 (Primary)
         private AstNode ParsePrimary() {
             if (Check(TokenType.LeftBracket)) {
                 Consume();
