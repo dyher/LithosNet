@@ -1,6 +1,8 @@
 #nullable disable
 using System;
 using System.Collections.Generic;
+using System.Linq; // 新增 LINQ 以支援 Skip
+using System.Threading.Tasks; // 新增 Task 以支援非同步
 using LithosNet.Core;
 
 namespace LithosNet.VM {
@@ -9,12 +11,14 @@ namespace LithosNet.VM {
     public class Interpreter {
         private readonly Scope _scope;
         private readonly ObjectManager _objMgr;
+        
+        // 【新增】記錄當前物件的名稱，供 call_out 回呼使用
+        public string ObjectName { get; set; } 
 
         public Interpreter(Scope scope, ObjectManager objMgr) { _scope = scope; _objMgr = objMgr; }
 
         public void Execute(List<AstNode> ast) { 
             foreach (var n in ast) {
-                // 【核心】遇到 InheritNode 時，要求 ObjectManager 載入父物件並合併 Scope
                 if (n is InheritNode inh) {
                     Console.WriteLine($"   🧬 [VM] 繼承父物件: {inh.ParentObjName}");
                     Scope parentScope = _objMgr.LoadObject(inh.ParentObjName);
@@ -69,6 +73,27 @@ namespace LithosNet.VM {
                 case VariableRefNode v: return _scope.Get(v.Name);
                 case FunctionCallNode c: 
                     var cArgs = new List<LpcValue>(); foreach (var a in c.Arguments) cArgs.Add(Eval(a));
+                    
+                    // 【核心魔法】攔截 call_out 並啟動非同步定時器！
+                    if (c.Name == "call_out" && cArgs.Count >= 2) {
+                        string funcName = cArgs[0].AsString();
+                        int delaySec = cArgs[1].AsInt();
+                        var passArgs = cArgs.Skip(2).ToList(); // 剩餘的參數傳遞給回呼函數
+                        
+                        Console.WriteLine($"   ⏳ [VM] 設定定時器: {delaySec}秒後呼叫 {funcName}()");
+                        
+                        // 捕獲當前物件名稱與閉包變數
+                        string targetObj = this.ObjectName; 
+                        
+                        // 🔥 啟動 Background Task，完全不阻塞主執行緒！
+                        Task.Run(async () => {
+                            await Task.Delay(delaySec * 1000);
+                            Console.WriteLine($"   ⏰ [VM] 定時器觸發！正在回呼 {targetObj}->{funcName}()");
+                            _objMgr.CallFunction(targetObj, funcName, passArgs.ToArray());
+                        });
+                        return LpcValue.Create(1);
+                    }
+                    
                     return CallFunction(c.Name, cArgs);
                 case CallOtherNode co:
                     var coArgs = new List<LpcValue>(); foreach (var a in co.Arguments) coArgs.Add(Eval(a));
@@ -90,7 +115,6 @@ namespace LithosNet.VM {
                     if (b.Op == "+") {
                         if (left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() + right.AsInt());
                         if (left.Type == LpcType.String || right.Type == LpcType.String) {
-                            // 【修復】字串拼接使用 AsString() 避免多餘的引號
                             string lStr = left.Type == LpcType.String ? left.AsString() : left.ToString();
                             string rStr = right.Type == LpcType.String ? right.AsString() : right.ToString();
                             return LpcValue.Create(lStr + rStr);

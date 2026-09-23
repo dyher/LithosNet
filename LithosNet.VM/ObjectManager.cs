@@ -20,7 +20,8 @@ namespace LithosNet.VM {
 
             var scope = new Scope();
             // 【關鍵】將 ObjectManager 自己注入到 Interpreter 中！
-            var interp = new Interpreter(scope, this); 
+            var interp = new Interpreter(scope, this);
+            interp.ObjectName = objName; 
             interp.Execute(ast);
 
             _objects[objName] = (scope, interp);
