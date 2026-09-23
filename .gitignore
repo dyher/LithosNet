@@ -1,0 +1,15 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+*.DotSettings.user
+*.log
+libcombat.so
+combat.c
+
+## OS
+.DS_Store
+Thumbs.db
