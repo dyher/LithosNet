@@ -28,7 +28,7 @@ namespace LithosNet.Host {
             ObjMgr.Preload(MudlibPath + "room/town.c");
             ObjMgr.Preload(MudlibPath + "room/forest.c");
 
-            var reloader = new HotReloader(MudlibPath, ObjMgr);
+            // var reloader = new HotReloader(MudlibPath, ObjMgr);
             HeartbeatManager.Initialize(ObjMgr, 2000); // 每 2 秒一次心跳
             var listener = new TcpListener(IPAddress.Any, 6900);
             listener.Start();
