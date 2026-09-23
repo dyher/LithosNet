@@ -14,10 +14,24 @@ namespace LithosNet.Compiler {
         private bool IsTypeKeyword() => Check(TokenType.Keyword_Int) || Check(TokenType.Keyword_String) || Check(TokenType.Keyword_Void);
         private void Expect(TokenType type) { if (Current.Type != type) throw new Exception($"[Parser] Line {Current.Line}: Expected {type}, got {Current.Type}"); Consume(); }
 
+        // 【核心前瞻函數】精準判斷接下來是否為變數宣告 (支援 int x 與 int[] x)
+        private bool IsVariableDeclaration() {
+            if (!IsTypeKeyword()) return false;
+            // 情況 1: int x = ...
+            if (_pos + 1 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.Identifier) return true;
+            // 情況 2: int[] x = ...
+            if (_pos + 3 < _tokens.Count && 
+                _tokens[_pos + 1].Type == TokenType.LeftBracket && 
+                _tokens[_pos + 2].Type == TokenType.RightBracket && 
+                _tokens[_pos + 3].Type == TokenType.Identifier) return true;
+            return false;
+        }
+
         public List<AstNode> Parse() { var nodes = new List<AstNode>(); while (!Check(TokenType.EOF)) nodes.Add(ParseTopLevel()); return nodes; }
 
         private AstNode ParseTopLevel() {
             if (!IsTypeKeyword()) throw new Exception($"[Parser] Line {Current.Line}: Unexpected {Current.Type}");
+            // 判斷是否為函數宣告 (例如: int main())
             if (_pos + 2 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.Identifier && _tokens[_pos + 2].Type == TokenType.LeftParen)
                 return ParseFunctionDeclaration();
             return ParseVariableDeclaration();
@@ -26,14 +40,14 @@ namespace LithosNet.Compiler {
         private AstNode ParseVariableDeclaration() {
             string tName = Consume().Value; // 吃掉 int 或 string
             
-            // 【核心修復】處理陣列類型宣告 int[] 或 string[]
+            // 處理陣列類型宣告 int[] 或 string[]
             if (Check(TokenType.LeftBracket) && _pos + 1 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.RightBracket) {
                 Consume(); // eat '['
                 Consume(); // eat ']'
-                tName += "[]"; // 標記為陣列類型
+                tName += "[]"; 
             }
 
-            string vName = Consume().Value; // 現在正確吃掉變數名稱 (例如 drops)
+            string vName = Consume().Value; 
             AstNode init = null;
             if (Check(TokenType.Assign)) { Consume(); init = ParseExpression(); }
             Expect(TokenType.Semicolon);
@@ -56,8 +70,10 @@ namespace LithosNet.Compiler {
             if (Check(TokenType.Keyword_If)) return ParseIfStatement();
             if (Check(TokenType.Keyword_While)) return ParseWhileStatement();
             
-            if (IsTypeKeyword() && _pos + 2 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.Identifier && _tokens[_pos + 2].Type != TokenType.LeftParen) 
+            // 【完美修復】使用前瞻函數判斷是否為變數宣告
+            if (IsVariableDeclaration()) {
                 return ParseVariableDeclaration();
+            }
                 
             // 處理賦值與陣列索引賦值
             if (Check(TokenType.Identifier)) {
@@ -153,7 +169,7 @@ namespace LithosNet.Compiler {
             if (Check(TokenType.LeftParen)) {
                 Consume(); var expr = ParseExpression(); Expect(TokenType.RightParen); return expr;
             }
-            throw new Exception($"[Parser] Line {Current.Line}: Cannot parse {Current.Type}");
+            throw new Exception($"[Parser] Line {Current.Line}: Cannot parse {Current.Type} ('{Current.Value}')");
         }
     }
 }
