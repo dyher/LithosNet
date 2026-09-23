@@ -1,0 +1,4 @@
+/home/tiny/LithosNet/LithosNet.Host/obj/Debug/net8.0/LithosNet.Host.GeneratedMSBuildEditorConfig.editorconfig
+/home/tiny/LithosNet/LithosNet.Host/obj/Debug/net8.0/LithosNet.Host.AssemblyInfoInputs.cache
+/home/tiny/LithosNet/LithosNet.Host/obj/Debug/net8.0/LithosNet.Host.AssemblyInfo.cs
+/home/tiny/LithosNet/LithosNet.Host/obj/Debug/net8.0/LithosNet.Host.csproj.CoreCompileInputs.cache
