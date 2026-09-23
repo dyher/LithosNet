@@ -8,15 +8,7 @@ using System.Threading.Tasks;
 using LithosNet.Core;
 
 namespace LithosNet.VM {
-    
-    [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Cdecl)]
-    private delegate int IntReturnDelegate();
-
-    [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Cdecl)]
-    private delegate IntPtr StringArgReturnIntPtrDelegate([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPStr)] string arg);
-
     public class ReturnSignal : Exception { public LpcValue Value; public ReturnSignal(LpcValue v) { Value = v; } }
-
 
     public class Interpreter {
         private readonly Scope _scope;
@@ -131,17 +123,6 @@ namespace LithosNet.VM {
                         return LpcValue.Create(cArgs[0].AsString());
                     }
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
-                    
-                    // 【Mudlib 靈魂】sprintf 格式化輸出
-                    
-                    
-                    // 【Mudlib 通訊】tell_object 與 shout
-                    
-                    
-
-                    // 【God Mode FFI】LuaJIT 風格的 native_call，直接呼叫底層 C .so！
-                    
-
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");
                     if (c.Name == "move" && cArgs.Count >= 1) { _objMgr.MoveObject(this.ObjectName, cArgs[0].AsString()); return LpcValue.Create(1); }
