@@ -6,7 +6,7 @@ using LithosNet.Core;
 namespace LithosNet.Compiler {
     public enum TokenType {
         IntLiteral, StringLiteral, Identifier,
-        Keyword_Int, Keyword_String, Keyword_Void, Keyword_Return, 
+        Keyword_Int, Keyword_String, Keyword_Void, Keyword_Mapping, Keyword_Return, 
         Keyword_If, Keyword_Else, Keyword_While, Keyword_For,
         Assign, Semicolon, Comma, Colon,
         LeftParen, RightParen, LeftBrace, RightBrace, LeftBracket, RightBracket,
@@ -19,6 +19,7 @@ namespace LithosNet.Compiler {
         public TokenType Type;
         public string Value;
         public int Line;
+        // 嚴格保持 3 個參數的建構子
         public Token(TokenType type, string value, int line = 0) { Type = type; Value = value; Line = line; }
     }
 
@@ -52,8 +53,8 @@ namespace LithosNet.Compiler {
                 switch (c) {
                     case '=': Advance(); tokens.Add(new Token(TokenType.Assign, "=", _line)); continue;
                     case ';': Advance(); tokens.Add(new Token(TokenType.Semicolon, ";", _line)); continue;
+                    case ',': Advance(); tokens.Add(new Token(TokenType.Comma, ",", _line)); continue;
                     case ':': Advance(); tokens.Add(new Token(TokenType.Colon, ":", _line)); continue;
-                    case ',': Advance(); tokens.Add(new Token(TokenType.Comma, Colon, ",", _line)); continue;
                     case '(': Advance(); tokens.Add(new Token(TokenType.LeftParen, "(", _line)); continue;
                     case ')': Advance(); tokens.Add(new Token(TokenType.RightParen, ")", _line)); continue;
                     case '{': Advance(); tokens.Add(new Token(TokenType.LeftBrace, "{", _line)); continue;
@@ -68,7 +69,6 @@ namespace LithosNet.Compiler {
                     case '%': Advance(); tokens.Add(new Token(TokenType.Percent, "%", _line)); continue;
                 }
 
-                // 注意：/ 要在註解判斷之後處理（上面已經排除了 // 和 /*）
                 if (c == '/') { Advance(); tokens.Add(new Token(TokenType.Slash, "/", _line)); continue; }
 
                 if (c == '"') { Advance(); int start = _pos; while (_pos < _source.Length && Peek != '"') Advance(); tokens.Add(new Token(TokenType.StringLiteral, _source[start.._pos], _line)); if (_pos < _source.Length) Advance(); continue; }
@@ -79,8 +79,11 @@ namespace LithosNet.Compiler {
                     while (_pos < _source.Length && IsIdentChar(Peek)) Advance();
                     string word = _source[start.._pos];
                     var type = word switch {
-                        "int" => TokenType.Keyword_Int, "string" => TokenType.Keyword_String,
-                        "void" => TokenType.Keyword_Void, "return" => TokenType.Keyword_Return,
+                        "int" => TokenType.Keyword_Int, 
+                        "string" => TokenType.Keyword_String,
+                        "void" => TokenType.Keyword_Void, 
+                        "mapping" => TokenType.Keyword_Mapping, // 【關鍵修復】加入 mapping 關鍵字
+                        "return" => TokenType.Keyword_Return,
                         "if" => TokenType.Keyword_If, "else" => TokenType.Keyword_Else,
                         "while" => TokenType.Keyword_While, "for" => TokenType.Keyword_For,
                         _ => TokenType.Identifier

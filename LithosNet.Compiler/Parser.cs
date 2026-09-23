@@ -11,7 +11,7 @@ namespace LithosNet.Compiler {
         private Token Current => _pos < _tokens.Count ? _tokens[_pos] : new Token(TokenType.EOF, "");
         private Token Consume() => _tokens[_pos++];
         private bool Check(TokenType t) => Current.Type == t;
-        private bool IsTypeKeyword() => Check(TokenType.Keyword_Int) || Check(TokenType.Keyword_String) || Check(TokenType.Keyword_Void);
+        private bool IsTypeKeyword() => Check(TokenType.Keyword_Int) || Check(TokenType.Keyword_String) || Check(TokenType.Keyword_Void) || Check(TokenType.Keyword_Mapping);
         private void Expect(TokenType type) { if (Current.Type != type) throw new Exception($"[Parser] Line {Current.Line}: Expected {type}, got {Current.Type}"); Consume(); }
 
         private bool IsVariableDeclaration() {
