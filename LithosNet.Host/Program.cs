@@ -77,7 +77,7 @@ namespace LithosNet.Host {
                 }
             } catch { }
             finally { 
-                if (isLoggedIn) SessionManager.Unbind(currentObj);
+                if (isLoggedIn) { try { ObjMgr.CallFunction(currentObj, "logoff"); } catch {} SessionManager.Unbind(currentObj); }
                 client.Close(); 
             }
         }

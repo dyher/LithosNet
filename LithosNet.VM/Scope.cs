@@ -19,6 +19,7 @@ namespace LithosNet.VM {
             throw new Exception($"[VM] Function '{name}' not found.");
         }
         public bool HasFunction(string name) => _functions.ContainsKey(name);
+        public Dictionary<string, LpcValue> GetAllVariables() => _variables;
         public bool Has(string name) => _variables.ContainsKey(name);
 
         // 【新增】從父 Scope 繼承所有變數與函數

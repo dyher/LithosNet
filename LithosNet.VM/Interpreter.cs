@@ -1,7 +1,9 @@
 #nullable disable
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using LithosNet.Core;
 
@@ -62,6 +64,38 @@ namespace LithosNet.VM {
             return val.Type == LpcType.Int && val.AsInt() != 0;
         }
 
+        // 【核心魔法】存檔與讀檔邏輯
+        private void SaveScope(string filename) {
+            var dict = new Dictionary<string, Dictionary<string, object>>();
+            foreach (var kvp in _scope.GetAllVariables()) {
+                var val = kvp.Value;
+                var entry = new Dictionary<string, object> { {"type", val.Type.ToString()} };
+                if (val.Type == LpcType.Int) entry["value"] = val.AsInt();
+                else if (val.Type == LpcType.String) entry["value"] = val.AsString();
+                dict[kvp.Key] = entry;
+            }
+            string json = JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true });
+            string path = Path.Combine("/home/tiny/LithosNet/mudlib/save", filename + ".json");
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllText(path, json);
+            Console.WriteLine($"💾 [VM] 已存檔: {path}");
+        }
+
+        private bool RestoreScope(string filename) {
+            string path = Path.Combine("/home/tiny/LithosNet/mudlib/save", filename + ".json");
+            if (!File.Exists(path)) return false;
+            
+            string json = File.ReadAllText(path);
+            var dict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json);
+            foreach (var kvp in dict) {
+                string typeStr = kvp.Value.GetProperty("type").GetString();
+                if (typeStr == "Int") _scope.Set(kvp.Key, LpcValue.Create(kvp.Value.GetProperty("value").GetInt32()));
+                else if (typeStr == "String") _scope.Set(kvp.Key, LpcValue.Create(kvp.Value.GetProperty("value").GetString()));
+            }
+            Console.WriteLine($"📂 [VM] 已讀檔: {path}");
+            return true;
+        }
+
         private LpcValue Eval(AstNode node) {
             switch (node) {
                 case LiteralNode l: return l.Value;
@@ -69,7 +103,8 @@ namespace LithosNet.VM {
                 case FunctionCallNode c: 
                     var cArgs = new List<LpcValue>(); foreach (var a in c.Arguments) cArgs.Add(Eval(a));
                     
-                    // 攔截 call_out
+                    if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
+                    
                     if (c.Name == "call_out" && cArgs.Count >= 2) {
                         string funcName = cArgs[0].AsString();
                         int delaySec = cArgs[1].AsInt();
@@ -82,20 +117,23 @@ namespace LithosNet.VM {
                         return LpcValue.Create(1);
                     }
                     
-                    // 攔截 clone_object
-                    if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "clone_object" && cArgs.Count >= 1) {
-                        string blueprint = cArgs[0].AsString();
-                        string cloneId = _objMgr.Clone(blueprint);
-                        return LpcValue.Create(cloneId);
+                        return LpcValue.Create(_objMgr.Clone(cArgs[0].AsString()));
                     }
 
-                    // 【核心魔法】攔截 send_to_user，將訊息推回 TCP 客戶端！
                     if (c.Name == "send_to_user" && cArgs.Count >= 1) {
-                        string msg = cArgs[0].AsString();
-                        // 使用非同步發送，不阻塞 VM 執行緒
-                        Task.Run(() => SessionManager.SendAsync(this.ObjectName, msg));
+                        Task.Run(() => SessionManager.SendAsync(this.ObjectName, cArgs[0].AsString()));
                         return LpcValue.Create(1);
+                    }
+
+                    // 【核心】攔截 save_object 與 restore_object
+                    if (c.Name == "save_object" && cArgs.Count >= 1) {
+                        SaveScope(cArgs[0].AsString());
+                        return LpcValue.Create(1);
+                    }
+                    if (c.Name == "restore_object" && cArgs.Count >= 1) {
+                        bool success = RestoreScope(cArgs[0].AsString());
+                        return LpcValue.Create(success ? 1 : 0);
                     }
 
                     return CallFunction(c.Name, cArgs);
@@ -113,9 +151,8 @@ namespace LithosNet.VM {
                     var col2 = Eval(ia.Array); var idx2 = Eval(ia.Index);
                     if (col2.Type == LpcType.Array) return col2.AsArray()[idx2.AsInt()];
                     if (col2.Type == LpcType.Mapping) {
-                        var m = col2.AsMapping();
-                        string k = idx2.AsString();
-                        return m.ContainsKey(k) ? m[k] : LpcValue.Create(0); // 安全讀取
+                        var m = col2.AsMapping(); string k = idx2.AsString();
+                        return m.ContainsKey(k) ? m[k] : LpcValue.Create(0);
                     }
                     return LpcValue.Create(0);
                 case BinaryOpNode b:
