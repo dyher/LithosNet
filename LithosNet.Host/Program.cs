@@ -64,6 +64,7 @@ namespace LithosNet.Host {
                                 LpcValue playerObj = ObjMgr.CallFunction("login", "logon");
                                 currentObj = playerObj.AsString();
                                 SessionManager.Bind(currentObj, writer);
+                        SessionManager.CurrentPlayer.Value = currentObj;
                                 ObjMgr.CallFunction(currentObj, "setup_user", LpcValue.Create(user_name));
                                 isLoggedIn = true;
                                 ObjMgr.CallFunction(currentObj, "command", LpcValue.Create("look"), LpcValue.Create(""));

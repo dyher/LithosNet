@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 
 namespace LithosNet.VM {
     public static class SessionManager {
+        // 【FluffOS 核心】記錄當前正在處理指令的玩家 ID (this_player)
+        public static readonly System.Threading.AsyncLocal<string> CurrentPlayer = new System.Threading.AsyncLocal<string>();
         private static readonly ConcurrentDictionary<string, PipeWriter> _sessions = new();
 
         public static void Bind(string objName, PipeWriter writer) {

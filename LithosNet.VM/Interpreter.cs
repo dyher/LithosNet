@@ -135,7 +135,8 @@ namespace LithosNet.VM {
                     }
                     if (c.Name == "clone_object" && cArgs.Count >= 1) return LpcValue.Create(_objMgr.Clone(cArgs[0].AsString()));
                     if (c.Name == "destruct" && cArgs.Count >= 1) { _objMgr.DestructObject(cArgs[0].AsString()); return LpcValue.Create(1); }
-                    if (c.Name == "send_to_user" && cArgs.Count >= 1) { Task.Run(() => SessionManager.SendAsync(this.ObjectName, cArgs[0].AsString())); return LpcValue.Create(1); }
+                    if (c.Name == "send_to_user" && cArgs.Count >= 1) { string target = SessionManager.CurrentPlayer.Value ?? this.ObjectName;
+                        Task.Run(() => SessionManager.SendAsync(target, cArgs[0].AsString())); return LpcValue.Create(1); }
                     if (c.Name == "save_object" && cArgs.Count >= 1) { SaveScope(cArgs[0].AsString()); return LpcValue.Create(1); }
                     if (c.Name == "restore_object" && cArgs.Count >= 1) return LpcValue.Create(RestoreScope(cArgs[0].AsString()) ? 1 : 0);
                     if (c.Name == "update_object" && cArgs.Count >= 1) {
