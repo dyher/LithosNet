@@ -30,16 +30,23 @@ namespace LithosNet.VM {
                 case FunctionDeclarationNode f: _scope.RegisterFunction(f); break;
                 case ReturnNode r: throw new ReturnSignal(r.Value != null ? Eval(r.Value) : LpcValue.Create(0));
                 case IfNode i: VisitIf(i); break;
+                case WhileNode w: VisitWhile(w); break; // 【新增】
                 case BlockNode b: foreach (var s in b.Statements) Visit(s); break;
                 case FunctionCallNode c: EvalCall(c); break;
+                case BinaryOpNode bin: EvalBinaryOp(bin); break; // 處理賦值以外的二元運算語句
             }
         }
 
-        // 【新增】處理 if/else 邏輯
         private void VisitIf(IfNode node) {
-            bool condResult = EvalBool(node.Condition);
-            if (condResult) Visit(node.ThenBranch);
+            if (EvalBool(node.Condition)) Visit(node.ThenBranch);
             else if (node.ElseBranch != null) Visit(node.ElseBranch);
+        }
+
+        // 【新增】執行 while 迴圈
+        private void VisitWhile(WhileNode node) {
+            while (EvalBool(node.Condition)) {
+                Visit(node.Body);
+            }
         }
 
         private bool EvalBool(AstNode node) {
@@ -53,16 +60,30 @@ namespace LithosNet.VM {
                 case LiteralNode l: return l.Value;
                 case VariableRefNode v: return _scope.Get(v.Name);
                 case FunctionCallNode c: return EvalCall(c);
-                // 【新增】處理二元運算 (==, !=)
                 case BinaryOpNode b:
                     var left = Eval(b.Left);
                     var right = Eval(b.Right);
-                    bool res = false;
-                    if (left.Type == LpcType.String && right.Type == LpcType.String)
-                        res = b.Op == "==" ? left.AsString() == right.AsString() : left.AsString() != right.AsString();
-                    else if (left.Type == LpcType.Int && right.Type == LpcType.Int)
-                        res = b.Op == "==" ? left.AsInt() == right.AsInt() : left.AsInt() != right.AsInt();
-                    return LpcValue.Create(res ? 1 : 0);
+                    
+                    // 數學運算 (+, -)
+                    if (b.Op == "+" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() + right.AsInt());
+                    if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() - right.AsInt());
+                    
+                    // 比較運算 (==, !=, <, >, <=, >=)
+                    if (left.Type == LpcType.Int && right.Type == LpcType.Int) {
+                        int lVal = left.AsInt(), rVal = right.AsInt();
+                        bool res = b.Op switch {
+                            "==" => lVal == rVal, "!=" => lVal != rVal,
+                            "<" => lVal < rVal, ">" => lVal > rVal,
+                            "<=" => lVal <= rVal, ">=" => lVal >= rVal,
+                            _ => false
+                        };
+                        return LpcValue.Create(res ? 1 : 0);
+                    }
+                    if (left.Type == LpcType.String && right.Type == LpcType.String) {
+                        bool res = b.Op == "==" ? left.AsString() == right.AsString() : left.AsString() != right.AsString();
+                        return LpcValue.Create(res ? 1 : 0);
+                    }
+                    return LpcValue.Create(0);
                 default: return LpcValue.Create(0);
             }
         }

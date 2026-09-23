@@ -43,22 +43,28 @@ namespace LithosNet.Compiler {
 
         private AstNode ParseStatement() {
             if (Check(TokenType.Keyword_Return)) { Consume(); var v = ParseExpression(); Expect(TokenType.Semicolon); return new ReturnNode { Value = v }; }
-            // 【新增】解析 if 語句
             if (Check(TokenType.Keyword_If)) return ParseIfStatement();
+            // 【新增】解析 while 語句
+            if (Check(TokenType.Keyword_While)) return ParseWhileStatement();
             if (IsTypeKeyword() && _pos + 2 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.Identifier && _tokens[_pos + 2].Type != TokenType.LeftParen) return ParseVariableDeclaration();
             var expr = ParseExpression(); Expect(TokenType.Semicolon); return expr;
         }
 
-        // 【新增】if (condition) { ... } else { ... }
         private AstNode ParseIfStatement() {
-            Consume(); // eat 'if'
+            Consume(); Expect(TokenType.LeftParen); var cond = ParseExpression(); Expect(TokenType.RightParen);
+            var thenBranch = ParseBlockOrStatement(); AstNode elseBranch = null;
+            if (Check(TokenType.Keyword_Else)) { Consume(); elseBranch = ParseBlockOrStatement(); }
+            return new IfNode { Condition = cond, ThenBranch = thenBranch, ElseBranch = elseBranch };
+        }
+
+        // 【新增】while (condition) { ... }
+        private AstNode ParseWhileStatement() {
+            Consume(); // eat 'while'
             Expect(TokenType.LeftParen);
             var cond = ParseExpression();
             Expect(TokenType.RightParen);
-            var thenBranch = ParseBlockOrStatement();
-            AstNode elseBranch = null;
-            if (Check(TokenType.Keyword_Else)) { Consume(); elseBranch = ParseBlockOrStatement(); }
-            return new IfNode { Condition = cond, ThenBranch = thenBranch, ElseBranch = elseBranch };
+            var body = ParseBlockOrStatement();
+            return new WhileNode { Condition = cond, Body = body };
         }
 
         private AstNode ParseBlockOrStatement() {
@@ -71,13 +77,26 @@ namespace LithosNet.Compiler {
             return ParseStatement();
         }
 
-        // 【升級】支援 == 和 != 的表達式解析
+        // 【升級】支援比較運算符與加減法 (簡化版優先級解析)
         private AstNode ParseExpression() {
+            var left = ParseTerm();
+            while (Check(TokenType.Equal) || Check(TokenType.NotEqual) || 
+                   Check(TokenType.Less) || Check(TokenType.Greater) ||
+                   Check(TokenType.LessEqual) || Check(TokenType.GreaterEqual)) {
+                string op = Consume().Value;
+                var right = ParseTerm();
+                left = new BinaryOpNode { Left = left, Op = op, Right = right };
+            }
+            return left;
+        }
+
+        // 【新增】處理 + 和 -
+        private AstNode ParseTerm() {
             var left = ParsePrimary();
-            if (Check(TokenType.Equal) || Check(TokenType.NotEqual)) {
+            while (Check(TokenType.Plus) || Check(TokenType.Minus)) {
                 string op = Consume().Value;
                 var right = ParsePrimary();
-                return new BinaryOpNode { Left = left, Op = op, Right = right };
+                left = new BinaryOpNode { Left = left, Op = op, Right = right };
             }
             return left;
         }
@@ -93,6 +112,9 @@ namespace LithosNet.Compiler {
                     Expect(TokenType.RightParen); return new FunctionCallNode { Name = name, Arguments = args };
                 }
                 return new VariableRefNode { Name = name };
+            }
+            if (Check(TokenType.LeftParen)) {
+                Consume(); var expr = ParseExpression(); Expect(TokenType.RightParen); return expr;
             }
             throw new Exception($"[Parser] Line {Current.Line}: Cannot parse {Current.Type}");
         }

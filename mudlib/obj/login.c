@@ -1,18 +1,18 @@
-// Lithos.NET 的登入物件 (具備 FFI 跨語言調用能力！)
-int max_hp = 1000;
+// Lithos.NET 的登入物件 (具備圖靈完備能力！)
 
 void logon() {
-    debug_message("歡迎來到 Lithos.NET 的世界！");
+    debug_message("歡迎來到 Lithos.NET！正在測試 while 迴圈...");
     
-    // 【歷史性對接】LPC 呼叫 C# Efun，C# Efun 呼叫 C 動態庫！
-    debug_message("正在透過 FFI 呼叫 C 語言底層計算戰鬥傷害...");
+    // 使用 while 迴圈計算 1 + 2 + ... + 100
+    int sum = 0;
+    int i = 1;
+    while (i <= 100) {
+        sum = sum + i;
+        i = i + 1;
+    }
     
-    int atk = 150;
-    int def = 50;
-    int final_dmg = calculate_damage(atk, def);
-    
-    debug_message("計算完成！最終傷害是：");
-    debug_int(final_dmg);
+    debug_message("1 到 100 的總和是：");
+    debug_int(sum); // 預期輸出 5050
 }
 
 int verify_login(string user, string pass) {
