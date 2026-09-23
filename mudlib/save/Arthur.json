@@ -15,12 +15,23 @@
     "type": "String",
     "value": "Arthur"
   },
+  "msg": {
+    "type": "String",
+    "value": "say Hello FluffOS!"
+  },
+  "parts": {
+    "type": "Array"
+  },
   "verb": {
     "type": "String",
-    "value": "bench"
+    "value": "say"
   },
   "args": {
     "type": "String",
-    "value": ""
+    "value": "Hello FluffOS!"
+  },
+  "i": {
+    "type": "Int",
+    "value": 3
   }
 }

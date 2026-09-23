@@ -1,0 +1,38 @@
+{
+  "name": {
+    "type": "String",
+    "value": "Berserker"
+  },
+  "environment": {
+    "type": "String",
+    "value": "forest"
+  },
+  "hp": {
+    "type": "Int",
+    "value": 1000
+  },
+  "user_name": {
+    "type": "String",
+    "value": "Berserker"
+  },
+  "verb": {
+    "type": "String",
+    "value": "say"
+  },
+  "args": {
+    "type": "String",
+    "value": "\u6709\u5594\uFF01\u6211\u525B\u525B\u9032\u4F86\u4E5F\u6709\u770B\u5230\u63D0\u793A\uFF01"
+  },
+  "dest": {
+    "type": "String",
+    "value": "forest"
+  },
+  "msg": {
+    "type": "String",
+    "value": "Arthur says: \u9019\u88E1\u7684 init apply \u6709\u904B\u4F5C\u55CE\uFF1F"
+  },
+  "source": {
+    "type": "String",
+    "value": "player#1"
+  }
+}

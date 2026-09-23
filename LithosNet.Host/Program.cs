@@ -1,9 +1,11 @@
 using System;
 using System.Buffers;
+using System.IO;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using LithosNet.Core;
 using LithosNet.VM;
@@ -11,31 +13,32 @@ using LithosNet.VM;
 namespace LithosNet.Host {
     class Program {
         static readonly ObjectManager ObjMgr = new();
-        static readonly string MudlibPath = "/home/tiny/LithosNet/mudlib/";
+        static string MudlibPath;
+        static string MasterObj;
 
         static async Task Main(string[] args) {
             Console.WriteLine("==================================================");
-            Console.WriteLine("🔥 [Phase 20] 啟動多人互動與聊天系統！");
+            Console.WriteLine("🔥 [Phase 30] 啟動正統 FluffOS 架構模式！");
             Console.WriteLine("==================================================\n");
 
             EfunRegistry.RegisterFromType(typeof(BuiltInEfuns));
             
-            ObjMgr.Preload(MudlibPath + "obj/master.c");
-            ObjMgr.CallFunction("master", "create");
-            ObjMgr.Preload(MudlibPath + "obj/player.c");
-            ObjMgr.Preload(MudlibPath + "obj/room.c");
-            ObjMgr.Preload(MudlibPath + "obj/benchmark.c");
-            ObjMgr.Preload(MudlibPath + "obj/goblin.c");
-            ObjMgr.Preload(MudlibPath + "obj/goblin.c");
-            ObjMgr.Preload(MudlibPath + "obj/login.c");
-            ObjMgr.Preload(MudlibPath + "room/town.c");
-            ObjMgr.Preload(MudlibPath + "room/forest.c");
+            // 讀取 config.json
+            string cfgText = File.ReadAllText("config.json");
+            var cfg = JsonDocument.Parse(cfgText).RootElement;
+            MudlibPath = cfg.GetProperty("mudlib_dir").GetString();
+            MasterObj = cfg.GetProperty("master_object").GetString();
+            int port = cfg.GetProperty("port").GetInt32();
 
-            // var reloader = new HotReloader(MudlibPath, ObjMgr);
-            HeartbeatManager.Initialize(ObjMgr, 2000); // 每 2 秒一次心跳
-            var listener = new TcpListener(IPAddress.Any, 6900);
+            // 【FluffOS 標準】Driver 只負責載入 Master Object
+            ObjMgr.Preload(MudlibPath + "obj/" + MasterObj + ".c");
+            
+            // 呼叫 master->preload() 讓 LPC 自己決定要預載入什麼
+            try { ObjMgr.CallFunction(MasterObj, "preload"); } catch (Exception e) { Console.WriteLine($"⚠️ Master preload 錯誤: {e.Message}"); }
+
+            var listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
-            Console.WriteLine("\n🚀 Lithos.NET Driver 啟動！(多人模式)\n");
+            Console.WriteLine($"\n🚀 {cfg.GetProperty("name").GetString()} Driver 啟動！監聽端口: {port}\n");
 
             while (true) {
                 var client = await listener.AcceptTcpClientAsync();
@@ -46,8 +49,21 @@ namespace LithosNet.Host {
         static async Task HandleClientAsync(TcpClient client) {
             var reader = PipeReader.Create(client.GetStream());
             var writer = PipeWriter.Create(client.GetStream());
-            string currentObj = "login";
-            bool isLoggedIn = false;
+            
+            // 【FluffOS 標準】呼叫 master->connect() 取得 login 物件
+            string currentObj = "";
+            try {
+                currentObj = ObjMgr.CallFunction(MasterObj, "connect").AsString();
+            } catch (Exception e) {
+                Console.WriteLine($"❌ master->connect() 失敗: {e.Message}");
+                client.Close(); return;
+            }
+
+            SessionManager.Bind(currentObj, writer);
+            SessionManager.CurrentPlayer.Value = currentObj;
+            
+            // 呼叫 login->logon() 進行初始握手
+            try { ObjMgr.CallFunction(currentObj, "logon"); } catch {}
 
             try {
                 while (true) {
@@ -58,25 +74,16 @@ namespace LithosNet.Host {
                         var lineBytes = buffer.Slice(0, position.Value);
                         string line = Encoding.UTF8.GetString(lineBytes).Trim();
                         
-                        if (!string.IsNullOrEmpty(line)) {
-                            if (!isLoggedIn) {
-                                // 【簡化】第一行直接作為玩家名稱登入
-                                string user_name = line;
-                                LpcValue playerObj = ObjMgr.CallFunction("login", "logon");
-                                currentObj = playerObj.AsString();
-                                SessionManager.Bind(currentObj, writer);
-                        SessionManager.CurrentPlayer.Value = currentObj;
-                                ObjMgr.CallFunction(currentObj, "setup_user", LpcValue.Create(user_name));
-                                isLoggedIn = true;
-                                ObjMgr.CallFunction(currentObj, "command", LpcValue.Create("look"), LpcValue.Create(""));
-                            } else {
-                                // 【核心】將指令拆分為 verb 和 args
-                                string[] parts = line.Split(new[] { ' ' }, 2);
-                                string verb = parts[0];
-                                string args_str = parts.Length > 1 ? parts[1] : "";
-                                ObjMgr.CallFunction(currentObj, "command", LpcValue.Create(verb), LpcValue.Create(args_str));
-                            }
+                        // 【FluffOS 標準】Driver 不拆分指令，直接將整行字串丟給 receive_message
+                        currentObj = SessionManager.GetObjName(writer);
+                        if (string.IsNullOrEmpty(currentObj)) break;
+                        
+                        try {
+                            ObjMgr.CallFunction(currentObj, "receive_message", LpcValue.Create(line));
+                        } catch (Exception e) {
+                            Console.WriteLine($"⚠️ LPC 執行錯誤 ({currentObj}): {e.Message}");
                         }
+                        
                         buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
                     }
                     reader.AdvanceTo(buffer.Start, buffer.End);
@@ -84,11 +91,12 @@ namespace LithosNet.Host {
                 }
             } catch { }
             finally { 
-                if (isLoggedIn) { 
-                        try { ObjMgr.CallFunction(currentObj, "logoff"); } catch {} 
-                        SessionManager.Unbind(currentObj);
-                        ObjMgr.DestructObject(currentObj); 
-                    }
+                currentObj = SessionManager.GetObjName(writer);
+                if (!string.IsNullOrEmpty(currentObj)) {
+                    try { ObjMgr.CallFunction(currentObj, "logoff"); } catch {}
+                    SessionManager.Unbind(currentObj);
+                    ObjMgr.DestructObject(currentObj);
+                }
                 client.Close(); 
             }
         }

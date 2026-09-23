@@ -1,0 +1,6 @@
+{
+    "name": "Lithos.NET",
+    "port": 6900,
+    "master_object": "master",
+    "mudlib_dir": "/home/tiny/LithosNet/mudlib/"
+}
