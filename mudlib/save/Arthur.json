@@ -1,0 +1,26 @@
+{
+  "name": {
+    "type": "String",
+    "value": "Arthur"
+  },
+  "environment": {
+    "type": "String",
+    "value": "town"
+  },
+  "hp": {
+    "type": "Int",
+    "value": 1000
+  },
+  "user_name": {
+    "type": "String",
+    "value": "Arthur"
+  },
+  "verb": {
+    "type": "String",
+    "value": "bench"
+  },
+  "args": {
+    "type": "String",
+    "value": ""
+  }
+}
