@@ -28,6 +28,7 @@ namespace LithosNet.Host {
             ObjMgr.Preload(MudlibPath + "room/town.c");
             ObjMgr.Preload(MudlibPath + "room/forest.c");
 
+            HeartbeatManager.Initialize(ObjMgr, 2000); // 每 2 秒一次心跳
             var listener = new TcpListener(IPAddress.Any, 6900);
             listener.Start();
             Console.WriteLine("\n🚀 Lithos.NET Driver 啟動！(多人模式)\n");

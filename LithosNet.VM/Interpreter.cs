@@ -127,6 +127,10 @@ namespace LithosNet.VM {
                         return LpcValue.Create(_objMgr.Clone(cArgs[0].AsString()));
                     }
 
+                    if (c.Name == "set_heart_beat" && cArgs.Count >= 1) {
+                        HeartbeatManager.SetHeartBeat(this.ObjectName, cArgs[0].AsInt() != 0);
+                        return LpcValue.Create(1);
+                    }
                     if (c.Name == "send_to_user" && cArgs.Count >= 1) {
                         Task.Run(() => SessionManager.SendAsync(this.ObjectName, cArgs[0].AsString()));
                         return LpcValue.Create(1);

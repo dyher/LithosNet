@@ -13,7 +13,7 @@
   },
   "target_mob": {
     "type": "String",
-    "value": ""
+    "value": "goblin#2"
   },
   "user_name": {
     "type": "String",
@@ -21,11 +21,11 @@
   },
   "verb": {
     "type": "String",
-    "value": "split"
+    "value": "who"
   },
   "args": {
     "type": "String",
-    "value": "give 100 gold to Arthur"
+    "value": ""
   },
   "desc": {
     "type": "String",
@@ -35,18 +35,15 @@
     "type": "String",
     "value": "forest"
   },
-  "all": {
-    "type": "Array"
-  },
   "list": {
     "type": "String",
-    "value": "player#1\\n"
+    "value": "player#1\n"
   },
   "u": {
     "type": "String",
     "value": "player#1"
   },
-  "parts": {
+  "all": {
     "type": "Array"
   }
 }

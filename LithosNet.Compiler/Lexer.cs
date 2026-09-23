@@ -1,6 +1,7 @@
 #nullable disable
 using System;
 using System.Collections.Generic;
+using System.Text;
 using LithosNet.Core;
 
 namespace LithosNet.Compiler {
@@ -12,9 +13,7 @@ namespace LithosNet.Compiler {
         LeftParen, RightParen, LeftBrace, RightBrace, LeftBracket, RightBracket,
         Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
         Plus, Minus, Star, Slash, Percent,
-        Arrow, 
-        // 【新增】語法糖運算符
-        And, Or, PlusAssign, MinusAssign, PlusPlus, MinusMinus,
+        Arrow, And, Or, PlusAssign, MinusAssign, PlusPlus, MinusMinus,
         EOF
     }
 
@@ -47,14 +46,12 @@ namespace LithosNet.Compiler {
                 if (c == '/' && PeekNext == '/') { while (_pos < _source.Length && Peek != '\n') Advance(); continue; }
                 if (c == '/' && PeekNext == '*') { Advance(); Advance(); while (_pos + 1 < _source.Length && !(Peek == '*' && PeekNext == '/')) Advance(); if (_pos + 1 < _source.Length) { Advance(); Advance(); } continue; }
 
-                // 【新增】雙字元與三字元運算符
                 if (c == '&' && PeekNext == '&') { Advance(); Advance(); tokens.Add(new Token(TokenType.And, "&&", _line)); continue; }
                 if (c == '|' && PeekNext == '|') { Advance(); Advance(); tokens.Add(new Token(TokenType.Or, "||", _line)); continue; }
                 if (c == '+' && PeekNext == '+') { Advance(); Advance(); tokens.Add(new Token(TokenType.PlusPlus, "++", _line)); continue; }
                 if (c == '-' && PeekNext == '-') { Advance(); Advance(); tokens.Add(new Token(TokenType.MinusMinus, "--", _line)); continue; }
                 if (c == '+' && PeekNext == '=') { Advance(); Advance(); tokens.Add(new Token(TokenType.PlusAssign, "+=", _line)); continue; }
                 if (c == '-' && PeekNext == '=') { Advance(); Advance(); tokens.Add(new Token(TokenType.MinusAssign, "-=", _line)); continue; }
-                
                 if (c == '=' && PeekNext == '=') { Advance(); Advance(); tokens.Add(new Token(TokenType.Equal, "==", _line)); continue; }
                 if (c == '!' && PeekNext == '=') { Advance(); Advance(); tokens.Add(new Token(TokenType.NotEqual, "!=", _line)); continue; }
                 if (c == '<' && PeekNext == '=') { Advance(); Advance(); tokens.Add(new Token(TokenType.LessEqual, "<=", _line)); continue; }
@@ -82,7 +79,30 @@ namespace LithosNet.Compiler {
 
                 if (c == '/') { Advance(); tokens.Add(new Token(TokenType.Slash, "/", _line)); continue; }
 
-                if (c == '"') { Advance(); int start = _pos; while (_pos < _source.Length && Peek != '"') Advance(); tokens.Add(new Token(TokenType.StringLiteral, _source[start.._pos], _line)); if (_pos < _source.Length) Advance(); continue; }
+                // 【核心修復】完美處理字串轉義序列 (\n, \t, \\, \")
+                if (c == '"') {
+                    Advance();
+                    var sb = new StringBuilder();
+                    while (_pos < _source.Length && Peek != '"') {
+                        if (Peek == '\\' && _pos + 1 < _source.Length) {
+                            Advance(); // eat backslash
+                            char esc = Advance();
+                            switch (esc) {
+                                case 'n': sb.Append('\n'); break;
+                                case 't': sb.Append('\t'); break;
+                                case '\\': sb.Append('\\'); break;
+                                case '"': sb.Append('"'); break;
+                                default: sb.Append('\\'); sb.Append(esc); break;
+                            }
+                        } else {
+                            sb.Append(Advance());
+                        }
+                    }
+                    if (_pos < _source.Length) Advance(); // eat closing "
+                    tokens.Add(new Token(TokenType.StringLiteral, sb.ToString(), _line));
+                    continue;
+                }
+
                 if (IsAsciiDigit(c)) { int start = _pos; while (_pos < _source.Length && IsAsciiDigit(Peek)) Advance(); tokens.Add(new Token(TokenType.IntLiteral, _source[start.._pos], _line)); continue; }
                 
                 if (IsAsciiLetter(c) || c == '_') {
@@ -94,7 +114,8 @@ namespace LithosNet.Compiler {
                         "void" => TokenType.Keyword_Void, "mapping" => TokenType.Keyword_Mapping,
                         "inherit" => TokenType.Keyword_Inherit, "return" => TokenType.Keyword_Return,
                         "if" => TokenType.Keyword_If, "else" => TokenType.Keyword_Else,
-                        "while" => TokenType.Keyword_While, "for" => TokenType.Keyword_For, "foreach" => TokenType.Keyword_Foreach, "in" => TokenType.Keyword_In,
+                        "while" => TokenType.Keyword_While, "for" => TokenType.Keyword_For,
+                        "foreach" => TokenType.Keyword_Foreach, "in" => TokenType.Keyword_In,
                         _ => TokenType.Identifier
                     };
                     tokens.Add(new Token(type, word, _line));
