@@ -169,12 +169,10 @@ namespace LithosNet.VM {
                             IntPtr handle = System.Runtime.InteropServices.NativeLibrary.Load(lib);
                             IntPtr ptr = System.Runtime.InteropServices.NativeLibrary.GetExport(handle, func);
                             
-                            // 範例 1: 呼叫無參數，返回 int 的函數 (如 getpid)
                             if (func == "getpid" || func == "time") {
                                 var del = (IntReturnDelegate)System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(ptr, typeof(IntReturnDelegate));
                                 return LpcValue.Create(del());
                             }
-                            // 範例 2: 呼叫傳入 string，返回 string (指標) 的函數 (如 getenv)
                             if (func == "getenv" && cArgs.Count >= 3) {
                                 var del = (StringArgReturnIntPtrDelegate)System.Runtime.InteropServices.Marshal.GetDelegateForFunctionPointer(ptr, typeof(StringArgReturnIntPtrDelegate));
                                 IntPtr res = del(cArgs[2].AsString());
