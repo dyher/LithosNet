@@ -16,10 +16,11 @@ namespace LithosNet.Core {
     public class IfNode : AstNode { public AstNode Condition; public AstNode ThenBranch; public AstNode ElseBranch; }
     public class BlockNode : AstNode { public List<AstNode> Statements = new(); }
     public class WhileNode : AstNode { public AstNode Condition; public AstNode Body; }
+    public class ForNode : AstNode { public AstNode Init; public AstNode Condition; public AstNode Step; public AstNode Body; }
     public class ArrayLiteralNode : AstNode { public List<AstNode> Elements = new(); }
     public class IndexAccessNode : AstNode { public AstNode Array; public AstNode Index; }
     public class IndexAssignmentNode : AstNode { public AstNode Array; public AstNode Index; public AstNode Value; }
     
-    // 【新增】for 迴圈節點
-    public class ForNode : AstNode { public AstNode Init; public AstNode Condition; public AstNode Step; public AstNode Body; }
+    // 【新增】Mapping 字面量節點 ([ "key" : value ])
+    public class MappingLiteralNode : AstNode { public List<AstNode> Keys = new(); public List<AstNode> Values = new(); }
 }

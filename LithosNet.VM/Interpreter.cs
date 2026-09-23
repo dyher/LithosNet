@@ -29,9 +29,11 @@ namespace LithosNet.VM {
                 case VariableDeclarationNode v: _scope.Set(v.VariableName, v.Initializer != null ? Eval(v.Initializer) : LpcValue.Create(0)); break;
                 case AssignmentNode a: _scope.Set(a.VariableName, Eval(a.Value)); break;
                 case IndexAssignmentNode ia:
-                    var arrVal = Eval(ia.Array).AsArray();
-                    int idx = Eval(ia.Index).AsInt();
-                    arrVal[idx] = Eval(ia.Value);
+                    var col = Eval(ia.Array);
+                    var idx = Eval(ia.Index);
+                    var val = Eval(ia.Value);
+                    if (col.Type == LpcType.Array) col.AsArray()[idx.AsInt()] = val;
+                    else if (col.Type == LpcType.Mapping) col.AsMapping()[idx.AsString()] = val;
                     break;
                 case FunctionDeclarationNode f: _scope.RegisterFunction(f); break;
                 case ReturnNode r: throw new ReturnSignal(r.Value != null ? Eval(r.Value) : LpcValue.Create(0));
@@ -49,13 +51,8 @@ namespace LithosNet.VM {
             else if (node.ElseBranch != null) Visit(node.ElseBranch);
         }
 
-        private void VisitWhile(WhileNode node) {
-            while (EvalBool(node.Condition)) {
-                Visit(node.Body);
-            }
-        }
+        private void VisitWhile(WhileNode node) { while (EvalBool(node.Condition)) Visit(node.Body); }
 
-        // 【新增】for (init; cond; step) { body }
         private void VisitFor(ForNode node) {
             if (node.Init != null) Visit(node.Init);
             while (node.Condition == null || EvalBool(node.Condition)) {
@@ -79,40 +76,35 @@ namespace LithosNet.VM {
                     var list = new List<LpcValue>();
                     foreach (var e in al.Elements) list.Add(Eval(e));
                     return LpcValue.Create(list);
+                // 【新增】執行 Mapping 字面量解析
+                case MappingLiteralNode ml:
+                    var dict = new Dictionary<string, LpcValue>();
+                    for (int i = 0; i < ml.Keys.Count; i++) {
+                        string key = Eval(ml.Keys[i]).AsString();
+                        dict[key] = Eval(ml.Values[i]);
+                    }
+                    return LpcValue.Create(dict);
+                // 【升級】IndexAccess 同時支援 Array 與 Mapping
                 case IndexAccessNode ia:
-                    var arr = Eval(ia.Array).AsArray();
-                    int i = Eval(ia.Index).AsInt();
-                    return arr[i];
+                    var col = Eval(ia.Array);
+                    var idx = Eval(ia.Index);
+                    if (col.Type == LpcType.Array) return col.AsArray()[idx.AsInt()];
+                    if (col.Type == LpcType.Mapping) return col.AsMapping()[idx.AsString()];
+                    return LpcValue.Create(0);
                 case BinaryOpNode b:
                     var left = Eval(b.Left);
                     var right = Eval(b.Right);
-                    
-                    // 【核心升級】+ 運算符同時支援整數加法與字串拼接！
                     if (b.Op == "+") {
-                        if (left.Type == LpcType.Int && right.Type == LpcType.Int) 
-                            return LpcValue.Create(left.AsInt() + right.AsInt());
-                        if (left.Type == LpcType.String || right.Type == LpcType.String) 
-                            return LpcValue.Create(left.AsString() + right.AsString());
+                        if (left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() + right.AsInt());
+                        if (left.Type == LpcType.String || right.Type == LpcType.String) return LpcValue.Create(left.AsString() + right.AsString());
                     }
-                    if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int) 
-                        return LpcValue.Create(left.AsInt() - right.AsInt());
-                    // 【新增】* 和 / 運算
-                    if (b.Op == "*" && left.Type == LpcType.Int && right.Type == LpcType.Int) 
-                        return LpcValue.Create(left.AsInt() * right.AsInt());
-                    if (b.Op == "/" && left.Type == LpcType.Int && right.Type == LpcType.Int) 
-                        return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() / right.AsInt() : 0);
-                    // 【新增】% 取餘數
-                    if (b.Op == "%" && left.Type == LpcType.Int && right.Type == LpcType.Int) 
-                        return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() % right.AsInt() : 0);
-                    
+                    if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() - right.AsInt());
+                    if (b.Op == "*" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() * right.AsInt());
+                    if (b.Op == "/" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() / right.AsInt() : 0);
+                    if (b.Op == "%" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() % right.AsInt() : 0);
                     if (left.Type == LpcType.Int && right.Type == LpcType.Int) {
                         int lVal = left.AsInt(), rVal = right.AsInt();
-                        bool res = b.Op switch {
-                            "==" => lVal == rVal, "!=" => lVal != rVal,
-                            "<" => lVal < rVal, ">" => lVal > rVal,
-                            "<=" => lVal <= rVal, ">=" => lVal >= rVal,
-                            _ => false
-                        };
+                        bool res = b.Op switch { "==" => lVal == rVal, "!=" => lVal != rVal, "<" => lVal < rVal, ">" => lVal > rVal, "<=" => lVal <= rVal, ">=" => lVal >= rVal, _ => false };
                         return LpcValue.Create(res ? 1 : 0);
                     }
                     if (left.Type == LpcType.String && right.Type == LpcType.String) {

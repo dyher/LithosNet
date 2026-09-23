@@ -13,37 +13,27 @@ namespace LithosNet.Core {
         private readonly object _referenceValue;
 
         private LpcValue(LpcType type, long primitive, object reference) {
-            Type = type;
-            _primitiveValue = primitive;
-            _referenceValue = reference;
+            Type = type; _primitiveValue = primitive; _referenceValue = reference;
         }
 
         public static LpcValue Create(int value) => new LpcValue(LpcType.Int, value, null);
         public static LpcValue Create(string value) => new LpcValue(LpcType.String, 0, value);
-        // 【新增】建立 Array 類型
         public static LpcValue Create(List<LpcValue> value) => new LpcValue(LpcType.Array, 0, value);
+        // 【新增】建立 Mapping 類型
+        public static LpcValue Create(Dictionary<string, LpcValue> value) => new LpcValue(LpcType.Mapping, 0, value);
         
-        public int AsInt() {
-            if (Type != LpcType.Int) throw new InvalidCastException($"Cannot cast {Type} to Int");
-            return (int)_primitiveValue;
-        }
-        
-        public string AsString() {
-            if (Type != LpcType.String) throw new InvalidCastException($"Cannot cast {Type} to String");
-            return (string)_referenceValue;
-        }
-
-        // 【新增】取得 Array
-        public List<LpcValue> AsArray() {
-            if (Type != LpcType.Array) throw new InvalidCastException($"Cannot cast {Type} to Array");
-            return (List<LpcValue>)_referenceValue;
-        }
+        public int AsInt() => (Type == LpcType.Int) ? (int)_primitiveValue : throw new InvalidCastException();
+        public string AsString() => (Type == LpcType.String) ? (string)_referenceValue : throw new InvalidCastException();
+        public List<LpcValue> AsArray() => (Type == LpcType.Array) ? (List<LpcValue>)_referenceValue : throw new InvalidCastException();
+        // 【新增】取得 Mapping
+        public Dictionary<string, LpcValue> AsMapping() => (Type == LpcType.Mapping) ? (Dictionary<string, LpcValue>)_referenceValue : throw new InvalidCastException();
 
         public override string ToString() {
             return Type switch {
                 LpcType.Int => _primitiveValue.ToString(),
                 LpcType.String => $"\"{_referenceValue}\"",
                 LpcType.Array => $"<Array[{((List<LpcValue>)_referenceValue).Count}]>",
+                LpcType.Mapping => $"<Mapping[{((Dictionary<string, LpcValue>)_referenceValue).Count}]>",
                 _ => $"<{Type}>"
             };
         }

@@ -61,7 +61,6 @@ namespace LithosNet.Compiler {
             return new FunctionDeclarationNode { ReturnType = ret, Name = name, Parameters = parms, Body = body };
         }
 
-        // 【極簡化】ParseStatement 不再處理賦值，全部交給 ParseExpression！
         private AstNode ParseStatement() {
             if (Check(TokenType.Keyword_Return)) { Consume(); var v = ParseExpression(); Expect(TokenType.Semicolon); return new ReturnNode { Value = v }; }
             if (Check(TokenType.Keyword_If)) return ParseIfStatement();
@@ -93,15 +92,12 @@ namespace LithosNet.Compiler {
                 if (IsVariableDeclaration()) init = ParseVariableDeclaration();
                 else { init = ParseExpression(); Expect(TokenType.Semicolon); }
             } else { Consume(); }
-            
             AstNode cond = null;
             if (!Check(TokenType.Semicolon)) cond = ParseExpression();
             Expect(TokenType.Semicolon);
-            
             AstNode step = null;
-            if (!Check(TokenType.RightParen)) step = ParseExpression(); // 【關鍵】這裡現在能完美解析 i = i + 1 了！
+            if (!Check(TokenType.RightParen)) step = ParseExpression();
             Expect(TokenType.RightParen);
-            
             return new ForNode { Init = init, Condition = cond, Step = step, Body = ParseBlockOrStatement() };
         }
 
@@ -115,59 +111,59 @@ namespace LithosNet.Compiler {
             return ParseStatement();
         }
 
-        // 【教科書級別的優先級鏈】
-        // 1. 表達式入口
         private AstNode ParseExpression() { return ParseAssignment(); }
 
-        // 2. 賦值優先級最低，且為右結合 (支援 a = b = 5)
         private AstNode ParseAssignment() {
             var expr = ParseComparison();
             if (Check(TokenType.Assign)) {
                 Consume();
-                var val = ParseAssignment(); // 右結合遞迴
-                if (expr is VariableRefNode vref) 
-                    return new AssignmentNode { VariableName = vref.Name, Value = val };
-                if (expr is IndexAccessNode idx) 
-                    return new IndexAssignmentNode { Array = idx.Array, Index = idx.Index, Value = val };
+                var val = ParseAssignment();
+                if (expr is VariableRefNode vref) return new AssignmentNode { VariableName = vref.Name, Value = val };
+                if (expr is IndexAccessNode idx) return new IndexAssignmentNode { Array = idx.Array, Index = idx.Index, Value = val };
                 throw new Exception($"[Parser] Line {Current.Line}: Invalid assignment target");
             }
             return expr;
         }
 
-        // 3. 比較運算符
         private AstNode ParseComparison() {
             var left = ParseAdditive();
-            while (Check(TokenType.Equal) || Check(TokenType.NotEqual) || 
-                   Check(TokenType.Less) || Check(TokenType.Greater) ||
-                   Check(TokenType.LessEqual) || Check(TokenType.GreaterEqual)) {
-                string op = Consume().Value;
-                left = new BinaryOpNode { Left = left, Op = op, Right = ParseAdditive() };
+            while (Check(TokenType.Equal) || Check(TokenType.NotEqual) || Check(TokenType.Less) || Check(TokenType.Greater) || Check(TokenType.LessEqual) || Check(TokenType.GreaterEqual)) {
+                string op = Consume().Value; left = new BinaryOpNode { Left = left, Op = op, Right = ParseAdditive() };
             }
             return left;
         }
 
-        // 4. 加減法
         private AstNode ParseAdditive() {
             var left = ParseMultiplicative();
             while (Check(TokenType.Plus) || Check(TokenType.Minus)) {
-                string op = Consume().Value;
-                left = new BinaryOpNode { Left = left, Op = op, Right = ParseMultiplicative() };
+                string op = Consume().Value; left = new BinaryOpNode { Left = left, Op = op, Right = ParseMultiplicative() };
             }
             return left;
         }
 
-        // 5. 乘除與取餘
         private AstNode ParseMultiplicative() {
             var left = ParsePrimary();
             while (Check(TokenType.Star) || Check(TokenType.Slash) || Check(TokenType.Percent)) {
-                string op = Consume().Value;
-                left = new BinaryOpNode { Left = left, Op = op, Right = ParsePrimary() };
+                string op = Consume().Value; left = new BinaryOpNode { Left = left, Op = op, Right = ParsePrimary() };
             }
             return left;
         }
 
-        // 6. 基礎元素 (Primary)
         private AstNode ParsePrimary() {
+            // 【核心升級】解析 LPC 經典的 Mapping 語法: ([ "key" : value ])
+            if (Check(TokenType.LeftParen) && _pos + 1 < _tokens.Count && _tokens[_pos + 1].Type == TokenType.LeftBracket) {
+                Consume(); Consume(); // eat ([
+                var keys = new List<AstNode>(); var values = new List<AstNode>();
+                while (!Check(TokenType.RightBracket)) {
+                    keys.Add(ParseExpression());
+                    Expect(TokenType.Colon); // 必須是 :
+                    values.Add(ParseExpression());
+                    if (Check(TokenType.Comma)) Consume();
+                }
+                Expect(TokenType.RightBracket); Expect(TokenType.RightParen); // eat ])
+                return new MappingLiteralNode { Keys = keys, Values = values };
+            }
+
             if (Check(TokenType.LeftBracket)) {
                 Consume();
                 var elements = new List<AstNode>();
@@ -178,8 +174,10 @@ namespace LithosNet.Compiler {
                 Expect(TokenType.RightBracket);
                 return new ArrayLiteralNode { Elements = elements };
             }
+
             if (Check(TokenType.IntLiteral)) return new LiteralNode { Value = LpcValue.Create(int.Parse(Consume().Value)) };
             if (Check(TokenType.StringLiteral)) return new LiteralNode { Value = LpcValue.Create(Consume().Value) };
+            
             if (Check(TokenType.Identifier)) {
                 string name = Consume().Value;
                 if (Check(TokenType.LeftBracket)) {

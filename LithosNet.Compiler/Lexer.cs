@@ -8,7 +8,7 @@ namespace LithosNet.Compiler {
         IntLiteral, StringLiteral, Identifier,
         Keyword_Int, Keyword_String, Keyword_Void, Keyword_Return, 
         Keyword_If, Keyword_Else, Keyword_While, Keyword_For,
-        Assign, Semicolon, Comma,
+        Assign, Semicolon, Comma, Colon,
         LeftParen, RightParen, LeftBrace, RightBrace, LeftBracket, RightBracket,
         Equal, NotEqual, Less, Greater, LessEqual, GreaterEqual,
         Plus, Minus, Star, Slash, Percent,
@@ -52,7 +52,8 @@ namespace LithosNet.Compiler {
                 switch (c) {
                     case '=': Advance(); tokens.Add(new Token(TokenType.Assign, "=", _line)); continue;
                     case ';': Advance(); tokens.Add(new Token(TokenType.Semicolon, ";", _line)); continue;
-                    case ',': Advance(); tokens.Add(new Token(TokenType.Comma, ",", _line)); continue;
+                    case ':': Advance(); tokens.Add(new Token(TokenType.Colon, ":", _line)); continue;
+                    case ',': Advance(); tokens.Add(new Token(TokenType.Comma, Colon, ",", _line)); continue;
                     case '(': Advance(); tokens.Add(new Token(TokenType.LeftParen, "(", _line)); continue;
                     case ')': Advance(); tokens.Add(new Token(TokenType.RightParen, ")", _line)); continue;
                     case '{': Advance(); tokens.Add(new Token(TokenType.LeftBrace, "{", _line)); continue;
