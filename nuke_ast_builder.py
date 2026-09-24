@@ -1,4 +1,4 @@
-#nullable disable
+code = r"""#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -167,3 +167,7 @@ namespace LithosNet.Compiler {
         }
     }
 }
+"""
+with open("LithosNet.Compiler/AstBuilder.cs", "w", encoding="utf-8") as f:
+    f.write(code)
+print("✅ AstBuilder.cs 已核彈級覆蓋！徹底告別 re.sub 碎片化噩夢！")
