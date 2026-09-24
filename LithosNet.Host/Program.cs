@@ -49,14 +49,15 @@ namespace LithosNet.Host {
             string currentObj = "";
             try {
                 var connectRet = ObjMgr.CallFunction(MasterObj, "connect");
-                Console.WriteLine($"🔍 [Diag] master->connect() 返回: Type={connectRet?.Type}, Value={connectRet?.Value}");
-                currentObj = connectRet?.Value?.ToString() ?? "";
+                Console.WriteLine($"🔍 [Diag] master->connect() 返回: Type={connectRet.Type}, Value={connectRet.Value}");
                 
-                // 【自動 Fallback】如果 connect() 返回了 0 或空字串，代表 clone_object 失敗，我們手動幫它 clone！
+                // 【終極修復】LpcValue 是 struct，不能使用 ?.
+                currentObj = connectRet.Value?.ToString() ?? "";
+                
                 if (string.IsNullOrEmpty(currentObj) || currentObj == "0") {
-                    Console.WriteLine("⚠️ connect() 返回無效值，啟動自動 Fallback clone_object('login')...");
-                    var fallback = LithosNet.VM.BuiltInEfuns.CloneObject(new[] { LithosNet.Core.LpcValue.Create("login") });
-                    currentObj = fallback?.Value?.ToString() ?? "login#1";
+                    Console.WriteLine("⚠️ connect() 返回無效值，強制 Fallback 載入 login 藍圖並使用 login#1...");
+                    ObjMgr.LoadObject("obj/login");
+                    currentObj = "login#1";
                 }
             } catch (Exception e) {
                 Console.WriteLine($"❌ master->connect() 失敗: {e.Message}");
