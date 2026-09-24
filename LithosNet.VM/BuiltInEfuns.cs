@@ -110,6 +110,52 @@ namespace LithosNet.VM {
         }
 
         // 【Mudlib 通訊】tell_object 與 shout (使用 GetAwaiter 確保同步執行)
+        
+        [Efun("send_to_user")]
+        public static LpcValue SendToUser(LpcValue[] args) {
+            if (args.Length >= 1) {
+                string obj = SessionManager.CurrentPlayer.Value ?? "";
+                if (string.IsNullOrEmpty(obj)) {
+                    var all = SessionManager.GetAllSessions();
+                    if (all.Count > 0) obj = all[0];
+                }
+                if (!string.IsNullOrEmpty(obj)) {
+                    SessionManager.SendAsync(obj, args[0].AsString()).GetAwaiter().GetResult();
+                }
+            }
+            return LpcValue.Create(1);
+        }
+
+        [Efun("this_object")]
+        public static LpcValue ThisObject(LpcValue[] args) {
+            return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "unknown");
+        }
+
+        [Efun("clone_object")]
+        public static LpcValue CloneObject(LpcValue[] args) {
+            if (args.Length >= 1) {
+                string blueprint = args[0].AsString();
+                string cloneName = blueprint + "#" + Guid.NewGuid().ToString().Substring(0, 4);
+                try { ObjMgr.LoadObject(blueprint); } catch {}
+                return LpcValue.Create(cloneName);
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("exec")]
+        public static LpcValue Exec(LpcValue[] args) {
+            if (args.Length >= 2) {
+                SessionManager.Exec(args[0].AsString(), args[1].AsString());
+            }
+            return LpcValue.Create(1);
+        }
+
+        [Efun("destruct")]
+        public static LpcValue Destruct(LpcValue[] args) {
+            Console.WriteLine($"💥 [Efun] destruct({args[0].AsString()})");
+            return LpcValue.Create(1);
+        }
+
         [Efun("tell_object")]
         public static LpcValue TellObject(LpcValue[] args) {
             if (args.Length >= 2) SessionManager.SendAsync(args[0].AsString(), args[1].AsString()).GetAwaiter().GetResult();

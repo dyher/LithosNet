@@ -77,6 +77,7 @@ namespace LithosNet.Host {
         // 【關鍵】強制呼叫 logon() apply
         try { 
             Console.WriteLine($"🔍 [Diag] 準備呼叫 {currentObj}->logon()...");
+            SessionManager.CurrentPlayer.Value = currentObj;
             ObjMgr.CallFunction(currentObj, "logon"); 
             Console.WriteLine("✅ logon() 呼叫成功！");
         } catch (Exception ex) { 
@@ -103,6 +104,7 @@ namespace LithosNet.Host {
                         
                         byte[] payload = buffer.Slice(5, length).ToArray();
                         string json = Encoding.UTF8.GetString(payload);
+                        SessionManager.CurrentPlayer.Value = currentObj;
                         try { ObjMgr.CallFunction(currentObj, "receive_binary", LpcValue.Create(json)); } catch {}
                         buffer = buffer.Slice(5 + length);
                     } else {
@@ -110,6 +112,7 @@ namespace LithosNet.Host {
                         if (position == null) break;
                         byte[] lineBytes = buffer.Slice(0, position.Value).ToArray();
                         string line = Encoding.UTF8.GetString(lineBytes).Trim();
+                        SessionManager.CurrentPlayer.Value = currentObj;
                         try { ObjMgr.CallFunction(currentObj, "receive_message", LpcValue.Create(line)); } catch {}
                         buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
                     }
