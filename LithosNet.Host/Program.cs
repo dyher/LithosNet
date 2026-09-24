@@ -36,7 +36,8 @@ namespace LithosNet.Host {
             listener.Start();
             Console.WriteLine($"\n🚀 {cfg.GetProperty("name").GetString()} Driver 啟動！監聽端口: {port}\n");
 
-            while (true) {
+            Console.WriteLine("🔍 [Diag] 進入 TCP 讀取迴圈...");
+                while (true) {
                 var client = await listener.AcceptTcpClientAsync();
                 _ = Task.Run(() => HandleClientAsync(client));
             }
@@ -69,11 +70,13 @@ namespace LithosNet.Host {
             try { ObjMgr.CallFunction(currentObj, "logon"); } catch {}
 
             try {
+                Console.WriteLine("🔍 [Diag] 進入 TCP 讀取迴圈...");
                 while (true) {
                     ReadResult result = await reader.ReadAsync();
                     ReadOnlySequence<byte> buffer = result.Buffer;
                     
-                    while (true) {
+                    Console.WriteLine("🔍 [Diag] 進入 TCP 讀取迴圈...");
+                while (true) {
                         if (buffer.Length == 0) break;
                         
                         // 【免疫 Span 限制】使用 ToArray() 安全讀取首字節

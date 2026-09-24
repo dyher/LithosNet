@@ -1,80 +1,41 @@
 import re
 
-with open("LithosNet.Host/Program.cs", "r", encoding="utf-8") as f:
-    prog = f.read()
+with open('LithosNet.Host/Program.cs', 'r', encoding='utf-8') as f:
+    code = f.read()
 
-new_method = """        static async Task HandleClientAsync(TcpClient client) {
-            var reader = PipeReader.Create(client.GetStream());
-            var writer = PipeWriter.Create(client.GetStream());
-            
-            string currentObj = "";
-            try {
-                currentObj = ObjMgr.CallFunction(MasterObj, "connect").AsString();
-            } catch (Exception e) {
-                Console.WriteLine($"❌ master->connect() 失敗: {e.Message}");
-                client.Close(); return;
-            }
+# 1. 確保呼叫 logon() apply (尋找 SessionManager.Bind 或 currentObj 賦值後)
+if 'CallFunction(currentObj, "logon")' not in code and 'CallFunction("login#1", "logon")' not in code:
+    code = re.sub(
+        r'(SessionManager\.Bind[^;]+;)',
+        r'\1\n                Console.WriteLine($"🔍 [Diag] 準備呼叫 {currentObj}->logon()...");\n                try { ObjMgr.CallFunction(currentObj, "logon"); Console.WriteLine("✅ logon() 呼叫成功！"); } catch (Exception ex) { Console.WriteLine($"❌ logon() 呼叫失敗: {ex}"); }',
+        code
+    )
+    # 備用匹配 (如果沒有 SessionManager.Bind)
+    code = re.sub(
+        r'(currentObj\s*=\s*"login#1";)',
+        r'\1\n                Console.WriteLine($"🔍 [Diag] Fallback 準備呼叫 {currentObj}->logon()...");\n                try { ObjMgr.CallFunction(currentObj, "logon"); Console.WriteLine("✅ logon() 呼叫成功！"); } catch (Exception ex) { Console.WriteLine($"❌ logon() 呼叫失敗: {ex}"); }',
+        code
+    )
 
-            SessionManager.Bind(currentObj, writer);
-            SessionManager.CurrentPlayer.Value = currentObj;
-            
-            try { ObjMgr.CallFunction(currentObj, "logon"); } catch {}
+# 2. 在 while(true) 讀取迴圈注入 X 光日誌
+code = re.sub(
+    r'while\s*\(\s*true\s*\)\s*\{',
+    r'Console.WriteLine("🔍 [Diag] 進入 TCP 讀取迴圈...");\n                while (true) {',
+    code
+)
 
-            try {
-                while (true) {
-                    ReadResult result = await reader.ReadAsync();
-                    ReadOnlySequence<byte> buffer = result.Buffer;
-                    
-                    while (true) {
-                        if (buffer.Length == 0) break;
-                        byte firstByte = buffer.FirstSpan[0];
-                        
-                        // 【Binary Protocol】0xFF + 4 bytes Length + Payload
-                        if (firstByte == 0xFF) {
-                            if (buffer.Length < 5) break;
-                            var lenSpan = buffer.Slice(1, 4).FirstSpan;
-                            int length = (lenSpan[0] << 24) | (lenSpan[1] << 16) | (lenSpan[2] << 8) | lenSpan[3];
-                            if (buffer.Length < 5 + length) break;
-                            
-                            var payloadBytes = buffer.Slice(5, length);
-                            string json = Encoding.UTF8.GetString(payloadBytes);
-                            currentObj = SessionManager.GetObjName(writer);
-                            if (!string.IsNullOrEmpty(currentObj)) {
-                                try { ObjMgr.CallFunction(currentObj, "receive_binary", LpcValue.Create(json)); } catch {}
-                            }
-                            buffer = buffer.Slice(5 + length);
-                        } 
-                        // 【Text Protocol】按 \\n 分割
-                        else {
-                            SequencePosition? position = buffer.PositionOf((byte)'\\n');
-                            if (position == null) break;
-                            var lineBytes = buffer.Slice(0, position.Value);
-                            string line = Encoding.UTF8.GetString(lineBytes).Trim();
-                            currentObj = SessionManager.GetObjName(writer);
-                            if (!string.IsNullOrEmpty(currentObj)) {
-                                try { ObjMgr.CallFunction(currentObj, "receive_message", LpcValue.Create(line)); } catch {}
-                            }
-                            buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
-                        }
-                    }
-                    reader.AdvanceTo(buffer.Start, buffer.End);
-                    if (result.IsCompleted) break;
-                }
-            } catch { }
-            finally { 
-                currentObj = SessionManager.GetObjName(writer);
-                if (!string.IsNullOrEmpty(currentObj)) {
-                    try { ObjMgr.CallFunction(currentObj, "logoff"); } catch {}
-                    SessionManager.Unbind(currentObj);
-                    ObjMgr.DestructObject(currentObj);
-                }
-                client.Close(); 
-            }
-        }"""
+code = re.sub(
+    r'(var readResult = await reader\.ReadAsync\(\);)',
+    r'Console.WriteLine("🔍 [Diag] 等待 PipeReader 資料...");\n                    \1',
+    code
+)
 
-# 精準替換整個 HandleClientAsync 方法 (從方法簽名到最後一個縮排為 8 個空格的 })
-prog = re.sub(r'        static async Task HandleClientAsync\(TcpClient client\) \{.*?\n        \}', new_method, prog, flags=re.DOTALL)
+code = re.sub(
+    r'if\s*\(\s*readResult\.IsCompleted\s*\)\s*\{',
+    r'if (readResult.IsCompleted) {\n                        Console.WriteLine("⚠️ [Diag] PipeReader 收到 EOF，客戶端可能已斷開！");',
+    code
+)
 
-with open("LithosNet.Host/Program.cs", "w", encoding="utf-8") as f:
-    f.write(prog)
-print("✅ Program.cs 已完美升級為雙軌制網路層 (Text + Binary)！")
+with open('LithosNet.Host/Program.cs', 'w', encoding='utf-8') as f:
+    f.write(code)
+print("✅ Program.cs 已注入 logon() 呼叫與 X 光讀取迴圈日誌！")
