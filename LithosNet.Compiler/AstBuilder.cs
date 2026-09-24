@@ -15,12 +15,37 @@ namespace LithosNet.Compiler {
             var type = asm.GetTypes().FirstOrDefault(t => t.Name == typeName);
             if (type == null) return null; 
             var node = Activator.CreateInstance(type);
+            
             foreach(var kvp in props) {
+                if (kvp.Value == null) continue;
+                
+                // 1. 嘗試精準匹配
                 var prop = type.GetProperty(kvp.Key);
-                if (prop != null && kvp.Value != null) {
+                
+                // 2. 【終極防禦】模糊匹配：如果找不到，尋找名稱最相似的屬性！
+                if (prop == null) {
+                    prop = type.GetProperties().FirstOrDefault(p => 
+                        p.Name.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase) ||
+                        p.Name.Contains(kvp.Key) || 
+                        kvp.Key.Contains(p.Name) ||
+                        (kvp.Key == "Body" && (p.Name.Contains("Block") || p.Name.Contains("Statements")))
+                    );
+                }
+                
+                if (prop != null) {
                     try { prop.SetValue(node, kvp.Value); } catch {}
                 }
             }
+            
+            // 【雷達日誌】如果是函數宣告，印出它的真實名稱，確保沒有變成 null！
+            if (typeName.Contains("Function")) {
+                var nameProp = type.GetProperties().FirstOrDefault(p => p.Name.Contains("Name"));
+                if (nameProp != null) {
+                    var val = nameProp.GetValue(node);
+                    Console.WriteLine($"✅ [AstBuilder] 成功創建 {typeName}: Name='{val}'");
+                }
+            }
+            
             return (AstNode)node;
         }
 
