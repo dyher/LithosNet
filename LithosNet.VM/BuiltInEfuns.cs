@@ -1,3 +1,4 @@
+using System.Linq;
 #nullable disable
 using System;
 using System.Collections.Generic;
@@ -155,6 +156,53 @@ namespace LithosNet.VM {
         public static LpcValue Destruct(LpcValue[] args) {
             Console.WriteLine($"💥 [Efun] destruct({args[0].AsString()})");
             return LpcValue.Create(1);
+        }
+
+        
+        // ==========================================
+        // 🎲 【MMORPG 核心】隨機與數學矩陣
+        // ==========================================
+        private static readonly System.Random _rng = new System.Random();
+        
+        [Efun("random")]
+        public static LpcValue RandomEfun(LpcValue[] args) {
+            if (args.Length < 1) return LpcValue.Create(0);
+            int max = args[0].AsInt();
+            return LpcValue.Create(max > 0 ? _rng.Next(max) : 0);
+        }
+
+        // ==========================================
+        // 🔪 【MMORPG 核心】字串解析與處理矩陣
+        // ==========================================
+        [Efun("replace_string")]
+        public static LpcValue ReplaceString(LpcValue[] args) {
+            if (args.Length < 3) return LpcValue.Create("");
+            return LpcValue.Create(args[0].AsString().Replace(args[1].AsString(), args[2].AsString()));
+        }
+
+        [Efun("explode")]
+        public static LpcValue Explode(LpcValue[] args) {
+            if (args.Length < 2) return LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
+            var parts = args[0].AsString().Split(args[1].AsString());
+            var list = new System.Collections.Generic.List<LpcValue>();
+            foreach(var p in parts) list.Add(LpcValue.Create(p));
+            return LpcValue.Create(list);
+        }
+
+        [Efun("implode")]
+        public static LpcValue Implode(LpcValue[] args) {
+            if (args.Length < 2 || args[0].Type != LpcType.Array) return LpcValue.Create("");
+            var list = args[0].AsArray();
+            var strs = list.Select(x => x.AsString());
+            return LpcValue.Create(string.Join(args[1].AsString(), strs));
+        }
+
+        // ==========================================
+        // ⏱️ 【MMORPG 核心】時間矩陣
+        // ==========================================
+        [Efun("time")]
+        public static LpcValue TimeEfun(LpcValue[] args) {
+            return LpcValue.Create((int)(DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
         }
 
         [Efun("tell_object")]

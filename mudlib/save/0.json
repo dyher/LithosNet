@@ -1,0 +1,36 @@
+{
+  "x": {
+    "type": "Int",
+    "value": 50
+  },
+  "y": {
+    "type": "Int",
+    "value": 50
+  },
+  "name": {
+    "type": "Int",
+    "value": 0
+  },
+  "hp": {
+    "type": "Int",
+    "value": 1000
+  },
+  "start_x": {
+    "type": "Int",
+    "value": 50
+  },
+  "start_y": {
+    "type": "Int",
+    "value": 50
+  },
+  "json_str": {
+    "type": "String",
+    "value": "{\u0022cmd\u0022: \u0022ATTACK\u0022, \u0022target\u0022: \u0022goblin#99\u0022}"
+  },
+  "data": {
+    "type": "Mapping"
+  },
+  "cmd": {
+    "type": "Mapping"
+  }
+}
