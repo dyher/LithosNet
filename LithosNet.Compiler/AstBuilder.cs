@@ -24,6 +24,15 @@ namespace LithosNet.Compiler {
             return (AstNode)node;
         }
 
+        
+        // 【終極路由】將 TopLevelDecl 精準分發給 Inherit / Var / Func
+        public override AstNode VisitTopLevelDecl(LPCParser.TopLevelDeclContext context) {
+            if (context.inheritDecl() != null) return Visit(context.inheritDecl());
+            if (context.varDecl() != null) return Visit(context.varDecl());
+            if (context.funcDecl() != null) return Visit(context.funcDecl());
+            return null;
+        }
+
         public override AstNode VisitInheritDecl(LPCParser.InheritDeclContext context) {
             string path = context.STRING_LITERAL().GetText().Trim('"');
             return CreateNode("InheritNode", new Dictionary<string, object> { { "Path", path } });
