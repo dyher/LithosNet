@@ -12,7 +12,7 @@ namespace LithosNet.VM {
         public void Set(string name, LpcValue value) => _variables[name] = value;
         public LpcValue Get(string name) {
             if (_variables.TryGetValue(name, out var v)) return v;
-            throw new Exception($"[VM] Variable '{name}' not found.");
+            return LpcValue.Create(0); // FluffOS 寬容模式：未定義變數預設為 0
         }
         public void RegisterFunction(FunctionDeclarationNode func) => _functions[func.Name] = func;
         public FunctionDeclarationNode GetFunction(string name) {
