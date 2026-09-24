@@ -107,6 +107,8 @@ namespace LithosNet.Host {
                         string json = Encoding.UTF8.GetString(payload);
                         SessionManager.CurrentPlayer.Value = currentObj;
                         var activeObj = SessionManager.GetObjName(writer);
+                        var activeObj = SessionManager.GetObjName(writer);
+                        if (!string.IsNullOrEmpty(activeObj)) currentObj = activeObj;
                         Console.WriteLine($"🔥 [X-Ray] Calling receive_binary on {currentObj} with: {json}");
                         ObjMgr.CallFunction(currentObj, "receive_binary", LpcValue.Create(json));
                         buffer = buffer.Slice(5 + length);
@@ -117,6 +119,8 @@ namespace LithosNet.Host {
                         string line = Encoding.UTF8.GetString(lineBytes).Trim();
                         SessionManager.CurrentPlayer.Value = currentObj;
                         var activeObj = SessionManager.GetObjName(writer);
+                        var activeObj = SessionManager.GetObjName(writer);
+                        if (!string.IsNullOrEmpty(activeObj)) currentObj = activeObj;
                         Console.WriteLine($"🔥 [X-Ray] Calling receive_message on {currentObj} with: {line}");
                         ObjMgr.CallFunction(currentObj, "receive_message", LpcValue.Create(line));
                         buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
