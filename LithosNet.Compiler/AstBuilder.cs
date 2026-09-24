@@ -72,7 +72,15 @@ namespace LithosNet.Compiler {
             if (context.paramList() != null && context.paramList().ID() != null) {
                 foreach(var id in context.paramList().ID()) parameters.Add(id.GetText());
             }
-            var body = Visit(context.block());
+            var blockNode = Visit(context.block());
+                var body = new System.Collections.Generic.List<AstNode>();
+                if (blockNode != null) {
+                    // 【終極拆解】如果拿到的是 BlockNode，自動提取它的 Statements 列表！
+                    var stmtsProp = blockNode.GetType().GetProperty("Statements");
+                    if (stmtsProp != null) body = (System.Collections.Generic.List<AstNode>)stmtsProp.GetValue(blockNode);
+                    else body.Add(blockNode); // Fallback
+                }
+                Console.WriteLine($"🔍 [AstBuilder X-Ray] 函數 '{name}' 的 Body 語句數量: {body.Count}");
             return CreateNode("FunctionDeclarationNode", new Dictionary<string, object> {
                 { "ReturnType", retType }, { "Name", name }, { "Parameters", parameters }, { "Body", body }
             });
