@@ -6,6 +6,7 @@ using LithosNet.Core;
 
 namespace LithosNet.VM {
     public static class BuiltInEfuns {
+        public static ObjectManager ObjMgr;
 
         // 【MMORPG 通訊】json_decode (將 JSON 字串轉為 Mapping)
         [Efun("json_decode")]

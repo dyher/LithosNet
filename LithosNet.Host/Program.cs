@@ -17,6 +17,7 @@ namespace LithosNet.Host {
         static string MasterObj;
 
         static async Task Main(string[] args) {
+        LithosNet.VM.BuiltInEfuns.ObjMgr = ObjMgr;
             Console.WriteLine("==================================================");
             Console.WriteLine("🔥 [Phase 34] 啟動雙軌制 MMORPG 引擎 (Text + Binary)！");
             Console.WriteLine("==================================================\n");
