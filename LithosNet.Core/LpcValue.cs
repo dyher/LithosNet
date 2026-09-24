@@ -25,8 +25,17 @@ namespace LithosNet.Core {
         public static LpcValue CreateFunction(string objName, string funcName) => 
             new LpcValue(LpcType.Function, 0, new Tuple<string, string>(objName, funcName));
         
-        public int AsInt() => (Type == LpcType.Int) ? Convert.ToInt32(_primitiveValue) : throw new InvalidCastException();
-        public string AsString() => (Type == LpcType.String) ? (_referenceValue?.ToString() ?? "") : throw new InvalidCastException();
+        public int AsInt() {
+            if (Type == LpcType.Int) return (int)_primitiveValue;
+            if (Type == LpcType.String && _referenceValue != null && int.TryParse(_referenceValue.ToString(), out int res)) return res;
+            return 0; // 寬容 Fallback
+        }
+        public string AsString() {
+            if (Type == LpcType.String) return _referenceValue?.ToString() ?? "";
+            if (Type == LpcType.Int) return _primitiveValue.ToString();
+            if (Type == LpcType.Object || Type == LpcType.Array || Type == LpcType.Mapping) return _referenceValue?.ToString() ?? "";
+            return ""; // 寬容 Fallback
+        }
         public List<LpcValue> AsArray() => (Type == LpcType.Array) ? (List<LpcValue>)_referenceValue : throw new InvalidCastException();
         public Dictionary<string, LpcValue> AsMapping() => (Type == LpcType.Mapping) ? (Dictionary<string, LpcValue>)_referenceValue : throw new InvalidCastException();
         public Tuple<string, string> AsFunction() => (Type == LpcType.Function) ? (Tuple<string, string>)_referenceValue : throw new InvalidCastException();
