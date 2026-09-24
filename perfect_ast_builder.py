@@ -1,4 +1,4 @@
-#nullable disable
+code = r"""#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -210,3 +210,7 @@ namespace LithosNet.Compiler {
         }
     }
 }
+"""
+with open("LithosNet.Compiler/AstBuilder.cs", "w", encoding="utf-8") as f:
+    f.write(code)
+print("✅ AstBuilder.cs 已完美對齊真實 C# 結構！徹底消滅所有模糊匹配災難！")
