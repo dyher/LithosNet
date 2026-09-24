@@ -33,14 +33,14 @@ namespace LithosNet.VM {
         public static async Task SendAsync(string objName, string message) {
             Console.WriteLine($"🔍 [X-Ray] SendAsync 目標: '{objName}', 訊息: '{message}'");
             if (_sessions.TryGetValue(objName, out var writer)) {
-                byte[] bytes = Encoding.UTF8.GetBytes(message + "\n");
+                byte[] bytes = Encoding.UTF8.GetBytes(message);
                 await writer.WriteAsync(bytes);
                 await writer.FlushAsync();
                 Console.WriteLine($"✅ [X-Ray] FlushAsync 完成！資料已推向 Socket！");
             } else {
                 Console.WriteLine($"⚠ [X-Ray] _sessions 找不到 '{objName}'！啟動暴力廣播...");
                 foreach(var w in GetAllWriters()) {
-                    byte[] bytes = Encoding.UTF8.GetBytes(message + "\n");
+                    byte[] bytes = Encoding.UTF8.GetBytes(message);
                     await w.WriteAsync(bytes);
                     await w.FlushAsync();
                 }
