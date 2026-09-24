@@ -11,47 +11,48 @@ using Antlr4.Runtime.Tree;
 namespace LithosNet.Compiler {
     public class AstBuilder : LPCBaseVisitor<AstNode> {
         private AstNode CreateNode(string typeName, Dictionary<string, object> props) {
-            var asm = typeof(AstNode).Assembly;
-            var type = asm.GetTypes().FirstOrDefault(t => t.Name == typeName);
-            if (type == null) return null; 
-            var node = Activator.CreateInstance(type);
-            
-            foreach(var kvp in props) {
-                if (kvp.Value == null) continue;
-                
-                // 1. 嘗試精準匹配
-                var prop = type.GetProperty(kvp.Key);
-                
-                // 2. 【終極防禦】模糊匹配：如果找不到，尋找名稱最相似的屬性！
-                if (prop == null) {
-                    prop = type.GetProperties().FirstOrDefault(p => 
-                        p.Name.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase) ||
-                        p.Name.Contains(kvp.Key) || 
-                        kvp.Key.Contains(p.Name) ||
-                        (kvp.Key == "Body" && (p.Name.Contains("Block") || p.Name.Contains("Statements")))
-                    );
+            try {
+                var asm = typeof(AstNode).Assembly;
+                var type = asm.GetTypes().FirstOrDefault(t => t.Name == typeName);
+                if (type == null) {
+                    Console.WriteLine($"❌ [AstBuilder] Type '{typeName}' NOT FOUND in LithosNet.Core!");
+                    return null;
                 }
                 
-                if (prop != null) {
-                    try { prop.SetValue(node, kvp.Value); } catch {}
+                var node = Activator.CreateInstance(type);
+                Console.WriteLine($"✅ [AstBuilder] Successfully instantiated '{typeName}'");
+                
+                foreach(var kvp in props) {
+                    if (kvp.Value == null) continue;
+                    var prop = type.GetProperty(kvp.Key);
+                    if (prop == null) {
+                        prop = type.GetProperties().FirstOrDefault(p => 
+                            p.Name.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase) ||
+                            p.Name.Contains(kvp.Key) || 
+                            kvp.Key.Contains(p.Name) ||
+                            (kvp.Key == "Body" && (p.Name.Contains("Block") || p.Name.Contains("Statements")))
+                        );
+                    }
+                    if (prop != null) {
+                        try { prop.SetValue(node, kvp.Value); } 
+                        catch (Exception ex) { 
+                            Console.WriteLine($"⚠️ [AstBuilder] Failed to set property '{kvp.Key}' on '{typeName}': {ex.Message}"); 
+                        }
+                    } else {
+                        Console.WriteLine($"⚠️ [AstBuilder] Property '{kvp.Key}' NOT FOUND on '{typeName}' even with fuzzy match!");
+                    }
                 }
+                return (AstNode)node;
+            } catch (Exception ex) {
+                Console.WriteLine($"💥 [AstBuilder] CRITICAL Exception creating '{typeName}': {ex.Message}");
+                return null;
             }
-            
-            // 【雷達日誌】如果是函數宣告，印出它的真實名稱，確保沒有變成 null！
-            if (typeName.Contains("Function")) {
-                var nameProp = type.GetProperties().FirstOrDefault(p => p.Name.Contains("Name"));
-                if (nameProp != null) {
-                    var val = nameProp.GetValue(node);
-                    Console.WriteLine($"✅ [AstBuilder] 成功創建 {typeName}: Name='{val}'");
-                }
-            }
-            
-            return (AstNode)node;
         }
 
         
         // 【終極路由】將 TopLevelDecl 精準分發給 Inherit / Var / Func
         public override AstNode VisitTopLevelDecl(LPCParser.TopLevelDeclContext context) {
+            Console.WriteLine($"🔍 [AstBuilder] Visiting TopLevelDecl: {context.GetText().Substring(0, Math.Min(50, context.GetText().Length))}...");
             if (context.inheritDecl() != null) return Visit(context.inheritDecl());
             if (context.varDecl() != null) return Visit(context.varDecl());
             if (context.funcDecl() != null) return Visit(context.funcDecl());
@@ -73,6 +74,7 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitFuncDecl(LPCParser.FuncDeclContext context) {
+            Console.WriteLine($"🔍 [AstBuilder] Visiting FuncDecl: {context.ID().GetText()}");
             string retType = context.typeSpec() != null ? context.typeSpec().GetText() : "mixed";
             string name = context.ID().GetText();
             var parameters = new List<string>();
