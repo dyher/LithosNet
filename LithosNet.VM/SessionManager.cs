@@ -9,13 +9,13 @@ using System.Threading.Tasks;
 namespace LithosNet.VM {
     public static class SessionManager {
 
-        public static System.Collections.Generic.List<System.IO.Pipelines.PipeWriter> GetAllWriters() {
-            return new System.Collections.Generic.List<System.IO.Pipelines.PipeWriter>(_sessions.Values);
+        public static List<PipeWriter> GetAllWriters() {
+            return new List<PipeWriter>(_sessions.Values);
         }
 
         private static readonly ConcurrentDictionary<string, PipeWriter> _sessions = new();
         private static readonly ConcurrentDictionary<PipeWriter, string> _writerToObj = new();
-        public static readonly System.Threading.AsyncLocal<string> CurrentPlayer = new System.Threading.AsyncLocal<string>();
+        public static readonly AsyncLocal<string> CurrentPlayer = new AsyncLocal<string>();
 
         public static void Bind(string objName, PipeWriter writer) {
             _sessions[objName] = writer;
@@ -33,20 +33,18 @@ namespace LithosNet.VM {
         public static async Task SendAsync(string objName, string message) {
             Console.WriteLine($"🔍 [X-Ray] SendAsync 目標: '{objName}', 訊息: '{message}'");
             if (_sessions.TryGetValue(objName, out var writer)) {
-                await SendAsyncWriter(writer, message);
+                byte[] bytes = Encoding.UTF8.GetBytes(message + "\n");
+                await writer.WriteAsync(bytes);
+                await writer.FlushAsync();
+                Console.WriteLine($"✅ [X-Ray] FlushAsync 完成！資料已推向 Socket！");
             } else {
-                Console.WriteLine($"⚠ [X-Ray] _sessions 找不到 '{objName}'！");
+                Console.WriteLine($"⚠ [X-Ray] _sessions 找不到 '{objName}'！啟動暴力廣播...");
+                foreach(var w in GetAllWriters()) {
+                    byte[] bytes = Encoding.UTF8.GetBytes(message + "\n");
+                    await w.WriteAsync(bytes);
+                    await w.FlushAsync();
+                }
             }
-        }
-
-        public static async Task SendAsyncWriter(PipeWriter writer, string message) {
-            Console.WriteLine($"🔍 [X-Ray] SendAsyncWriter 執行！訊息: '{message}'");
-            byte[] bytes = Encoding.UTF8.GetBytes(message + "
-");
-            await writer.WriteAsync(bytes);
-            await writer.FlushAsync();
-            Console.WriteLine("✅ [X-Ray] FlushAsync 完成！資料已推向 Socket！");
-        }
         }
 
         public static List<string> GetAllSessions() => _sessions.Keys.ToList();
@@ -55,7 +53,6 @@ namespace LithosNet.VM {
             return _writerToObj.TryGetValue(writer, out var name) ? name : "";
         }
 
-        // 【FluffOS 核心】exec(new_obj, old_obj) - 無縫轉移 TCP 連線
         public static void Exec(string newObj, string oldObj) {
             if (_sessions.TryRemove(oldObj, out var writer)) {
                 _sessions[newObj] = writer;
