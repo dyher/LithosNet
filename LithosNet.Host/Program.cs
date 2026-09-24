@@ -49,10 +49,10 @@ namespace LithosNet.Host {
             string currentObj = "";
             try {
                 var connectRet = ObjMgr.CallFunction(MasterObj, "connect");
-                Console.WriteLine($"🔍 [Diag] master->connect() 返回: Type={connectRet.Type}, Value={connectRet.Value}");
+                Console.WriteLine($"🔍 [Diag] master->connect() 返回: Type={connectRet.Type}, Value={connectRet.AsString()}");
                 
                 // 【終極修復】LpcValue 是 struct，不能使用 ?.
-                currentObj = connectRet.Value?.ToString() ?? "";
+                currentObj = connectRet.AsString();
                 
                 if (string.IsNullOrEmpty(currentObj) || currentObj == "0") {
                     Console.WriteLine("⚠️ connect() 返回無效值，強制 Fallback 載入 login 藍圖並使用 login#1...");
