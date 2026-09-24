@@ -114,12 +114,26 @@ namespace LithosNet.VM {
         
         [Efun("send_to_user")]
         public static LpcValue SendToUser(LpcValue[] args) {
-            if (args.Length >= 1) {
-                string obj = SessionManager.CurrentPlayer.Value ?? "";
-                if (string.IsNullOrEmpty(obj)) {
-                    var all = SessionManager.GetAllSessions();
-                    if (all.Count > 0) obj = all[0];
+            Console.WriteLine($"🔍 [X-Ray] send_to_user 觸發！參數: '{args[0].AsString()}'");
+            string obj = SessionManager.CurrentPlayer.Value ?? "";
+            Console.WriteLine($"🔍 [X-Ray] CurrentPlayer: '{obj}'");
+            
+            if (string.IsNullOrEmpty(obj)) {
+                var all = SessionManager.GetAllSessions();
+                if (all.Count > 0) obj = all[0];
+            }
+            Console.WriteLine($"🔍 [X-Ray] 最終目標: '{obj}'");
+            
+            if (!string.IsNullOrEmpty(obj)) {
+                SessionManager.SendAsync(obj, args[0].AsString()).GetAwaiter().GetResult();
+            } else {
+                Console.WriteLine("⚠ [X-Ray] 找不到任何目標，啟動暴力廣播！");
+                foreach(var w in SessionManager.GetAllWriters()) {
+                    SessionManager.SendAsyncWriter(w, args[0].AsString()).GetAwaiter().GetResult();
                 }
+            }
+            return LpcValue.Create(1);
+        }
                 if (!string.IsNullOrEmpty(obj)) {
                     SessionManager.SendAsync(obj, args[0].AsString()).GetAwaiter().GetResult();
                 }

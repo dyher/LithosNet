@@ -31,11 +31,22 @@ namespace LithosNet.VM {
         }
 
         public static async Task SendAsync(string objName, string message) {
+            Console.WriteLine($"🔍 [X-Ray] SendAsync 目標: '{objName}', 訊息: '{message}'");
             if (_sessions.TryGetValue(objName, out var writer)) {
-                byte[] bytes = Encoding.UTF8.GetBytes(message + "\n");
-                await writer.WriteAsync(bytes);
-                await writer.FlushAsync();
+                await SendAsyncWriter(writer, message);
+            } else {
+                Console.WriteLine($"⚠ [X-Ray] _sessions 找不到 '{objName}'！");
             }
+        }
+
+        public static async Task SendAsyncWriter(PipeWriter writer, string message) {
+            Console.WriteLine($"🔍 [X-Ray] SendAsyncWriter 執行！訊息: '{message}'");
+            byte[] bytes = Encoding.UTF8.GetBytes(message + "
+");
+            await writer.WriteAsync(bytes);
+            await writer.FlushAsync();
+            Console.WriteLine("✅ [X-Ray] FlushAsync 完成！資料已推向 Socket！");
+        }
         }
 
         public static List<string> GetAllSessions() => _sessions.Keys.ToList();
