@@ -46,8 +46,17 @@ namespace LithosNet.VM {
         private Scope CompileAndRegister(string path, string objName) {
             string src = File.ReadAllText(path);
             src = LithosNet.Compiler.Preprocessor.Process(src, Path.GetDirectoryName(path));
-            var tokens = new Lexer(src).Tokenize();
-            var ast = new Parser(tokens).Parse();
+            var inputStream = new Antlr4.Runtime.AntlrInputStream(src);
+            var lexer = new LithosNet.Compiler.Ast.LPCLexer(inputStream);
+            var tokenStream = new Antlr4.Runtime.CommonTokenStream(lexer);
+            var parser = new LithosNet.Compiler.Ast.LPCParser(tokenStream);
+            var tree = parser.program();
+            var builder = new LithosNet.Compiler.AstBuilder();
+                var ast = new System.Collections.Generic.List<LithosNet.Core.AstNode>();
+                foreach(var decl in tree.topLevelDecl()) {
+                    var node = builder.Visit(decl);
+                    if (node != null) ast.Add(node);
+                }
             var scope = new Scope();
             var interp = new Interpreter(scope, this); 
             interp.ObjectName = objName;

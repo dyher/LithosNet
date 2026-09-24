@@ -5,7 +5,7 @@ int y;
 int setup_living(int start_x, int start_y) {
     x = start_x;
     y = start_y;
-    int _d1 = map_register(this_object(), x, y);
+    map_register(this_object(), x, y);
     return 1;
 }
 
