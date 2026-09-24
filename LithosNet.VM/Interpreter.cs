@@ -38,7 +38,7 @@ namespace LithosNet.VM {
 
             if (_scope.HasFunction(name)) {
                 var func = _scope.GetFunction(name);
-                for (int i = 0; i < func.Parameters.Count && i < args.Count; i++) _scope.Set(func.Parameters[i].Name, args[i]);
+                for (int i = 0; i < func.Parameters.Count && i < args.Count; i++) _scope.Set(func.Parameters[i], args[i]);
                 try { foreach (var s in func.Body) Visit(s); } catch (ReturnSignal r) { return r.Value; }
                 return LpcValue.Create(0);
             }

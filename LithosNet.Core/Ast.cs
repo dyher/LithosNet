@@ -7,7 +7,7 @@ namespace LithosNet.Core {
     public class VariableDeclarationNode : AstNode { public string TypeName; public string VariableName; public AstNode Initializer; }
     public class AssignmentNode : AstNode { public string VariableName; public AstNode Value; }
     public class LiteralNode : AstNode { public LpcValue Value; }
-    public class FunctionDeclarationNode : AstNode { public string ReturnType; public string Name; public List<ParameterNode> Parameters = new(); public List<AstNode> Body = new(); }
+    public class FunctionDeclarationNode : AstNode { public string ReturnType; public string Name; public System.Collections.Generic.List<string> Parameters = new System.Collections.Generic.List<string>(); public List<AstNode> Body = new(); }
     public class ParameterNode : AstNode { public string TypeName; public string Name; }
     public class ReturnNode : AstNode { public AstNode Value; }
     public class FunctionCallNode : AstNode { public string Name; public List<AstNode> Arguments = new(); }
