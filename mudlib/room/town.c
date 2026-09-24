@@ -1,3 +1,7 @@
+
 inherit "room";
-string query_desc() { return "這裡是繁華的說話之鎮 (Prontera)，石板路上人來人往。北方通往幽暗森林。"; }
-string get_exit(string dir) { if (dir == "north") return "forest"; return ""; }
+int query_desc() { return "Prontera."; }
+int get_exit(int dir) {
+    if (dir == "north") return "forest";
+    return "";
+}

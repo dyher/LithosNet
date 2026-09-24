@@ -7,6 +7,26 @@ using LithosNet.Core;
 namespace LithosNet.VM {
     public static class BuiltInEfuns {
 
+        // 【MMORPG 通訊】json_decode (將 JSON 字串轉為 Mapping)
+        [Efun("json_decode")]
+        public static LpcValue JsonDecode(LpcValue[] args) {
+            if (args.Length < 1) return LpcValue.Create(new Dictionary<string, LpcValue>());
+            try {
+                var doc = System.Text.Json.JsonDocument.Parse(args[0].AsString());
+                var dict = new Dictionary<string, LpcValue>();
+                foreach (var prop in doc.RootElement.EnumerateObject()) {
+                    if (prop.Value.ValueKind == System.Text.Json.JsonValueKind.Number)
+                        dict[prop.Name] = LpcValue.Create(prop.Value.GetInt32());
+                    else if (prop.Value.ValueKind == System.Text.Json.JsonValueKind.String)
+                        dict[prop.Name] = LpcValue.Create(prop.Value.GetString());
+                    else
+                        dict[prop.Name] = LpcValue.Create(prop.Value.ToString());
+                }
+                return LpcValue.Create(dict);
+            } catch { return LpcValue.Create(new Dictionary<string, LpcValue>()); }
+        }
+
+
         // 【MMORPG Fiber】非阻塞式異步延遲 (不卡死主線程)
         [Efun("task_sleep")]
         public static LpcValue TaskSleep(LpcValue[] args) {

@@ -1,4 +1,4 @@
-using System;
+code = """using System;
 using System.Buffers;
 using System.IO;
 using System.IO.Pipelines;
@@ -19,7 +19,7 @@ namespace LithosNet.Host {
         static async Task Main(string[] args) {
             Console.WriteLine("==================================================");
             Console.WriteLine("🔥 [Phase 34] 啟動雙軌制 MMORPG 引擎 (Text + Binary)！");
-            Console.WriteLine("==================================================\n");
+            Console.WriteLine("==================================================\\n");
 
             EfunRegistry.RegisterFromType(typeof(BuiltInEfuns));
             
@@ -34,7 +34,7 @@ namespace LithosNet.Host {
 
             var listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
-            Console.WriteLine($"\n🚀 {cfg.GetProperty("name").GetString()} Driver 啟動！監聽端口: {port}\n");
+            Console.WriteLine($"\\n🚀 {cfg.GetProperty("name").GetString()} Driver 啟動！監聽端口: {port}\\n");
 
             while (true) {
                 var client = await listener.AcceptTcpClientAsync();
@@ -65,18 +65,16 @@ namespace LithosNet.Host {
                     
                     while (true) {
                         if (buffer.Length == 0) break;
-                        
-                        // 【免疫 Span 限制】使用 ToArray() 安全讀取首字節
-                        byte firstByte = buffer.Slice(0, 1).ToArray()[0];
+                        byte firstByte = buffer.FirstSpan[0];
                         
                         // 【Binary Protocol】255 (0xFF) + 4 bytes Length + Payload
                         if (firstByte == 255) {
                             if (buffer.Length < 5) break;
-                            byte[] lenBytes = buffer.Slice(1, 4).ToArray();
-                            int length = (lenBytes[0] << 24) | (lenBytes[1] << 16) | (lenBytes[2] << 8) | lenBytes[3];
+                            var lenSpan = buffer.Slice(1, 4).FirstSpan;
+                            int length = (lenSpan[0] << 24) | (lenSpan[1] << 16) | (lenSpan[2] << 8) | lenSpan[3];
                             if (buffer.Length < 5 + length) break;
                             
-                            byte[] payloadBytes = buffer.Slice(5, length).ToArray();
+                            var payloadBytes = buffer.Slice(5, length);
                             string json = Encoding.UTF8.GetString(payloadBytes);
                             currentObj = SessionManager.GetObjName(writer);
                             if (!string.IsNullOrEmpty(currentObj)) {
@@ -84,12 +82,11 @@ namespace LithosNet.Host {
                             }
                             buffer = buffer.Slice(5 + length);
                         } 
-                        // 【Text Protocol】按 10 (ASCII LF) 分割
+                        // 【Text Protocol】按 10 ('\n') 分割
                         else {
-                            // 【免疫型別推斷失敗】強制轉型為 (byte)
-                            SequencePosition? position = buffer.PositionOf((byte)10); 
+                            SequencePosition? position = buffer.PositionOf(10); 
                             if (position == null) break;
-                            byte[] lineBytes = buffer.Slice(0, position.Value).ToArray();
+                            var lineBytes = buffer.Slice(0, position.Value);
                             string line = Encoding.UTF8.GetString(lineBytes).Trim();
                             currentObj = SessionManager.GetObjName(writer);
                             if (!string.IsNullOrEmpty(currentObj)) {
@@ -114,3 +111,7 @@ namespace LithosNet.Host {
         }
     }
 }
+"""
+with open("LithosNet.Host/Program.cs", "w", encoding="utf-8") as f:
+    f.write(code)
+print("✅ Program.cs 已核彈級重寫！徹底免疫正則吞噬與字元轉義陷阱！")

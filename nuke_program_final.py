@@ -1,4 +1,4 @@
-using System;
+code = """using System;
 using System.Buffers;
 using System.IO;
 using System.IO.Pipelines;
@@ -19,7 +19,7 @@ namespace LithosNet.Host {
         static async Task Main(string[] args) {
             Console.WriteLine("==================================================");
             Console.WriteLine("🔥 [Phase 34] 啟動雙軌制 MMORPG 引擎 (Text + Binary)！");
-            Console.WriteLine("==================================================\n");
+            Console.WriteLine("==================================================\\n");
 
             EfunRegistry.RegisterFromType(typeof(BuiltInEfuns));
             
@@ -34,7 +34,7 @@ namespace LithosNet.Host {
 
             var listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
-            Console.WriteLine($"\n🚀 {cfg.GetProperty("name").GetString()} Driver 啟動！監聽端口: {port}\n");
+            Console.WriteLine($"\\n🚀 {cfg.GetProperty("name").GetString()} Driver 啟動！監聽端口: {port}\\n");
 
             while (true) {
                 var client = await listener.AcceptTcpClientAsync();
@@ -114,3 +114,7 @@ namespace LithosNet.Host {
         }
     }
 }
+"""
+with open("LithosNet.Host/Program.cs", "w", encoding="utf-8") as f:
+    f.write(code)
+print("✅ Program.cs 已完美重寫！徹底免疫 Span (Ref Struct) 與型別推斷陷阱！")

@@ -45,6 +45,7 @@ namespace LithosNet.VM {
 
         private Scope CompileAndRegister(string path, string objName) {
             string src = File.ReadAllText(path);
+            src = LithosNet.Compiler.Preprocessor.Process(src, Path.GetDirectoryName(path));
             var tokens = new Lexer(src).Tokenize();
             var ast = new Parser(tokens).Parse();
             var scope = new Scope();
