@@ -69,7 +69,7 @@ namespace LithosNet.Compiler {
             string name = context.ID().GetText();
             AstNode init = context.expr() != null ? Visit(context.expr()) : null;
             return CreateNode("VarDeclNode", new Dictionary<string, object> { 
-                { "Type", type }, { "Name", name }, { "Initializer", init } 
+                { "TypeName", type }, { "Name", name }, { "Initializer", init } 
             });
         }
 
@@ -82,7 +82,7 @@ namespace LithosNet.Compiler {
                 foreach(var id in context.paramList().ID()) parameters.Add(id.GetText());
             }
             var body = Visit(context.block());
-            return CreateNode("FunctionDeclNode", new Dictionary<string, object> {
+            return CreateNode("FunctionDeclarationNode", new Dictionary<string, object> {
                 { "ReturnType", retType }, { "Name", name }, { "Parameters", parameters }, { "Body", body }
             });
         }
@@ -131,7 +131,7 @@ namespace LithosNet.Compiler {
                 var left = Visit(context.logicalOrExpr());
                 var right = Visit(context.assignmentExpr());
                 string op = context.GetChild(1).GetText(); 
-                return CreateNode("AssignNode", new Dictionary<string, object> { { "Target", left }, { "Value", right }, { "Operator", op } });
+                return CreateNode("AssignmentNode", new Dictionary<string, object> { { "Target", left }, { "Value", right }, { "Op", op } });
             }
             return Visit(context.logicalOrExpr());
         }
@@ -149,7 +149,7 @@ namespace LithosNet.Compiler {
                     AstNode right = Visit(children[childIdx]);
                     if (right == null) continue;
                     node = CreateNode("BinaryOpNode", new Dictionary<string, object> {
-                        { "Left", node }, { "Right", right }, { "Operator", op }
+                        { "Left", node }, { "Right", right }, { "Op", op }
                     });
                     childIdx++;
                 }
@@ -167,7 +167,7 @@ namespace LithosNet.Compiler {
         public override AstNode VisitUnaryExpr(LPCParser.UnaryExprContext context) {
             if (context.unaryExpr() != null) {
                 string op = context.GetChild(0).GetText();
-                return CreateNode("UnaryOpNode", new Dictionary<string, object> { { "Operator", op }, { "Operand", Visit(context.unaryExpr()) } });
+                return CreateNode("UnaryOpNode", new Dictionary<string, object> { { "Op", op }, { "Op", Visit(context.unaryExpr()) } });
             }
             return Visit(context.postfixExpr());
         }
@@ -195,7 +195,7 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitPrimaryExpr(LPCParser.PrimaryExprContext context) {
-            if (context.ID() != null) return CreateNode("IdentifierNode", new Dictionary<string, object> { { "Name", context.ID().GetText() } });
+            if (context.ID() != null) return CreateNode("IfNode", new Dictionary<string, object> { { "Name", context.ID().GetText() } });
             if (context.INT_LITERAL() != null) return CreateNode("LiteralNode", new Dictionary<string, object> { { "Value", LpcValue.Create(int.Parse(context.INT_LITERAL().GetText())) } });
             if (context.STRING_LITERAL() != null) return CreateNode("LiteralNode", new Dictionary<string, object> { { "Value", LpcValue.Create(context.STRING_LITERAL().GetText().Trim('"')) } });
             if (context.expr() != null) return Visit(context.expr());
