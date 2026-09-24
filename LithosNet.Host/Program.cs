@@ -48,7 +48,16 @@ namespace LithosNet.Host {
             
             string currentObj = "";
             try {
-                currentObj = ObjMgr.CallFunction(MasterObj, "connect").AsString();
+                var connectRet = ObjMgr.CallFunction(MasterObj, "connect");
+                Console.WriteLine($"🔍 [Diag] master->connect() 返回: Type={connectRet?.Type}, Value={connectRet?.Value}");
+                currentObj = connectRet?.Value?.ToString() ?? "";
+                
+                // 【自動 Fallback】如果 connect() 返回了 0 或空字串，代表 clone_object 失敗，我們手動幫它 clone！
+                if (string.IsNullOrEmpty(currentObj) || currentObj == "0") {
+                    Console.WriteLine("⚠️ connect() 返回無效值，啟動自動 Fallback clone_object('login')...");
+                    var fallback = LithosNet.VM.BuiltInEfuns.CloneObject(new[] { LithosNet.Core.LpcValue.Create("login") });
+                    currentObj = fallback?.Value?.ToString() ?? "login#1";
+                }
             } catch (Exception e) {
                 Console.WriteLine($"❌ master->connect() 失敗: {e.Message}");
                 client.Close(); return;
