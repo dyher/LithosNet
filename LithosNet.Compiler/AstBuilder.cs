@@ -86,6 +86,9 @@ namespace LithosNet.Compiler {
                     else body.Add(blockNode); // Fallback
                 }
                 Console.WriteLine($"🔍 [AstBuilder X-Ray] 函數 '{name}' 的 Body 語句數量: {body.Count}");
+                Console.WriteLine($"🔍 [AST-Raw] Block ChildCount: {context.block().ChildCount}");
+                var rawText = context.block().GetText();
+                Console.WriteLine($"🔍 [AST-Raw] Block Text: {rawText.Substring(0, Math.Min(150, rawText.Length))}...");
             return CreateNode("FunctionDeclarationNode", new Dictionary<string, object> {
                 { "ReturnType", retType }, { "Name", name }, { "Parameters", parameters }, { "Body", body }
             });
