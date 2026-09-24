@@ -54,9 +54,17 @@ namespace LithosNet.Host {
             Console.WriteLine($"🔍 [Diag] master->connect() 返回: {connectRet.AsString()}");
             currentObj = connectRet.AsString();
             if (string.IsNullOrEmpty(currentObj) || currentObj == "0") {
-                Console.WriteLine("⚠ connect() 返回無效值，強制 Fallback...");
+                Console.WriteLine("⚠ connect() 返回無效值，強制 Fallback 載入藍圖並直接使用它...");
                 ObjMgr.LoadObject("obj/login");
-                currentObj = "login#1";
+                
+                // 探測真實的物件名稱 (可能是 "obj/login" 或 "login")
+                currentObj = "obj/login";
+                try { 
+                    ObjMgr.CallFunction(currentObj, "query_name"); 
+                } catch { 
+                    currentObj = "login"; 
+                }
+                Console.WriteLine($"✅ Fallback 鎖定物件: {currentObj}");
             }
         } catch (Exception ex) {
             Console.WriteLine($"❌ master->connect() 失敗:\n{ex}");
