@@ -7,6 +7,8 @@ using LithosNet.Compiler;
 
 namespace LithosNet.VM {
     public class ObjectManager {
+        public static ObjectManager Instance { get; private set; }
+        public ObjectManager() { Instance = this; }
         private readonly Dictionary<string, (Scope scope, Interpreter interp)> _objects = new();
         private int _cloneCounter = 0;
         private readonly Dictionary<string, List<string>> _inventories = new();

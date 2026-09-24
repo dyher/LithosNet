@@ -7,6 +7,25 @@ using LithosNet.Core;
 namespace LithosNet.VM {
     public static class BuiltInEfuns {
 
+        // 【MMORPG Fiber】非阻塞式異步延遲 (不卡死主線程)
+        [Efun("task_sleep")]
+        public static LpcValue TaskSleep(LpcValue[] args) {
+            if (args.Length < 2) return LpcValue.Create(0);
+            int ms = args[0].AsInt();
+            string callback = args[1].AsString();
+            string targetObj = SessionManager.CurrentPlayer.Value ?? "";
+            
+            // 利用 C# 原生的 Task.Delay 實現非阻塞掛起
+            System.Threading.Tasks.Task.Run(async () => {
+                await System.Threading.Tasks.Task.Delay(ms);
+                if (ObjectManager.Instance.ObjectExists(targetObj)) {
+                    ObjectManager.Instance.CallFunction(targetObj, callback);
+                }
+            });
+            return LpcValue.Create(1);
+        }
+
+
         // 【Mudlib 基礎】to_int 字串轉整數
         [Efun("to_int")]
         public static LpcValue ToInt(LpcValue[] args) {
@@ -27,7 +46,7 @@ namespace LithosNet.VM {
         // 【MMORPG Efun】移動實體
         [Efun("map_move")]
         public static LpcValue MapMove(LpcValue[] args) {
-            if (args.Length >= 3) GridMapManager.Move(args[0].AsString(), args[1].AsInt(), args[2].AsInt());
+            if (args.Length >= 3) GridMapManager.MoveWithAOI(ObjectManager.Instance, args[0].AsString(), args[1].AsInt(), args[2].AsInt());
             return LpcValue.Create(1);
         }
 

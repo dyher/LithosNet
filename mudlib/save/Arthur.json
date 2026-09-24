@@ -1,4 +1,12 @@
 {
+  "x": {
+    "type": "Int",
+    "value": 51
+  },
+  "y": {
+    "type": "Int",
+    "value": 51
+  },
   "name": {
     "type": "String",
     "value": "Arthur"
@@ -7,86 +15,55 @@
     "type": "Int",
     "value": 1000
   },
-  "x": {
-    "type": "Int",
-    "value": 50
-  },
-  "y": {
-    "type": "Int",
-    "value": 50
-  },
   "user_name": {
     "type": "String",
     "value": "Arthur"
   },
+  "start_x": {
+    "type": "Int",
+    "value": 50
+  },
+  "start_y": {
+    "type": "Int",
+    "value": 50
+  },
   "msg": {
     "type": "String",
-    "value": "aoe 20"
+    "value": "move 51 51"
   },
   "parts": {
     "type": "Array"
   },
   "verb": {
     "type": "String",
-    "value": "aoe"
+    "value": "move"
   },
   "i": {
     "type": "Int",
-    "value": 131
-  },
-  "start": {
-    "type": "Int",
-    "value": 1769827585
+    "value": 5
   },
   "mob": {
     "type": "String",
-    "value": "goblin#1002"
-  },
-  "rx": {
-    "type": "Int",
-    "value": 99
-  },
-  "ry": {
-    "type": "Int",
-    "value": 99
-  },
-  "time": {
-    "type": "Int",
-    "value": 192
+    "value": "goblin#7"
   },
   "newX": {
     "type": "Int",
-    "value": 50
+    "value": 51
   },
   "newY": {
     "type": "Int",
-    "value": 50
+    "value": 51
   },
-  "radius": {
-    "type": "Int",
-    "value": 20
-  },
-  "targets": {
-    "type": "Array"
-  },
-  "query_time": {
-    "type": "Int",
-    "value": 0
-  },
-  "dmg_start": {
-    "type": "Int",
-    "value": 1769827585
-  },
-  "kill_count": {
-    "type": "Int",
-    "value": 130
-  },
-  "t": {
+  "who": {
     "type": "String",
-    "value": "goblin#572"
+    "value": "goblin#7"
   },
-  "dmg_time": {
+  "wx": {
     "type": "Int",
-    "value": 4
+    "value": 54
+  },
+  "wy": {
+    "type": "Int",
+    "value": 54
   }
 }
