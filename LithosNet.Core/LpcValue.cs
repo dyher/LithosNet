@@ -25,7 +25,7 @@ namespace LithosNet.Core {
         public static LpcValue CreateFunction(string objName, string funcName) => 
             new LpcValue(LpcType.Function, 0, new Tuple<string, string>(objName, funcName));
         
-        public int AsInt() => (Type == LpcType.Int) ? (int)_primitiveValue : throw new InvalidCastException();
+        public int AsInt() => (Type == LpcType.Int) ? Convert.ToInt32(_primitiveValue) : throw new InvalidCastException();
         public string AsString() => (Type == LpcType.String) ? (_referenceValue?.ToString() ?? "") : throw new InvalidCastException();
         public List<LpcValue> AsArray() => (Type == LpcType.Array) ? (List<LpcValue>)_referenceValue : throw new InvalidCastException();
         public Dictionary<string, LpcValue> AsMapping() => (Type == LpcType.Mapping) ? (Dictionary<string, LpcValue>)_referenceValue : throw new InvalidCastException();
