@@ -1,11 +1,11 @@
 {
   "x": {
     "type": "Int",
-    "value": 51
+    "value": 60
   },
   "y": {
     "type": "Int",
-    "value": 51
+    "value": 60
   },
   "name": {
     "type": "String",
@@ -19,6 +19,14 @@
     "type": "String",
     "value": "Arthur"
   },
+  "_d1": {
+    "type": "Int",
+    "value": 1
+  },
+  "_d2": {
+    "type": "Int",
+    "value": 1
+  },
   "start_x": {
     "type": "Int",
     "value": 50
@@ -27,43 +35,31 @@
     "type": "Int",
     "value": 50
   },
-  "msg": {
-    "type": "String",
-    "value": "move 51 51"
-  },
-  "parts": {
-    "type": "Array"
-  },
-  "verb": {
-    "type": "String",
-    "value": "move"
-  },
-  "i": {
+  "_d3": {
     "type": "Int",
-    "value": 5
+    "value": 1
   },
-  "mob": {
+  "json_str": {
     "type": "String",
-    "value": "goblin#7"
+    "value": "{\u0022cmd\u0022: \u0022ATTACK\u0022, \u0022target\u0022: \u0022goblin#99\u0022}"
+  },
+  "data": {
+    "type": "Mapping"
+  },
+  "cmd": {
+    "type": "String",
+    "value": "ATTACK"
   },
   "newX": {
     "type": "Int",
-    "value": 51
+    "value": 60
   },
   "newY": {
     "type": "Int",
-    "value": 51
+    "value": 60
   },
-  "who": {
+  "msg": {
     "type": "String",
-    "value": "goblin#7"
-  },
-  "wx": {
-    "type": "Int",
-    "value": 54
-  },
-  "wy": {
-    "type": "Int",
-    "value": 54
+    "value": "spawn_mobs"
   }
 }
