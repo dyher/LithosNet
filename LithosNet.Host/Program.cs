@@ -30,7 +30,7 @@ namespace LithosNet.Host {
             int port = cfg.GetProperty("port").GetInt32();
 
             ObjMgr.Preload(MudlibPath + "obj/" + MasterObj + ".c");
-            try { ObjMgr.CallFunction(MasterObj, "preload"); } catch (Exception e) { Console.WriteLine($"⚠️ Master preload 錯誤: {e.Message}"); }
+            try { ObjMgr.CallFunction(MasterObj, "preload"); } catch (Exception e) { Console.WriteLine($"⚠️ Master preload 錯誤: {e.ToString()}"); }
 
             var listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
@@ -60,7 +60,7 @@ namespace LithosNet.Host {
                     currentObj = "login#1";
                 }
             } catch (Exception e) {
-                Console.WriteLine($"❌ master->connect() 失敗: {e.Message}");
+                Console.WriteLine($"❌ master->connect() 失敗: {e.ToString()}");
                 client.Close(); return;
             }
 
