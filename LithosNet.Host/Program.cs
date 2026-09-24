@@ -39,10 +39,7 @@ namespace LithosNet.Host {
 
             Console.WriteLine("🔍 [Diag] 進入 TCP 讀取迴圈...");
                 while (true) {
-                // 【終極同步】每次收到封包前，強制刷新 currentObj 為 Session 綁定的最新物件 (處理 exec 轉移)
-                var syncedObj = SessionManager.GetObjName(writer);
-                if (!string.IsNullOrEmpty(syncedObj)) currentObj = syncedObj;
-                var client = await listener.AcceptTcpClientAsync();
+                                var client = await listener.AcceptTcpClientAsync();
                 _ = Task.Run(() => HandleClientAsync(client));
             }
         }
@@ -110,6 +107,7 @@ namespace LithosNet.Host {
                         string json = Encoding.UTF8.GetString(payload);
                         SessionManager.CurrentPlayer.Value = currentObj;
                         Console.WriteLine($"🔥 [X-Ray] Calling receive_binary on {currentObj} with: {json}");
+                        currentObj = SessionManager.GetObjName(writer) ?? currentObj;
                         ObjMgr.CallFunction(currentObj, "receive_binary", LpcValue.Create(json));
                         buffer = buffer.Slice(5 + length);
                     } else {
@@ -119,6 +117,7 @@ namespace LithosNet.Host {
                         string line = Encoding.UTF8.GetString(lineBytes).Trim();
                         SessionManager.CurrentPlayer.Value = currentObj;
                         Console.WriteLine($"🔥 [X-Ray] Calling receive_message on {currentObj} with: {line}");
+                        currentObj = SessionManager.GetObjName(writer) ?? currentObj;
                         ObjMgr.CallFunction(currentObj, "receive_message", LpcValue.Create(line));
                         buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
                     }
