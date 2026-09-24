@@ -1,49 +1,23 @@
-using System;
-using System.Buffers;
-using System.IO;
-using System.IO.Pipelines;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
-using LithosNet.Core;
-using LithosNet.VM;
+with open('LithosNet.Host/Program.cs', 'r', encoding='utf-8') as f:
+    code = f.read()
 
-namespace LithosNet.Host {
-    class Program {
-        static readonly ObjectManager ObjMgr = new();
-        static string MudlibPath;
-        static string MasterObj;
-
-        static async Task Main(string[] args) {
-            Console.WriteLine("==================================================");
-            Console.WriteLine("🔥 [Phase 34] 啟動雙軌制 MMORPG 引擎 (Text + Binary)！");
-            Console.WriteLine("==================================================\n");
-
-            EfunRegistry.RegisterFromType(typeof(BuiltInEfuns));
-            
-            string cfgText = File.ReadAllText("config.json");
-            var cfg = JsonDocument.Parse(cfgText).RootElement;
-            MudlibPath = cfg.GetProperty("mudlib_dir").GetString();
-            MasterObj = cfg.GetProperty("master_object").GetString();
-            int port = cfg.GetProperty("port").GetInt32();
-
-            ObjMgr.Preload(MudlibPath + "obj/" + MasterObj + ".c");
-            try { ObjMgr.CallFunction(MasterObj, "preload"); } catch (Exception e) { Console.WriteLine($"⚠️ Master preload 錯誤: {e.ToString()}"); }
-
-            var listener = new TcpListener(IPAddress.Any, port);
-            listener.Start();
-            Console.WriteLine($"\n🚀 {cfg.GetProperty("name").GetString()} Driver 啟動！監聽端口: {port}\n");
-
-            Console.WriteLine("🔍 [Diag] 進入 TCP 讀取迴圈...");
-                while (true) {
-                var client = await listener.AcceptTcpClientAsync();
-                _ = Task.Run(() => HandleClientAsync(client));
-            }
-        }
-
-        static async Task HandleClientAsync(TcpClient client) {
+start_idx = code.find('static async Task HandleClientAsync(TcpClient client)')
+if start_idx != -1:
+    brace_count = 0
+    in_method = False
+    end_idx = start_idx
+    # 手動計算大括號層級，精準找到方法的結尾
+    for i in range(start_idx, len(code)):
+        if code[i] == '{':
+            brace_count += 1
+            in_method = True
+        elif code[i] == '}':
+            brace_count -= 1
+            if in_method and brace_count == 0:
+                end_idx = i + 1
+                break
+    
+    new_method = """static async Task HandleClientAsync(TcpClient client) {
         Console.WriteLine("🔌 [Network] 新客戶端連線！");
         var reader = PipeReader.Create(client.GetStream());
         var writer = PipeWriter.Create(client.GetStream());
@@ -59,7 +33,7 @@ namespace LithosNet.Host {
                 currentObj = "login#1";
             }
         } catch (Exception ex) {
-            Console.WriteLine($"❌ master->connect() 失敗:\n{ex}");
+            Console.WriteLine($"❌ master->connect() 失敗:\\n{ex}");
             client.Close(); return;
         }
 
@@ -72,7 +46,7 @@ namespace LithosNet.Host {
             ObjMgr.CallFunction(currentObj, "logon"); 
             Console.WriteLine("✅ logon() 呼叫成功！");
         } catch (Exception ex) { 
-            Console.WriteLine($"❌ logon() 呼叫失敗:\n{ex}"); 
+            Console.WriteLine($"❌ logon() 呼叫失敗:\\n{ex}"); 
         }
 
         try {
@@ -113,13 +87,18 @@ namespace LithosNet.Host {
                 }
             }
         } catch (Exception ex) {
-            Console.WriteLine($"❌ [Network] TCP 讀取異常:\n{ex}");
+            Console.WriteLine($"❌ [Network] TCP 讀取異常:\\n{ex}");
         } finally {
             Console.WriteLine($"❌ [Session] 斷開連線: {currentObj}");
             SessionManager.Unbind(currentObj);
             try { ObjMgr.CallFunction(currentObj, "logoff"); } catch {}
             client.Close();
         }
-    }
-    }
-}
+    }"""
+    
+    code = code[:start_idx] + new_method + code[end_idx:]
+    with open('LithosNet.Host/Program.cs', 'w', encoding='utf-8') as f:
+        f.write(code)
+    print("✅ HandleClientAsync 已核彈級完美重寫！Busy Loop 與 logon() 缺失已徹底消滅！")
+else:
+    print("❌ 找不到 HandleClientAsync 方法！")
