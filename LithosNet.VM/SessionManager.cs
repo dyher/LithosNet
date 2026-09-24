@@ -8,6 +8,11 @@ using System.Threading.Tasks;
 
 namespace LithosNet.VM {
     public static class SessionManager {
+
+        public static System.Collections.Generic.List<System.IO.Pipelines.PipeWriter> GetAllWriters() {
+            return new System.Collections.Generic.List<System.IO.Pipelines.PipeWriter>(_sessions.Values);
+        }
+
         private static readonly ConcurrentDictionary<string, PipeWriter> _sessions = new();
         private static readonly ConcurrentDictionary<PipeWriter, string> _writerToObj = new();
         public static readonly System.Threading.AsyncLocal<string> CurrentPlayer = new System.Threading.AsyncLocal<string>();
