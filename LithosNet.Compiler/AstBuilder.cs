@@ -156,7 +156,7 @@ namespace LithosNet.Compiler {
                             var al = context.argList(0);
                             if (al.expr() != null) foreach(var e in al.expr()) args.Add(Visit(e));
                         }
-                        node = CreateNode("CallNode", new Dictionary<string, object> { { "Callee", node }, { "Arguments", args } });
+                        node = CreateNode("FunctionCallNode", new Dictionary<string, object> { { "Callee", node }, { "Arguments", args } });
                     } else if (term.Symbol.Type == LPCParser.ARROW) {
                         string funcName = context.GetChild(2).GetText();
                         var args = new List<AstNode>();
