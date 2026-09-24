@@ -95,14 +95,15 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitBlock(LPCParser.BlockContext context) {
-            var stmts = new List<AstNode>();
+            var block = new BlockNode();
+            // 【終極修復】強制遍歷 context 中所有的 statement！
             if (context.statement() != null) {
-                foreach(var stmt in context.statement()) {
-                    var node = Visit(stmt);
-                    if (node != null) stmts.Add(node);
+                foreach (var stmtCtx in context.statement()) {
+                    var astNode = Visit(stmtCtx);
+                    if (astNode != null) block.Statements.Add(astNode);
                 }
             }
-            return CreateNode("BlockNode", new Dictionary<string, object> { { "Statements", stmts } });
+            return block;
         }
 
         public override AstNode VisitIfStmt(LPCParser.IfStmtContext context) {
