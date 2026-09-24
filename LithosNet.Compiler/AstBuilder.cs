@@ -68,9 +68,14 @@ namespace LithosNet.Compiler {
         public override AstNode VisitFuncDecl(LPCParser.FuncDeclContext context) {
             string retType = context.typeSpec() != null ? context.typeSpec().GetText() : "mixed";
             string name = context.ID().GetText();
-            var parameters = new List<string>();
+            var parameters = new System.Collections.Generic.List<ParameterNode>();
             if (context.paramList() != null && context.paramList().ID() != null) {
-                foreach(var id in context.paramList().ID()) parameters.Add(id.GetText());
+                foreach(var id in context.paramList().ID()) {
+                    var p = new ParameterNode();
+                    p.Name = id.GetText();
+                    p.TypeName = "mixed";
+                    parameters.Add(p);
+                }
             }
             var blockNode = Visit(context.block());
                 var body = new System.Collections.Generic.List<AstNode>();
