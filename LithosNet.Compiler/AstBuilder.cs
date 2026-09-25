@@ -224,6 +224,8 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitPrimaryExpr(LPCParser.PrimaryExprContext context) {
+            Console.WriteLine($"🔍 [PrimaryExpr X-Ray] Text: {context.GetText()}, StartType: {context.Start?.Type}, StartText: {context.Start?.Text}");
+            
             // 【最高優先級】Literal 路由
             if (context.mappingLiteral() != null) return Visit(context.mappingLiteral());
             if (context.arrayLiteral() != null) return Visit(context.arrayLiteral());
