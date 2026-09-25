@@ -144,7 +144,17 @@ namespace LithosNet.Compiler {
                 var left = Visit(context.logicalOrExpr());
                 var right = Visit(context.assignmentExpr());
                 
-                // 【關鍵修復】AssignmentNode 需要 VariableName (字串)，而不是 Target (節點)
+                // 【終極路由】如果左邊是索引存取 (IndexAccessNode)，強制生成 IndexAssignmentNode！
+                if (left != null && left.GetType().Name == "IndexAccessNode") {
+                    var arrProp = left.GetType().GetProperty("Array") ?? left.GetType().GetProperty("Target");
+                    var idxProp = left.GetType().GetProperty("Index");
+                    return CreateNode("IndexAssignmentNode", new Dictionary<string, object> {
+                        { "Array", arrProp?.GetValue(left) },
+                        { "Index", idxProp?.GetValue(left) },
+                        { "Value", right }
+                    });
+                }
+
                 string varName = "unknown";
                 if (left != null) {
                     var nameProp = left.GetType().GetProperty("Name", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
@@ -153,7 +163,7 @@ namespace LithosNet.Compiler {
                     else if (nameField != null) varName = nameField.GetValue(left)?.ToString() ?? "unknown";
                 }
                 
-                return (leftNode != null && leftNode.GetType().Name == "IndexAccessNode") ? CreateNode("IndexAssignmentNode", new Dictionary<string, object> { { "Array", leftNode.GetType().GetProperty("Array")?.GetValue(leftNode) }, { "Index", leftNode.GetType().GetProperty("Index")?.GetValue(leftNode) }, { "Value", rightNode } }) : CreateNode("AssignmentNode", new Dictionary<string, object> { { "VariableName", varName }, { "Value", right } });
+                return CreateNode("AssignmentNode", new Dictionary<string, object> { { "VariableName", varName }, { "Value", right } });
             }
             return Visit(context.logicalOrExpr());
         }
