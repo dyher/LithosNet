@@ -148,13 +148,20 @@ namespace LithosNet.VM {
                     }
 
                     if (c.Name == "call_out" && cArgs.Count >= 2) {
-                        string funcName = cArgs[0].AsString(); int delaySec = cArgs[1].AsInt();
-                        var passArgs = cArgs.Skip(2).ToList(); string targetObj = this.ObjectName; 
-                        Task.Run(async () => { await Task.Delay(delaySec * 1000); _objMgr.CallFunction(targetObj, funcName, passArgs.ToArray()); });
-                        return LpcValue.Create(1);
+                        string funcName = cArgs[0].AsString(); 
+                        int delaySec = cArgs[1].AsInt();
+                        var passArgs = cArgs.Skip(2).ToArray(); 
+                        int handle = CallOutManager.Schedule(this.ObjectName, funcName, delaySec, passArgs, _objMgr);
+                        return LpcValue.Create(handle);
                     }
                     if (c.Name == "clone_object" && cArgs.Count >= 1) return LpcValue.Create(_objMgr.Clone(cArgs[0].AsString()));
-                    if (c.Name == "destruct" && cArgs.Count >= 1) { _objMgr.DestructObject(cArgs[0].AsString()); return LpcValue.Create(1); }
+                    if (c.Name == "remove_call_out" && cArgs.Count >= 1) { return LpcValue.Create(CallOutManager.Remove(this.ObjectName, cArgs[0].AsString())); }
+                    if (c.Name == "destruct" && cArgs.Count >= 1) { 
+                        string target = cArgs[0].AsString();
+                        CallOutManager.ClearObject(target);
+                        _objMgr.DestructObject(target); 
+                        return LpcValue.Create(1); 
+                    }
                     if (c.Name == "send_to_user" && cArgs.Count >= 1) { string target = this.ObjectName; // 【FluffOS 語意】嚴格發給當前執行的物件 (this_object)
                         Task.Run(() => SessionManager.SendAsync(target, cArgs[0].AsString())); return LpcValue.Create(1); }
                     if (c.Name == "save_object" && cArgs.Count >= 1) { SaveScope(cArgs[0].AsString()); return LpcValue.Create(1); }
