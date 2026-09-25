@@ -230,8 +230,7 @@ namespace LithosNet.Compiler {
             if (context.expr() != null) return Visit(context.expr());
             return null;
         }
-    }
-
+    
         public override AstNode VisitArrayLiteral(LPCParser.ArrayLiteralContext context) {
             var node = new ArrayLiteralNode();
             if (context.expr() != null) {
@@ -256,4 +255,5 @@ namespace LithosNet.Compiler {
             }
             return node;
         }
+}
 }
