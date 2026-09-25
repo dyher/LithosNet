@@ -82,7 +82,9 @@ namespace LithosNet.Compiler {
                 if (blockNode != null) {
                     // 【終極拆解】如果拿到的是 BlockNode，自動提取它的 Statements 列表！
                     var stmtsProp = blockNode.GetType().GetProperty("Statements");
+                    var stmtsField = blockNode.GetType().GetField("Statements");
                     if (stmtsProp != null) body = (System.Collections.Generic.List<AstNode>)stmtsProp.GetValue(blockNode);
+                    else if (stmtsField != null) body = (System.Collections.Generic.List<AstNode>)stmtsField.GetValue(blockNode);
                     else body.Add(blockNode); // Fallback
                 }
                 Console.WriteLine($"🔍 [AstBuilder X-Ray] 函數 '{name}' 的 Body 語句數量: {body.Count}");
