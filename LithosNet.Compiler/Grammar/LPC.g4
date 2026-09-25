@@ -146,4 +146,15 @@ primaryExpr
     | INT_LITERAL
     | STRING_LITERAL
     | LPAREN expr RPAREN
+    
+    | arrayLiteral
+    | mappingLiteral
+    ;
+
+arrayLiteral
+    : LPAREN LBRACE (expr (COMMA expr)*)? RBRACE RPAREN
+    ;
+
+mappingLiteral
+    : LPAREN LBRACKET (expr COLON expr (COMMA expr COLON expr)*)? RBRACKET RPAREN
     ;

@@ -231,4 +231,29 @@ namespace LithosNet.Compiler {
             return null;
         }
     }
+
+        public override AstNode VisitArrayLiteral(LPCParser.ArrayLiteralContext context) {
+            var node = new ArrayLiteralNode();
+            if (context.expr() != null) {
+                foreach (var e in context.expr()) {
+                    var astNode = Visit(e);
+                    if (astNode != null) node.Elements.Add(astNode);
+                }
+            }
+            return node;
+        }
+
+        public override AstNode VisitMappingLiteral(LPCParser.MappingLiteralContext context) {
+            var node = new MappingLiteralNode();
+            if (context.expr() != null) {
+                var exprs = context.expr();
+                for (int i = 0; i < exprs.Length; i += 2) {
+                    var keyNode = Visit(exprs[i]);
+                    var valNode = (i + 1 < exprs.Length) ? Visit(exprs[i + 1]) : null;
+                    if (keyNode != null) node.Keys.Add(keyNode);
+                    if (valNode != null) node.Values.Add(valNode);
+                }
+            }
+            return node;
+        }
 }
