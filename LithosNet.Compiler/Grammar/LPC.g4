@@ -142,13 +142,13 @@ argList
     ;
 
 primaryExpr
-    : ID
+    : arrayLiteral
+    | mappingLiteral
+    | ID
     | INT_LITERAL
     | STRING_LITERAL
     | LPAREN expr RPAREN
     
-    | arrayLiteral
-    | mappingLiteral
     ;
 
 arrayLiteral

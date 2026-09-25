@@ -1975,6 +1975,12 @@ public partial class LPCParser : Parser {
 	}
 
 	public partial class PrimaryExprContext : ParserRuleContext {
+		[System.Diagnostics.DebuggerNonUserCode] public ArrayLiteralContext arrayLiteral() {
+			return GetRuleContext<ArrayLiteralContext>(0);
+		}
+		[System.Diagnostics.DebuggerNonUserCode] public MappingLiteralContext mappingLiteral() {
+			return GetRuleContext<MappingLiteralContext>(0);
+		}
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode ID() { return GetToken(LPCParser.ID, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode INT_LITERAL() { return GetToken(LPCParser.INT_LITERAL, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode STRING_LITERAL() { return GetToken(LPCParser.STRING_LITERAL, 0); }
@@ -1983,12 +1989,6 @@ public partial class LPCParser : Parser {
 			return GetRuleContext<ExprContext>(0);
 		}
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode RPAREN() { return GetToken(LPCParser.RPAREN, 0); }
-		[System.Diagnostics.DebuggerNonUserCode] public ArrayLiteralContext arrayLiteral() {
-			return GetRuleContext<ArrayLiteralContext>(0);
-		}
-		[System.Diagnostics.DebuggerNonUserCode] public MappingLiteralContext mappingLiteral() {
-			return GetRuleContext<MappingLiteralContext>(0);
-		}
 		public PrimaryExprContext(ParserRuleContext parent, int invokingState)
 			: base(parent, invokingState)
 		{
@@ -2024,46 +2024,46 @@ public partial class LPCParser : Parser {
 				EnterOuterAlt(_localctx, 1);
 				{
 				State = 236;
-				Match(ID);
+				arrayLiteral();
 				}
 				break;
 			case 2:
 				EnterOuterAlt(_localctx, 2);
 				{
 				State = 237;
-				Match(INT_LITERAL);
+				mappingLiteral();
 				}
 				break;
 			case 3:
 				EnterOuterAlt(_localctx, 3);
 				{
 				State = 238;
-				Match(STRING_LITERAL);
+				Match(ID);
 				}
 				break;
 			case 4:
 				EnterOuterAlt(_localctx, 4);
 				{
 				State = 239;
-				Match(LPAREN);
-				State = 240;
-				expr();
-				State = 241;
-				Match(RPAREN);
+				Match(INT_LITERAL);
 				}
 				break;
 			case 5:
 				EnterOuterAlt(_localctx, 5);
 				{
-				State = 243;
-				arrayLiteral();
+				State = 240;
+				Match(STRING_LITERAL);
 				}
 				break;
 			case 6:
 				EnterOuterAlt(_localctx, 6);
 				{
-				State = 244;
-				mappingLiteral();
+				State = 241;
+				Match(LPAREN);
+				State = 242;
+				expr();
+				State = 243;
+				Match(RPAREN);
 				}
 				break;
 			}
@@ -2354,11 +2354,11 @@ public partial class LPCParser : Parser {
 		0,0,223,210,1,0,0,0,223,219,1,0,0,0,224,227,1,0,0,0,225,223,1,0,0,0,225,
 		226,1,0,0,0,226,45,1,0,0,0,227,225,1,0,0,0,228,233,3,26,13,0,229,230,5,
 		40,0,0,230,232,3,26,13,0,231,229,1,0,0,0,232,235,1,0,0,0,233,231,1,0,0,
-		0,233,234,1,0,0,0,234,47,1,0,0,0,235,233,1,0,0,0,236,246,5,16,0,0,237,
-		246,5,17,0,0,238,246,5,18,0,0,239,240,5,33,0,0,240,241,3,26,13,0,241,242,
-		5,34,0,0,242,246,1,0,0,0,243,246,3,50,25,0,244,246,3,52,26,0,245,236,1,
-		0,0,0,245,237,1,0,0,0,245,238,1,0,0,0,245,239,1,0,0,0,245,243,1,0,0,0,
-		245,244,1,0,0,0,246,49,1,0,0,0,247,248,5,33,0,0,248,257,5,35,0,0,249,254,
+		0,233,234,1,0,0,0,234,47,1,0,0,0,235,233,1,0,0,0,236,246,3,50,25,0,237,
+		246,3,52,26,0,238,246,5,16,0,0,239,246,5,17,0,0,240,246,5,18,0,0,241,242,
+		5,33,0,0,242,243,3,26,13,0,243,244,5,34,0,0,244,246,1,0,0,0,245,236,1,
+		0,0,0,245,237,1,0,0,0,245,238,1,0,0,0,245,239,1,0,0,0,245,240,1,0,0,0,
+		245,241,1,0,0,0,246,49,1,0,0,0,247,248,5,33,0,0,248,257,5,35,0,0,249,254,
 		3,26,13,0,250,251,5,40,0,0,251,253,3,26,13,0,252,250,1,0,0,0,253,256,1,
 		0,0,0,254,252,1,0,0,0,254,255,1,0,0,0,255,258,1,0,0,0,256,254,1,0,0,0,
 		257,249,1,0,0,0,257,258,1,0,0,0,258,259,1,0,0,0,259,260,5,36,0,0,260,261,
