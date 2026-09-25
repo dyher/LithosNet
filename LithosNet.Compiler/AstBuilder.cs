@@ -206,16 +206,17 @@ namespace LithosNet.Compiler {
 
         public override AstNode VisitPostfixExpr(LPCParser.PostfixExprContext context) {
             AstNode node = Visit(context.primaryExpr());
-            if (context.ChildCount > 1) {
-                var second = context.GetChild(1);
-                if (second is ITerminalNode term) {
+            int i = 1;
+            // 【終極循環】完美處理所有後綴操作 (函數呼叫、Call Other、索引訪問)
+            while (i < context.ChildCount) {
+                var child = context.GetChild(i);
+                if (child is ITerminalNode term) {
                     if (term.Symbol.Type == LPCParser.LPAREN) {
-                        var args = new List<AstNode>();
-                        if (context.argList() != null && context.argList().Length > 0) {
-                            var al = context.argList(0);
+                        var args = new System.Collections.Generic.List<AstNode>();
+                        if (i + 1 < context.ChildCount && context.GetChild(i + 1) is LPCParser.ArgListContext al) {
                             if (al.expr() != null) foreach(var e in al.expr()) args.Add(Visit(e));
+                            i++; // skip argList
                         }
-                        // FunctionCallNode 只有 Name，我們將引數嘗試塞入 Arguments 或 Args
                         string funcName = "unknown";
                         if (node != null) {
                             var nameProp = node.GetType().GetProperty("Name", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
@@ -224,12 +225,29 @@ namespace LithosNet.Compiler {
                             else if (nameField != null) funcName = nameField.GetValue(node)?.ToString() ?? "unknown";
                         }
                         node = CreateNode("FunctionCallNode", new Dictionary<string, object> { { "Name", funcName }, { "Arguments", args }, { "Args", args } });
+                        i++; // skip RPAREN
                     } else if (term.Symbol.Type == LPCParser.ARROW) {
-                        string funcName = context.GetChild(2).GetText();
-                        var args = new List<AstNode>();
-                        node = CreateNode("CallOtherNode", new Dictionary<string, object> { { "Target", node }, { "FuncName", funcName }, { "Arguments", args } });
+                        string funcName = context.GetChild(i + 1).GetText();
+                        i++; // skip ID
+                        var args = new System.Collections.Generic.List<AstNode>();
+                        if (i + 1 < context.ChildCount && context.GetChild(i + 1) is ITerminalNode n2 && n2.Symbol.Type == LPCParser.LPAREN) {
+                            if (i + 2 < context.ChildCount && context.GetChild(i + 2) is LPCParser.ArgListContext al) {
+                                if (al.expr() != null) foreach(var e in al.expr()) args.Add(Visit(e));
+                                i++; // skip argList
+                            }
+                            i++; // skip LPAREN
+                            i++; // skip RPAREN
+                        }
+                        node = CreateNode("CallOtherNode", new Dictionary<string, object> { { "Target", node }, { "FuncName", funcName }, { "Arguments", args }, { "Args", args } });
+                    } else if (term.Symbol.Type == LPCParser.LBRACKET) {
+                        // 【創世補齊】完美處理索引訪問 a[b]！
+                        var indexNode = Visit(context.GetChild(i + 1));
+                        node = CreateNode("IndexAccessNode", new Dictionary<string, object> { { "Array", node }, { "Target", node }, { "Index", indexNode } });
+                        i++; // skip expr
+                        i++; // skip RBRACKET
                     }
                 }
+                i++;
             }
             return node;
         }
