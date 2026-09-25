@@ -194,8 +194,10 @@ namespace LithosNet.VM {
                     else targetObjName = Eval(co.Target).AsString();
                     return _objMgr.CallFunction(targetObjName, co.FuncName, coArgs.ToArray());
                 case ArrayLiteralNode al:
+                    Console.WriteLine($"🔍 [VM X-Ray] Evaluating ArrayLiteralNode with {al.Elements.Count} elements!");
                     var list = new List<LpcValue>(); foreach (var e in al.Elements) list.Add(Eval(e)); return LpcValue.Create(list);
                 case MappingLiteralNode ml:
+                    Console.WriteLine($"🔍 [VM X-Ray] Evaluating MappingLiteralNode with {ml.Keys.Count} keys!");
                     var dict = new Dictionary<string, LpcValue>();
                     for (int i = 0; i < ml.Keys.Count; i++) dict[Eval(ml.Keys[i]).AsString()] = Eval(ml.Values[i]);
                     return LpcValue.Create(dict);

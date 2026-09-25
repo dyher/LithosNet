@@ -232,6 +232,7 @@ namespace LithosNet.Compiler {
         }
     
         public override AstNode VisitArrayLiteral(LPCParser.ArrayLiteralContext context) {
+            Console.WriteLine($"🔍 [AST X-Ray] VisitArrayLiteral called! Expr count: {(context.expr() != null ? context.expr().Length : 0)}");
             var node = new ArrayLiteralNode();
             if (context.expr() != null) {
                 foreach (var e in context.expr()) {
@@ -243,6 +244,7 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitMappingLiteral(LPCParser.MappingLiteralContext context) {
+            Console.WriteLine($"🔍 [AST X-Ray] VisitMappingLiteral called! Expr count: {(context.expr() != null ? context.expr().Length : 0)}");
             var node = new MappingLiteralNode();
             if (context.expr() != null) {
                 var exprs = context.expr();
