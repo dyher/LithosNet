@@ -49,9 +49,13 @@ namespace LithosNet.VM {
         private void Visit(AstNode node) {
             switch (node) {
                 case VariableDeclarationNode v: Console.WriteLine($"🔍 [Scope] Decl: '{v.VariableName}'"); _scope.Set(v.VariableName, v.Initializer != null ? Eval(v.Initializer) : LpcValue.Create(0)); break;
-                case AssignmentNode a: Console.WriteLine($"🔍 [Scope] Assign: '{a.VariableName}'"); _scope.Set(a.VariableName, Eval(a.Value)); break;
+                case AssignmentNode a: 
+                    var assignVal = Eval(a.Value);
+                    Console.WriteLine($"🔍 [VM Type X-Ray] Assign '{a.VariableName}' -> LpcType: {assignVal.Type}, CLR: {assignVal.Value?.GetType().Name}"); Console.WriteLine($"🔍 [Scope] Assign: '{a.VariableName}'"); _scope.Set(a.VariableName, assignVal); break;
                 case IndexAssignmentNode ia:
-                    var col = Eval(ia.Array); var idx = Eval(ia.Index); var val = Eval(ia.Value);
+                    var iaCol = Eval(ia.Array); var iaIdx = Eval(ia.Index); var iaVal = Eval(ia.Value);
+                    Console.WriteLine($"🔍 [VM Type X-Ray] IndexAssign -> Target LpcType: {iaCol.Type}, CLR: {iaCol.Value?.GetType().Name}, Index: {iaIdx.AsString()}");
+                    var col = iaCol; var idx = iaIdx; var val = iaVal;
                     if (col.Type == LpcType.Array) col.AsArray()[idx.AsInt()] = val;
                     else if (col.Type == LpcType.Mapping) col.AsMapping()[idx.AsString()] = val;
                     break;
