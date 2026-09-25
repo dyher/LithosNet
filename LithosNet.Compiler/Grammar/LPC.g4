@@ -28,6 +28,11 @@ PLUS        : '+' ; MINUS       : '-' ; STAR        : '*' ; SLASH       : '/' ;
 ASSIGN      : '=' ; EQ          : '==' ; NEQ         : '!=' ;
 GT          : '>' ; LT          : '<' ; GTE         : '>=' ; LTE         : '<=' ;
 AND         : '&&' ; OR         : '||' ; NOT         : '!' ;
+
+ARRAY_OPEN  : '({' ;
+ARRAY_CLOSE : '})' ;
+MAP_OPEN    : '([' ;
+MAP_CLOSE   : '])' ;
 LPAREN      : '(' ; RPAREN      : ')' ; LBRACE      : '{' ; RBRACE      : '}' ;
 LBRACKET    : '[' ; RBRACKET    : ']' ; SEMI        : ';' ; COMMA       : ',' ; COLON       : ':' ;
 ARROW       : '->' ; PLUS_ASSIGN: '+='; MINUS_ASSIGN: '-=';
@@ -151,10 +156,6 @@ primaryExpr
     
     ;
 
-arrayLiteral
-    : LPAREN LBRACE (expr (COMMA expr)*)? RBRACE RPAREN
-    ;
+arrayLiteral : ARRAY_OPEN (expr (COMMA expr)*)? ARRAY_CLOSE ;
 
-mappingLiteral
-    : LPAREN LBRACKET (expr COLON expr (COMMA expr COLON expr)*)? RBRACKET RPAREN
-    ;
+mappingLiteral : MAP_OPEN (expr COLON expr (COMMA expr COLON expr)*)? MAP_CLOSE ;
