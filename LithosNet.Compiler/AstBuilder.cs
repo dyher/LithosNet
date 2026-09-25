@@ -153,7 +153,7 @@ namespace LithosNet.Compiler {
                     else if (nameField != null) varName = nameField.GetValue(left)?.ToString() ?? "unknown";
                 }
                 
-                return CreateNode("AssignmentNode", new Dictionary<string, object> { { "VariableName", varName }, { "Value", right } });
+                return (leftNode != null && leftNode.GetType().Name == "IndexAccessNode") ? CreateNode("IndexAssignmentNode", new Dictionary<string, object> { { "Array", leftNode.GetType().GetProperty("Array")?.GetValue(leftNode) }, { "Index", leftNode.GetType().GetProperty("Index")?.GetValue(leftNode) }, { "Value", rightNode } }) : CreateNode("AssignmentNode", new Dictionary<string, object> { { "VariableName", varName }, { "Value", right } });
             }
             return Visit(context.logicalOrExpr());
         }
