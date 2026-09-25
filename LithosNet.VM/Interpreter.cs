@@ -125,7 +125,17 @@ namespace LithosNet.VM {
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");
-                    if (c.Name == "move" && cArgs.Count >= 1) { _objMgr.MoveObject(this.ObjectName, cArgs[0].AsString()); return LpcValue.Create(1); }
+                    if (c.Name == "move" || c.Name == "move_object") { 
+                        if (cArgs.Count >= 4) { SpaceManager.Move(cArgs[0].AsString(), cArgs[1].AsInt(), cArgs[2].AsInt(), cArgs[3].AsInt()); }
+                        else if (cArgs.Count >= 3) { SpaceManager.Move(this.ObjectName, cArgs[0].AsInt(), cArgs[1].AsInt(), cArgs[2].AsInt()); }
+                        return LpcValue.Create(1); 
+                    }
+                    if (c.Name == "get_objects_in_radius" && cArgs.Count >= 4) {
+                        var list = SpaceManager.GetObjectsInRadius(cArgs[0].AsInt(), cArgs[1].AsInt(), cArgs[2].AsInt(), cArgs[3].AsInt());
+                        var lpcList = new System.Collections.Generic.List<LpcValue>(); 
+                        foreach(var o in list) lpcList.Add(LpcValue.Create(o));
+                        return LpcValue.Create(lpcList);
+                    }
                     if (c.Name == "all_inventory" && cArgs.Count >= 1) {
                         var inv = _objMgr.GetInventory(cArgs[0].AsString()); var invList = new List<LpcValue>(); foreach(var i in inv) invList.Add(LpcValue.Create(i)); return LpcValue.Create(invList);
                     }
