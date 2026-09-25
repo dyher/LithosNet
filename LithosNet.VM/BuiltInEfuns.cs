@@ -199,6 +199,7 @@ namespace LithosNet.VM {
         // ==========================================
         [Efun("keys")]
         public static LpcValue Keys(LpcValue[] args) {
+            Console.WriteLine($"🔍 [Efun X-Ray] keys() arg count: {args.Length}, arg0 Type: {(args.Length > 0 ? args[0].Type.ToString() : "NONE")}");
             if (args.Length < 1 || args[0].Type != LpcType.Mapping) return LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
             var dict = args[0].AsMapping();
             var list = new System.Collections.Generic.List<LpcValue>();
@@ -225,6 +226,7 @@ namespace LithosNet.VM {
 
         [Efun("element_of")]
         public static LpcValue ElementOf(LpcValue[] args) {
+            Console.WriteLine($"🔍 [Efun X-Ray] element_of() arg0 Type: {(args.Length > 0 ? args[0].Type.ToString() : "NONE")}");
             if (args.Length < 1) return LpcValue.Create(0);
             if (args[0].Type == LpcType.Array) {
                 var arr = args[0].AsArray();
@@ -294,7 +296,8 @@ namespace LithosNet.VM {
         [Efun("explode")]
         public static LpcValue Explode(LpcValue[] args) { if (args.Length < 2) return LpcValue.Create(new List<LpcValue>()); var parts = args[0].AsString().Split(new[] { args[1].AsString() }, StringSplitOptions.None); var list = new List<LpcValue>(); foreach (var p in parts) list.Add(LpcValue.Create(p)); return LpcValue.Create(list); }
         [Efun("implode")]
-        public static LpcValue Implode(LpcValue[] args) { if (args.Length < 2) return LpcValue.Create(""); var arr = args[0].AsArray(); var strings = new List<string>(); foreach (var v in arr) strings.Add(v.Type == LpcType.String ? v.AsString() : v.ToString()); return LpcValue.Create(string.Join(args[1].AsString(), strings)); }
+        public static LpcValue Implode(LpcValue[] args) {
+            Console.WriteLine($"🔍 [Efun X-Ray] implode() arg count: {args.Length}, arg0 Type: {(args.Length > 0 ? args[0].Type.ToString() : "NONE")}"); if (args.Length < 2) return LpcValue.Create(""); var arr = args[0].AsArray(); var strings = new List<string>(); foreach (var v in arr) strings.Add(v.Type == LpcType.String ? v.AsString() : v.ToString()); return LpcValue.Create(string.Join(args[1].AsString(), strings)); }
         [Efun("get_tick")]
         public static LpcValue GetTick(LpcValue[] args) { return LpcValue.Create(Environment.TickCount); }
     }
