@@ -51,7 +51,6 @@ namespace LithosNet.VM {
                 case VariableDeclarationNode v: Console.WriteLine($"🔍 [Scope] Decl: '{v.VariableName}'"); _scope.Set(v.VariableName, v.Initializer != null ? Eval(v.Initializer) : LpcValue.Create(0)); break;
                 case AssignmentNode a: Console.WriteLine($"🔍 [Scope] Assign: '{a.VariableName}'"); _scope.Set(a.VariableName, Eval(a.Value)); break;
                 case IndexAssignmentNode ia:
-                    Console.WriteLine($"🔍 [VM X-Ray] IndexAssign: Target Name={ia.Array.GetType().Name}, col.Type={Eval(ia.Array).Type}");
                     var col = Eval(ia.Array); var idx = Eval(ia.Index); var val = Eval(ia.Value);
                     if (col.Type == LpcType.Array) col.AsArray()[idx.AsInt()] = val;
                     else if (col.Type == LpcType.Mapping) col.AsMapping()[idx.AsString()] = val;

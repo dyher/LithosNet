@@ -199,7 +199,6 @@ namespace LithosNet.VM {
         // ==========================================
         [Efun("keys")]
         public static LpcValue Keys(LpcValue[] args) {
-            Console.WriteLine($"🔍 [Efun X-Ray] keys() arg Type: {args[0].Type}, CLR Type: {args[0].Value?.GetType().Name}");
             if (args.Length < 1 || args[0].Type != LpcType.Mapping) return LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
             var dict = args[0].AsMapping();
             var list = new System.Collections.Generic.List<LpcValue>();

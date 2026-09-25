@@ -242,7 +242,26 @@ namespace LithosNet.Compiler {
         }
     
         public override AstNode VisitArrayLiteral(LPCParser.ArrayLiteralContext context) {
-            Console.WriteLine($"🔍 [AST X-Ray] VisitArrayLiteral called! Expr count: {(context.expr() != null ? context.expr().Length : 0)}");
+            string rawText = context.GetText();
+            Console.WriteLine($"🔍 [AST Hijack] ArrayLiteral Text: {rawText.Substring(0, Math.Min(20, rawText.Length))}");
+            
+            // 【型別劫持】如果以 ([ 開頭，強制當作 Mapping 處理！
+            if (rawText.StartsWith("([") || rawText.StartsWith("([")) {
+                var mapNode = new MappingLiteralNode();
+                if (context.expr() != null) {
+                    var exprs = context.expr();
+                    for (int i = 0; i < exprs.Length; i += 2) {
+                        var keyNode = Visit(exprs[i]);
+                        var valNode = (i + 1 < exprs.Length) ? Visit(exprs[i + 1]) : null;
+                        if (keyNode != null) mapNode.Keys.Add(keyNode);
+                        if (valNode != null) mapNode.Values.Add(valNode);
+                    }
+                }
+                Console.WriteLine($"🔍 [AST Hijack] Converted to MappingLiteralNode with {mapNode.Keys.Count} keys!");
+                return mapNode;
+            }
+
+            // 原本的 Array 邏輯
             var node = new ArrayLiteralNode();
             if (context.expr() != null) {
                 foreach (var e in context.expr()) {
