@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace LithosNet.VM {
     public struct Location { 
@@ -13,11 +14,36 @@ namespace LithosNet.VM {
     public static class SpaceManager {
         private static readonly ConcurrentDictionary<string, Location> _positions = new();
 
-        public static void Move(string obj, int x, int y, int z) {
-            _positions.AddOrUpdate(obj, 
-                new Location { Env = "world", X = x, Y = y, Z = z }, 
-                (k, v) => { v.X = x; v.Y = y; v.Z = z; return v; });
+        public static void Move(string obj, int x, int y, int z, ObjectManager objMgr, int radius = 5) {
+            bool hasOld = _positions.TryGetValue(obj, out Location oldLoc);
+            Location newLoc = new Location { Env = "world", X = x, Y = y, Z = z };
+            _positions[obj] = newLoc;
+            
             Console.WriteLine($"🌍 [Space] {obj} 移動到 ({x}, {y}, {z})");
+
+            if (objMgr == null) return;
+
+            var oldSet = hasOld ? GetObjectsInRadius(oldLoc.X, oldLoc.Y, oldLoc.Z, radius) : new List<string>();
+            var newSet = GetObjectsInRadius(x, y, z, radius);
+
+            // 找出「新進入視野」的物件 (在 newSet 但不在 oldSet)
+            var entered = newSet.Except(oldSet).Where(o => o != obj).ToList();
+            // 找出「離開視野」的物件 (在 oldSet 但不在 newSet)
+            var left = oldSet.Except(newSet).Where(o => o != obj).ToList();
+
+            foreach (var target in entered) {
+                try { 
+                    objMgr.CallFunction(target, "aoi_enter", LpcValue.Create(obj)); 
+                    Console.WriteLine($"👁 [AOI Event] {target} 看到 {obj} 進入視野！");
+                } catch {}
+            }
+
+            foreach (var target in left) {
+                try { 
+                    objMgr.CallFunction(target, "aoi_leave", LpcValue.Create(obj)); 
+                    Console.WriteLine($"👁 [AOI Event] {target} 看到 {obj} 離開視野！");
+                } catch {}
+            }
         }
 
         public static List<string> GetObjectsInRadius(int x, int y, int z, int radius) {
