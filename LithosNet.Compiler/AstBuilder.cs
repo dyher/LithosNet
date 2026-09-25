@@ -224,11 +224,10 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitPrimaryExpr(LPCParser.PrimaryExprContext context) {
-            if (context.ID() != null) return CreateNode("VariableRefNode", new Dictionary<string, object> { { "Name", context.ID().GetText() } });
-            if (context.INT_LITERAL() != null) return CreateNode("LiteralNode", new Dictionary<string, object> { { "Value", LpcValue.Create(int.Parse(context.INT_LITERAL().GetText())) } });
-            if (context.STRING_LITERAL() != null) return CreateNode("LiteralNode", new Dictionary<string, object> { { "Value", LpcValue.Create(context.STRING_LITERAL().GetText().Trim('"')) } });
-            if (context.expr() != null) return Visit(context.expr());
-            return null;
+            // 【終極路由】強制精確轉發給 Literal Visitor！
+            if (context.mappingLiteral() != null) return Visit(context.mappingLiteral());
+            if (context.arrayLiteral() != null) return Visit(context.arrayLiteral());
+            return base.VisitPrimaryExpr(context);
         }
     
         public override AstNode VisitArrayLiteral(LPCParser.ArrayLiteralContext context) {
