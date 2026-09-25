@@ -96,11 +96,14 @@ namespace LithosNet.Compiler {
 
         public override AstNode VisitBlock(LPCParser.BlockContext context) {
             var block = new BlockNode();
-            // 【終極修復】強制遍歷 context 中所有的 statement！
-            if (context.statement() != null) {
-                foreach (var stmtCtx in context.statement()) {
-                    var astNode = Visit(stmtCtx);
-                    if (astNode != null) block.Statements.Add(astNode);
+            // 【終極降維】放棄 context.statement()，直接遍歷最底層的 context.children！
+            if (context.children != null) {
+                foreach (var child in context.children) {
+                    if (child is LPCParser.StatementContext stmtCtx) {
+                        var astNode = Visit(stmtCtx);
+                        Console.WriteLine($"🔍 [Block X-Ray] Child Type: {child.GetType().Name}, AST Node: {(astNode != null ? astNode.GetType().Name : "NULL")}");
+                        if (astNode != null) block.Statements.Add(astNode);
+                    }
                 }
             }
             return block;
