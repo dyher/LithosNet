@@ -131,9 +131,9 @@ namespace LithosNet.VM {
                         return LpcValue.Create(1); 
                     }
                     if (c.Name == "get_objects_in_radius" && cArgs.Count >= 4) {
-                        var list = SpaceManager.GetObjectsInRadius(cArgs[0].AsInt(), cArgs[1].AsInt(), cArgs[2].AsInt(), cArgs[3].AsInt());
+                        var radiusList = SpaceManager.GetObjectsInRadius(cArgs[0].AsInt(), cArgs[1].AsInt(), cArgs[2].AsInt(), cArgs[3].AsInt());
                         var lpcList = new System.Collections.Generic.List<LpcValue>(); 
-                        foreach(var o in list) lpcList.Add(LpcValue.Create(o));
+                        foreach(var o in radiusList) lpcList.Add(LpcValue.Create(o));
                         return LpcValue.Create(lpcList);
                     }
                     if (c.Name == "all_inventory" && cArgs.Count >= 1) {
