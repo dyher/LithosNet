@@ -13,3 +13,4 @@ combat.c
 ## OS
 .DS_Store
 Thumbs.db
+LithosNet.Compiler/Ast/LithosNet.Compiler/Grammar/LPC*.cs
