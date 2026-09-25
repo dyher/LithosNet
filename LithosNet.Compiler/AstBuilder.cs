@@ -142,6 +142,7 @@ namespace LithosNet.Compiler {
         public override AstNode VisitAssignmentExpr(LPCParser.AssignmentExprContext context) {
             if (context.assignmentExpr() != null) {
                 var left = Visit(context.logicalOrExpr());
+                Console.WriteLine($"🔍 [Assign AST X-Ray] left Type: {left?.GetType().Name}, Text: {context.logicalOrExpr().GetText()}");
                 var right = Visit(context.assignmentExpr());
                 
                 // 【終極路由】如果左邊是索引存取 (IndexAccessNode)，強制生成 IndexAssignmentNode！
