@@ -121,27 +121,15 @@ namespace LithosNet.VM {
                 else _heartBeatObjects.Remove(objName);
             }
 
-        private async void OnHeartBeatTick(object sender, System.Timers.ElapsedEventArgs e) {
-            Console.WriteLine($"⏰ [Heartbeat Debug] OnHeartBeatTick triggered! Targets count: {_heartBeatObjects.Count}");
-            Console.WriteLine($"📚 [Heartbeat Debug] Current _objects Keys: [{string.Join(", ", _objects.Keys)}]");
-            
-            var targets = _heartBeatObjects.ToList();
-            foreach (var objName in targets) {
-                Console.WriteLine($"🔍 [Heartbeat Debug] Checking objName: '{objName}' (Length: {objName.Length})");
-                Console.WriteLine($"🔍 [Heartbeat Debug] ContainsKey result: {_objects.ContainsKey(objName)}");
-                
-                if (_objects.ContainsKey(objName)) {
-                    try {
-                        Console.WriteLine($"⚡ [Heartbeat Debug] Attempting to call heart_beat on: {objName}");
-                        _ = Task.Run(() => CallFunction(objName, "heart_beat", Array.Empty<LpcValue>()));
-                    } catch (Exception ex) {
-                        Console.WriteLine($"❌ [Heartbeat Debug] Exception calling heart_beat on {objName}: {ex.Message}");
-                    }
-                } else {
-                    Console.WriteLine($"❌ [Heartbeat Debug] Object '{objName}' NOT FOUND in _objects dictionary!");
-                }
-            }
-        }
+            private async void OnHeartBeatTick(object sender, System.Timers.ElapsedEventArgs e) {
+                var targets = _heartBeatObjects.ToList();
+                foreach (var objName in targets) {
+                    if (_objects.ContainsKey(objName)) {
+                        try {
+                            _ = Task.Run(() => CallFunction(objName, "heart_beat", Array.Empty<LpcValue>()));
+                        } catch { 
+                            // 忽略 Bot heart_beat 內部的錯誤，防止崩潰
+                        }
                     }
                 }
             }
