@@ -311,7 +311,10 @@ namespace LithosNet.Compiler {
                     if (keyNode != null) node.Keys.Add(keyNode);
                     if (valNode != null) node.Values.Add(valNode);
                 }
-            
+            }
+            return node;
+        }
+
         public override AstNode VisitSwitchStmt(LPCParser.SwitchStmtContext context) {
             var node = new SwitchNode();
             if (context.expr() != null) node.Condition = Visit(context.expr());
@@ -349,8 +352,5 @@ namespace LithosNet.Compiler {
             return new BreakNode();
         }
 
-    }
-            return node;
-        }
 }
 }
