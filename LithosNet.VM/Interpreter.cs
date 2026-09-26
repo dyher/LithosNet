@@ -226,10 +226,7 @@ namespace LithosNet.VM {
                         SessionManager.Exec(cArgs[0].AsString(), cArgs[1].AsString());
                         return LpcValue.Create(1);
                     }
-                    if (c.Name == "load_object" && cArgs.Count >= 1) {
-                        _objMgr.LoadObject(cArgs[0].AsString());
-                        return LpcValue.Create(cArgs[0].AsString());
-                    }
+                    
                     
                     
                     // 【核心路由】throw 必須在這裡被攔截！
@@ -354,29 +351,13 @@ namespace LithosNet.VM {
 
                     
                     // 【Phase 56: FluffOS 核心】find_object: 查找內存中已載入的物件
-                    if (c.Name == "find_object" && cArgs.Count >= 1) {
-                        string path = cArgs[0].AsString();
-                        // 嘗試直接查找，或去除副檔名查找
-                        string key = path;
-                        if (!key.EndsWith(".c")) key += ".c";
-                        // 簡化版：直接嘗試匹配字典中的 key
-                        foreach(var kvp in _objMgr.GetAllObjects()) {
-                            if (kvp.Key.EndsWith(path) || kvp.Key == path || kvp.Key.EndsWith(key)) {
-                                return LpcValue.Create(kvp.Key);
-                            }
+                    
                         }
                         return LpcValue.Create(0);
                     }
 
                     // 【Phase 56: FluffOS 核心】load_object: 強制載入或重新載入藍圖物件
-                    if (c.Name == "load_object" && cArgs.Count >= 1) {
-                        string path = cArgs[0].AsString();
-                        try {
-                            _objMgr.LoadObject(path);
-                            // 返回載入後的物件 ID (通常是去除路徑和 .c 的名稱)
-                            string name = System.IO.Path.GetFileNameWithoutExtension(path);
-                            return LpcValue.Create(name);
-                        } catch (Exception ex) {
+                     catch (Exception ex) {
                             Console.WriteLine($"⚠️ [Efun] load_object failed: {ex.Message}");
                             return LpcValue.Create(0);
                         }
@@ -397,6 +378,41 @@ namespace LithosNet.VM {
                         }
                     }
 
+                                        // 【Phase 56: FluffOS 核心】load_object: 強制載入或重新載入藍圖物件
+                    if (c.Name == "load_object" && cArgs.Count >= 1) {
+                        string path = cArgs[0].AsString();
+                        try {
+                            _objMgr.LoadObject(path);
+                            // 返回載入後的物件 Key (與 ObjectManager.LoadObject 內部邏輯保持一致)
+                            string name = System.IO.Path.GetFileNameWithoutExtension(path);
+                            return LpcValue.Create(name);
+                        } catch (Exception ex) {
+                            Console.WriteLine($"⚠️ [Efun] load_object failed: {ex.Message}");
+                            return LpcValue.Create(0);
+                        }
+                    }
+
+                    // 【Phase 56: FluffOS 核心】find_object: 查找內存中已載入的物件
+                    if (c.Name == "find_object" && cArgs.Count >= 1) {
+                        string path = cArgs[0].AsString();
+                        // 提取目標名稱，與 LoadObject 內部的 Key 生成邏輯 100% 對齊
+                        string targetName = System.IO.Path.GetFileNameWithoutExtension(path);
+                        
+                        // 1. 優先嘗試精確匹配 Key
+                        if (_objMgr.GetAllObjects().TryGetValue(targetName, out var obj)) {
+                            return LpcValue.Create(targetName);
+                        }
+                        
+                        // 2. 兜底：遍歷匹配（兼容絕對路徑等邊緣情況）
+                        foreach(var kvp in _objMgr.GetAllObjects()) {
+                            if (kvp.Key == path || kvp.Key.EndsWith(path) || kvp.Key.EndsWith(path + ".c") || kvp.Key.EndsWith(targetName)) {
+                                return LpcValue.Create(kvp.Key);
+                            }
+                        }
+                        return LpcValue.Create(0);
+                    }
+
+                    
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");
