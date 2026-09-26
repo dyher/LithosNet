@@ -149,18 +149,20 @@ namespace LithosNet.VM {
 
         public void LoadSimulEfun(string path) {
             Console.WriteLine($"📦 [SimulEfun] Loading global simul_efun from: {path}");
-            string cleanPath = path;
-            LoadObject(cleanPath);
+            LoadObject(path);
             
-            string actualName = System.IO.Path.GetFileNameWithoutExtension(cleanPath);
+            // 【關鍵修復】LoadObject 內部使用 Path.GetFileNameWithoutExtension 作為 Key 存入 _objects
+            string actualName = System.IO.Path.GetFileNameWithoutExtension(path);
             if (_objects.TryGetValue(actualName, out var sefunObj)) {
                 _simulEfunInterp = sefunObj.interp;
                 int count = sefunObj.scope.GetFunctions().Count;
                 Console.WriteLine($"🚀 [SimulEfun] Successfully loaded and set as global fallback! ({count} functions available)");
             } else {
-                Console.WriteLine($"❌ [SimulEfun] Failed to load object at path: {cleanPath}");
+                Console.WriteLine($"❌ [SimulEfun] Failed to load object. Key '{actualName}' not found in _objects.");
             }
         }
+
+        
 
         public bool CallSimulEfunSafe(string name, System.Collections.Generic.List<LpcValue> args, out LpcValue result) {
             if (_simulEfunInterp != null && _simulEfunInterp._scope.HasFunction(name)) {
