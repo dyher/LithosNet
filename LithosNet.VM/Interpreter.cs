@@ -56,6 +56,21 @@ namespace LithosNet.VM {
                     for (int i = 0; i < func.Parameters.Count && i < args.Count; i++) {
                         _scope.Set(func.Parameters[i].Name, args[i]);
                     }
+                    
+                    // 【創世 AST Dump】印出函數內部的真實節點結構
+                    if (name == "square" || name == "add_one") {
+                        Console.WriteLine($"🔍 [AST Dump] Function '{name}' Body Structure:");
+                        foreach (var stmt in func.Body) {
+                            Console.WriteLine($"   -> Node Type: {stmt.GetType().Name}");
+                            if (stmt.GetType().Name == "ExpressionStatementNode" || stmt.GetType().Name == "ExprStmtNode") {
+                                var exprProp = stmt.GetType().GetProperty("Expression") ?? stmt.GetType().GetField("Expression");
+                                if (exprProp != null) {
+                                    var innerExpr = exprProp.GetValue(stmt);
+                                    Console.WriteLine($"      -> Inner Expr Type: {innerExpr?.GetType().Name ?? "null"}");
+                                }
+                            }
+                        }
+                    }
                     foreach (var s in func.Body) { 
                         Console.WriteLine($"🔍 [Body X-Ray] Executing Node: {s.GetType().Name}");
                         Visit(s); 
