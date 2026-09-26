@@ -289,6 +289,12 @@ namespace LithosNet.VM {
                         return LpcValue.Create(new Random().Next(cArgs[0].AsInt()));
                     }
 
+                    if (c.Name == "set_heart_beat" && cArgs.Count >= 2) {
+                        string target = cArgs[0].AsString();
+                        bool enable = cArgs[1].AsInt() != 0;
+                        _objMgr.SetHeartBeat(target, enable);
+                        return LpcValue.Create(1);
+                    }
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");
@@ -350,7 +356,7 @@ namespace LithosNet.VM {
                         if (File.Exists(path)) { _objMgr.ReloadObject(path); return LpcValue.Create(1); }
                         return LpcValue.Create(0);
                     }
-                    if (c.Name == "set_heart_beat" && cArgs.Count >= 1) { HeartbeatManager.SetHeartBeat(this.ObjectName, cArgs[0].AsInt() != 0); return LpcValue.Create(1); }
+                    
 
                     return CallFunction(c.Name, cArgs);
                 case CallOtherNode co:
