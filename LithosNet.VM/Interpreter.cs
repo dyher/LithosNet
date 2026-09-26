@@ -143,7 +143,11 @@ namespace LithosNet.VM {
 
         private bool EvalBool(AstNode node) {
             var val = Eval(node);
-            return val.Type == LpcType.Int && val.AsInt() != 0;
+            if (val.Type == LpcType.Int) return val.AsInt() != 0;
+            if (val.Type == LpcType.String) return !string.IsNullOrEmpty(val.AsString());
+            if (val.Type == LpcType.Object) return val.AsString() != ""; // Object ID 不為空即為 true
+            if (val.Type == LpcType.Array) return val.AsArray().Count > 0;
+            return false;
         }
 
         private void SaveScope(string filename) {
