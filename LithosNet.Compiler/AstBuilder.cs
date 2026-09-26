@@ -218,6 +218,7 @@ namespace LithosNet.Compiler {
             while (i < context.ChildCount) {
                 var child = context.GetChild(i);
                 if (child is ITerminalNode term) {
+                    Console.WriteLine($"🔍 [Postfix Term X-Ray] Type={term.Symbol.Type}, Text='{term.GetText()}', LPAREN={LPCParser.LPAREN}, LBRACKET={LPCParser.LBRACKET}");
                     if (term.Symbol.Type == LPCParser.LPAREN) {
                         var args = new System.Collections.Generic.List<AstNode>();
                         if (i + 1 < context.ChildCount && context.GetChild(i + 1) is LPCParser.ArgListContext al) {
@@ -247,12 +248,16 @@ namespace LithosNet.Compiler {
                         }
                         node = CreateNode("CallOtherNode", new Dictionary<string, object> { { "Target", node }, { "FuncName", funcName }, { "Arguments", args }, { "Args", args } });
                     } else if (term.Symbol.Type == LPCParser.LBRACKET) {
-                        // 【創世補齊】完美處理索引訪問 a[b]！
-                        var indexNode = Visit(context.GetChild(i + 1));
-                        node = CreateNode("IndexAccessNode", new Dictionary<string, object> { { "Array", node }, { "Target", node }, { "Index", indexNode } });
-                        Console.WriteLine($"🔍 [Postfix LBRACKET X-Ray] CreateNode returned: {(node != null ? node.GetType().Name : "NULL")}");
-                        i++; // skip expr
-                        i++; // skip RBRACKET
+                        try {
+                            // 【創世補齊】完美處理索引訪問 a[b]！
+                            var indexNode = Visit(context.GetChild(i + 1));
+                            node = CreateNode("IndexAccessNode", new Dictionary<string, object> { { "Array", node }, { "Target", node }, { "Index", indexNode } });
+                            Console.WriteLine($"🔍 [Postfix LBRACKET X-Ray] CreateNode returned: {(node != null ? node.GetType().Name : "NULL")}");
+                            i++; // skip expr
+                            i++; // skip RBRACKET
+                        } catch (Exception ex) {
+                            Console.WriteLine($"❌ [Postfix LBRACKET ERROR] {ex.Message}");
+                        }
                     }
                 }
                 i++;
