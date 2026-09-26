@@ -61,7 +61,7 @@ namespace LithosNet.VM {
                         _scope.Set(func.Parameters[i].Name, args[i]);
                     }
                     foreach (var s in func.Body) { 
-                        Console.WriteLine($"🔍 [Body X-Ray] Executing Node: {s.GetType().Name}");
+                        Console.WriteLine($"🔍 [FullName X-Ray] Node: {s.GetType().FullName}");
                         Visit(s); 
                     }
                 } catch (ReturnSignal r) { 
