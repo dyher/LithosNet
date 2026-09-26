@@ -33,7 +33,9 @@ namespace LithosNet.VM {
         }
 
         public LpcValue CallFunction(string name, List<LpcValue> args) {
+            Console.WriteLine($"🔍 [CallFunc Entry] Calling: '{name}'");
             var compiled = _scope.GetCompiled(name);
+            Console.WriteLine($"🔍 [CallFunc Entry] '{name}' JIT Status: {(compiled != null ? "HIT (Bypassing Interpreter!)" : "MISS")}");
 
             // 🔥【極致效能】優先呼叫 JIT 編譯後的 Delegate (納秒級跳轉)
             // var compiled (Duplicate removed) = _scope.GetCompiled(name);
@@ -44,6 +46,7 @@ namespace LithosNet.VM {
                 return LpcValue.Create(result);
             }
 
+            
             if (_scope.HasFunction(name)) {
                 var func = _scope.GetFunction(name);
                 
@@ -57,10 +60,12 @@ namespace LithosNet.VM {
                     for (int i = 0; i < func.Parameters.Count && i < args.Count; i++) {
                         _scope.Set(func.Parameters[i].Name, args[i]);
                     }
-                    foreach (var s in func.Body) {
+                    foreach (var s in func.Body) { 
+                        Console.WriteLine($"🔍 [FullName X-Ray] Node: {s.GetType().FullName}");
                         Visit(s); 
                     }
-                } catch (ReturnSignal r) {
+                } catch (ReturnSignal r) { 
+                    Console.WriteLine($"🔥 [CATCH HIT] ReturnSignal CAUGHT! Value Type: {r.Value.Type}, AsInt: {r.Value.AsInt()}");
                     _scope = prevScope;
                     return r.Value; 
                 } finally {
@@ -89,11 +94,14 @@ namespace LithosNet.VM {
                     if (col.Type == LpcType.Array) col.AsArray()[idx.AsInt()] = val;
                     else if (col.Type == LpcType.Mapping) {
                         var map = col.AsMapping();
+                        Console.WriteLine($"🔍 [IndexAssign X-Ray] Map Keys BEFORE: {string.Join(", ", map.Keys)}");
                         map[idx.AsString()] = val;
+                        Console.WriteLine($"🔍 [IndexAssign X-Ray] Map Keys AFTER: {string.Join(", ", map.Keys)}");
                     }
                     break;
                 case FunctionDeclarationNode f: _scope.RegisterFunction(f); break;
-                case ReturnNode r:
+                case ReturnNode r: 
+                    Console.WriteLine($"🔥 [ReturnNode Value X-Ray] r.Value is {(r.Value == null ? "NULL (Dismembered!)" : r.Value.GetType().Name)}");
                     throw new ReturnSignal(r.Value != null ? Eval(r.Value) : LpcValue.Create(0));
                 case IfNode i: if (EvalBool(i.Condition)) Visit(i.ThenBranch); else if (i.ElseBranch != null) Visit(i.ElseBranch); break;
                 case SwitchNode sw:
@@ -127,9 +135,11 @@ namespace LithosNet.VM {
                     break;
                 case ForeachNode fe:
                     var feCol = Eval(fe.Collection);
-                    if (feCol.Type == LpcType.Array) {
+                    if (feCol.Type == LpcType.Array) { 
+                        Console.WriteLine($"🔥 [Foreach Read X-Ray] Array count: {feCol.AsArray().Count}");
                         foreach (var item in feCol.AsArray()) { 
                             Console.WriteLine($"   -> Reading Item: Type={item.Type}, AsInt={item.AsInt()}");
+                            Console.WriteLine($"🔥 [Foreach Set X-Ray] Setting '{fe.VarName}' = {item.AsInt()}");
                             _scope.Set(fe.VarName, item); 
                             Visit(fe.Body); 
                         } 
@@ -143,11 +153,7 @@ namespace LithosNet.VM {
 
         private bool EvalBool(AstNode node) {
             var val = Eval(node);
-            if (val.Type == LpcType.Int) return val.AsInt() != 0;
-            if (val.Type == LpcType.String) return !string.IsNullOrEmpty(val.AsString());
-            if (val.Type == LpcType.Object) return val.AsString() != ""; // Object ID 不為空即為 true
-            if (val.Type == LpcType.Array) return val.AsArray().Count > 0;
-            return false;
+            return val.Type == LpcType.Int && val.AsInt() != 0;
         }
 
         private void SaveScope(string filename) {
@@ -191,6 +197,8 @@ namespace LithosNet.VM {
                                 Eval(c.Arguments[0]); // 在 try 區塊內安全執行
                             }
 
+                    
+
                             return LpcValue.Create(0); // 沒有錯誤，返回 0
                         } catch (LpcRuntimeException ex) {
                             return LpcValue.Create(ex.Message); // 完美捕獲！
@@ -209,7 +217,8 @@ namespace LithosNet.VM {
                         _objMgr.LoadObject(cArgs[0].AsString());
                         return LpcValue.Create(cArgs[0].AsString());
                     }
-
+                    
+                    
                     // 【核心路由】throw 必須在這裡被攔截！
                     if (c.Name == "throw") {
                         string errMsg = "Unknown Error";
@@ -217,6 +226,7 @@ namespace LithosNet.VM {
                         throw new LpcRuntimeException(errMsg);
                     }
 
+                    
                     // 【創世魔法】map_array 高階函數
                     if (c.Name == "map_array" && cArgs.Count >= 2) {
                         var arr = cArgs[0].AsArray();
@@ -225,8 +235,11 @@ namespace LithosNet.VM {
                         if (funcVal.Type == LpcType.Function) {
                             var funcTuple = funcVal.AsFunction(); // Tuple<objName, funcName>
                             foreach(var item in arr) {
+                        Console.WriteLine($"🔍 [Callback Param X-Ray] Passing to callback: Type={item.Type}, AsInt()={item.AsInt()}");
                                 var res = _objMgr.CallFunction(funcTuple.Item1, funcTuple.Item2, item);
+                                Console.WriteLine($"🔥 [MapArray Add X-Ray] res.AsInt() BEFORE Add: {res.AsInt()}");
                                 result.Add(res);
+                                Console.WriteLine($"🔥 [MapArray Add X-Ray] result.Last().AsInt() AFTER Add: {result[result.Count-1].AsInt()}");
                             }
                         } else {
                             // 寬容模式：如果不是函數，直接返回原陣列
@@ -235,53 +248,20 @@ namespace LithosNet.VM {
                         return LpcValue.Create(result);
                     }
 
-                                                            // 【Phase 50 Efun】bot_say: 讓 Bot 說話 (C# 骨架處理廣播，LPC 負責呼叫)
+                                        if (c.Name == "spawn_bot" && cArgs.Count >= 1) {
+                        string blueprint = cArgs[0].AsString();
+                        string cloneId = _objMgr.Clone(blueprint);
+                        SessionManager.RegisterBot(cloneId);
+                        return LpcValue.CreateObject(cloneId);
+                    }
                     if (c.Name == "bot_say" && cArgs.Count >= 2) {
                         var botObj = cArgs[0];
                         string msg = cArgs[1].AsString();
                         if (botObj.Type == LpcType.Object) {
-                            string botId = botObj.AsString();
-                            Console.WriteLine($"🤖 [Bot Efun] {botId} says: {msg}");
-                            // 未來可在此接入 AOI 廣播系統：SpaceManager.Broadcast(botId, msg);
+                            Console.WriteLine($"🤖 [Bot Efun] {botObj.AsString()} says: {msg}");
                         }
                         return LpcValue.Create(1);
                     }
-
-                    
-                    // 【FluffOS 相容】query_name: 獲取物件名稱
-                    Console.WriteLine($"🔍 [Efun X-Ray] Calling: '{c.Name}' with {cArgs.Count} args");
-                    if (c.Name == "query_name") {
-                        string name = this.ObjectName ?? "unknown";
-                        return LpcValue.Create(name);
-                    }
-                    if (c.Name == "environment") {
-                        string env = _scope.Has("environment") ? _scope.Get("environment").AsString() : "";
-                        return LpcValue.Create(env);
-                    }
-
-                    // 【MMORPG 核心】present: 檢查某個物件是否在當前環境中
-                    if (c.Name == "present" && cArgs.Count >= 1) {
-                        string targetId = cArgs[0].AsString();
-                        // 簡單實現：檢查 _objMgr 中是否存在該 ID
-                        bool exists = _objMgr.ObjectExists(targetId);
-                        return LpcValue.Create(exists ? 1 : 0);
-                    }
-
-                    // 【MMORPG 核心】all_inventory: 獲取當前環境內的所有物件
-                    if (c.Name == "all_inventory") {
-                        var inv = new List<LpcValue>();
-                        // 這裡需要從 SpaceManager 或 ObjectManager 獲取當前房間的 inventory
-                        // 暫時返回空陣列作為佔位，後續接入 SpaceManager
-                        return LpcValue.Create(inv);
-                    }
-
-                    // 【FluffOS 相容】random: 隨機數生成器 (已存在，但確保語義一致)
-                    if (c.Name == "random" && cArgs.Count >= 1) {
-                        int max = cArgs[0].AsInt();
-                        return LpcValue.Create(new Random().Next(max));
-                    }
-
-                    // 【MMORPG 核心】sprintf: 格式化字串 (FluffOS 核心)
                     if (c.Name == "sprintf" && cArgs.Count >= 1) {
                         string fmt = cArgs[0].AsString();
                         int argIdx = 1;
@@ -292,7 +272,7 @@ namespace LithosNet.VM {
                                 if (spec == 's' || spec == 'd' || spec == 'O' || spec == 'x') {
                                     sb.Append(cArgs[argIdx].AsString());
                                     argIdx++;
-                                    i++; // 跳過格式符
+                                    i++;
                                     continue;
                                 }
                             }
@@ -300,14 +280,10 @@ namespace LithosNet.VM {
                         }
                         return LpcValue.Create(sb.ToString());
                     }
-
-                    if (c.Name == "spawn_bot" && cArgs.Count >= 1) {
-                        string blueprint = cArgs[0].AsString();
-                        string cloneId = _objMgr.Clone(blueprint);
-                        SessionManager.RegisterBot(cloneId);
-                        return LpcValue.CreateObject(cloneId);
+                    if (c.Name == "random" && cArgs.Count >= 1) {
+                        return LpcValue.Create(new Random().Next(cArgs[0].AsInt()));
                     }
-
+                    
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");
@@ -426,3 +402,9 @@ namespace LithosNet.VM {
                         return LpcValue.Create(res ? 1 : 0);
                     }
                     return LpcValue.Create(0);
+
+                default: return LpcValue.Create(0);
+            }
+        }
+    }
+}

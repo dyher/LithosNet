@@ -25,7 +25,6 @@ namespace LithosNet.VM {
 
         
         public static void RegisterBot(string objName) {
-            // 為 Bot 創建一個純記憶體的 Pipe，完美相容現有 SendAsync 邏輯，不會觸發暴力廣播
             var pipe = new System.IO.Pipelines.Pipe();
             _sessions[objName] = pipe.Writer;
             _writerToObj[pipe.Writer] = objName;
