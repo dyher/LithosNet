@@ -154,6 +154,16 @@ namespace LithosNet.VM {
                             if (c.Arguments != null && c.Arguments.Count > 0) {
                                 Eval(c.Arguments[0]); // 在 try 區塊內安全執行
                             }
+
+                    // 【特殊形式】throw 拋出異常
+                    if (c.Name == "throw") {
+                        string errMsg = "Unknown Error";
+                        if (c.Arguments != null && c.Arguments.Count > 0) {
+                            errMsg = Eval(c.Arguments[0]).AsString();
+                        }
+                        throw new LpcRuntimeException(errMsg);
+                    }
+
                             return LpcValue.Create(0); // 沒有錯誤，返回 0
                         } catch (LpcRuntimeException ex) {
                             return LpcValue.Create(ex.Message); // 完美捕獲！
