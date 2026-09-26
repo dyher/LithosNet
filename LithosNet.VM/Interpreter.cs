@@ -405,33 +405,12 @@ namespace LithosNet.VM {
                     if (b.Op == "+") {
                         // 【FluffOS 標準】Type Promotion: 任何與 String 的 + 運算都應返回 String
                         if (left.Type == LpcType.String || right.Type == LpcType.String) {
-                            string lStr = left.Type == LpcType.String ? left.AsString() : left.AsString(); // AsString() 已內建 Int/Object 轉 String 邏輯
+                            string lStr = left.Type == LpcType.String ? left.AsString() : left.AsString();
                             string rStr = right.Type == LpcType.String ? right.AsString() : right.AsString();
                             return LpcValue.Create(lStr + rStr);
                         }
                         if (left.Type == LpcType.Int && right.Type == LpcType.Int) {
                             return LpcValue.Create(left.AsInt() + right.AsInt());
                         }
-                        return LpcValue.Create(0); // Fallback
-                    }, right.Type={right.Type}");
-                    if (left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() + right.AsInt());
-                        if (left.Type == LpcType.String || right.Type == LpcType.String) return LpcValue.Create((left.Type == LpcType.String ? left.AsString() : left.ToString()) + (right.Type == LpcType.String ? right.AsString() : right.ToString()));
+                        return LpcValue.Create(0);
                     }
-                    if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() - right.AsInt());
-                    if (b.Op != null && b.Op.Trim() == "*") {
-                        return LpcValue.Create(left.AsInt() * right.AsInt()); 
-                    }
-                    if (b.Op == "/" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() / right.AsInt() : 0);
-                    if (b.Op == "%" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() % right.AsInt() : 0);
-                    if (left.Type == LpcType.String && right.Type == LpcType.String) { string lStr = left.AsString(); string rStr = right.AsString(); bool res = b.Op == "==" ? lStr == rStr : lStr != rStr; return LpcValue.Create(res ? 1 : 0); }
-                    if (left.Type == LpcType.Int && right.Type == LpcType.Int) {
-                        int lVal = left.AsInt(), rVal = right.AsInt();
-                        bool res = b.Op switch { "==" => lVal == rVal, "!=" => lVal != rVal, "<" => lVal < rVal, ">" => lVal > rVal, "<=" => lVal <= rVal, ">=" => lVal >= rVal, _ => false };
-                        return LpcValue.Create(res ? 1 : 0);
-                    }
-                    return LpcValue.Create(0);
-                default: return LpcValue.Create(0);
-            }
-        }
-    }
-}
