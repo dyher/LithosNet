@@ -124,8 +124,9 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitReturnStmt(LPCParser.ReturnStmtContext context) {
-            var val = context.expr() != null ? Visit(context.expr()) : null;
-            return CreateNode("ReturnNode", new Dictionary<string, object> { { "Value", val } });
+            var node = new ReturnNode();
+            if (context.expr() != null) node.Value = Visit(context.expr());
+            return node;
         }
 
         public override AstNode VisitExprStmt(LPCParser.ExprStmtContext context) {
