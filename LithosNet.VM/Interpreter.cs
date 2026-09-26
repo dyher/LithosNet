@@ -56,10 +56,6 @@ namespace LithosNet.VM {
                     for (int i = 0; i < func.Parameters.Count && i < args.Count; i++) {
                         _scope.Set(func.Parameters[i].Name, args[i]);
                     }
-                    
-                    }
-                        }
-                    }
                     foreach (var s in func.Body) { 
                         Console.WriteLine($"🔍 [Body X-Ray] Executing Node: {s.GetType().Name}");
                         Visit(s); 
@@ -220,10 +216,6 @@ namespace LithosNet.VM {
                     if (c.Name == "map_array" && cArgs.Count >= 2) {
                         var arr = cArgs[0].AsArray();
                         var funcVal = cArgs[1];
-                        if (funcVal.Type == LpcType.Function) {
-                            var funcTuple = funcVal.AsFunction();
-                            Console.WriteLine($"🔍 [map_array X-Ray] Obj: '{funcTuple.Item1}' | Func: '{funcTuple.Item2}' | Exists: {_objMgr.ObjectExists(funcTuple.Item1)} | ArrSize: {arr.Count}");
-                        }
                         var result = new System.Collections.Generic.List<LpcValue>();
                         if (funcVal.Type == LpcType.Function) {
                             var funcTuple = funcVal.AsFunction(); // Tuple<objName, funcName>
