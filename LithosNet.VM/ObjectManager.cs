@@ -7,7 +7,6 @@ using LithosNet.Compiler;
 
 namespace LithosNet.VM {
     public class ObjectManager {
-        private Interpreter _simulEfunInterp; // 【FluffOS】Simul_efun 後備解釋器
         // 【Phase 55.1: C# 原生 FFI 管理器】
         private readonly Dictionary<string, Func<LpcValue[], LpcValue>> _nativeHandlers = new();
 
@@ -38,6 +37,7 @@ namespace LithosNet.VM {
         }
 
         public static ObjectManager Instance { get; private set; }
+        private Interpreter _simulEfunInterp; // 【FluffOS】Simul_efun 後備解釋器
         public ObjectManager() { 
             Instance = this;
             // 【Phase 52: Heartbeat 初始化與啟動】
@@ -146,6 +146,29 @@ namespace LithosNet.VM {
         
         public bool ObjectExists(string objName) => _objects.ContainsKey(objName);
         public void Preload(string fullPath) { LoadObject(fullPath); }
+
+        public void LoadSimulEfun(string path) {
+            Console.WriteLine($"📦 [SimulEfun] Loading global simul_efun from: {path}");
+            string cleanPath = path.TrimStart('/');
+            LoadObject(cleanPath);
+            
+            if (_objects.TryGetValue(cleanPath, out var sefunObj)) {
+                _simulEfunInterp = sefunObj.interp;
+                int count = sefunObj.scope.GetFunctions().Count;
+                Console.WriteLine($"🚀 [SimulEfun] Successfully loaded and set as global fallback! ({count} functions available)");
+            } else {
+                Console.WriteLine($"❌ [SimulEfun] Failed to load object at path: {cleanPath}");
+            }
+        }
+
+        public bool CallSimulEfunSafe(string name, System.Collections.Generic.List<LpcValue> args, out LpcValue result) {
+            if (_simulEfunInterp != null && _simulEfunInterp._scope.HasFunction(name)) {
+                result = _simulEfunInterp.CallFunction(name, args);
+                return true;
+            }
+            result = LpcValue.Create(0);
+            return false;
+        }
         public void LoadSimulEfun(string path) {
             Console.WriteLine($"📦 [SimulEfun] Loading global simul_efun from: {path}");
             // 加載 simul_efun，並將其標記為特殊的全局物件
@@ -172,27 +195,4 @@ namespace LithosNet.VM {
                 }
             }
     }
-
-        public void LoadSimulEfun(string path) {
-            Console.WriteLine($"📦 [SimulEfun] Loading global simul_efun from: {path}");
-            string cleanPath = path.TrimStart('/');
-            LoadObject(cleanPath);
-            
-            if (_objects.TryGetValue(cleanPath, out var sefunObj)) {
-                _simulEfunInterp = sefunObj.interp;
-                int count = sefunObj.scope.GetFunctions().Count;
-                Console.WriteLine($"🚀 [SimulEfun] Successfully loaded and set as global fallback! ({count} functions available)");
-            } else {
-                Console.WriteLine($"❌ [SimulEfun] Failed to load object at path: {cleanPath}");
-            }
-        }
-
-        public bool CallSimulEfunSafe(string name, System.Collections.Generic.List<LpcValue> args, out LpcValue result) {
-            if (_simulEfunInterp != null && _simulEfunInterp._scope.HasFunction(name)) {
-                result = _simulEfunInterp.CallFunction(name, args);
-                return true;
-            }
-            result = LpcValue.Create(0);
-            return false;
-        }
 }
