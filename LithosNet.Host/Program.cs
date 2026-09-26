@@ -33,6 +33,17 @@ namespace LithosNet.Host {
             ObjMgr.Preload(MudlibPath + "obj/" + MasterObj + ".c");
             try { ObjMgr.CallFunction(MasterObj, "preload"); } catch (Exception e) { Console.WriteLine($"⚠️ Master preload 錯誤: {e.ToString()}"); }
 
+            // 【Phase 55.2】加載 FluffOS 標準 simul_efun
+            try {
+                var sefunResult = ObjMgr.CallFunction(MasterObj, "get_simul_efun", new System.Collections.Generic.List<LpcValue>());
+                string sefunPath = sefunResult.AsString();
+                if (!string.IsNullOrEmpty(sefunPath)) {
+                    ObjMgr.LoadSimulEfun(sefunPath);
+                }
+            } catch (Exception ex) {
+                Console.WriteLine($"⚠️ [SimulEfun] Failed to load: {ex.Message}");
+            }
+
             var listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
             Console.WriteLine($"\n🚀 {cfg.GetProperty("name").GetString()} Driver 啟動！監聽端口: {port}\n");
