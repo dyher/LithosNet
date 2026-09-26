@@ -44,7 +44,7 @@ namespace LithosNet.VM {
         }
 
         private Scope CompileAndRegister(string path, string objName) {
-            string src = File.ReadAllText(path);
+            string src = (new LithosNet.Compiler.LpcPreprocessor(_mudlibPath ?? "").Process(path);
             src = LithosNet.Compiler.Preprocessor.Process(src, Path.GetDirectoryName(path));
             var inputStream = new Antlr4.Runtime.AntlrInputStream(src);
             var lexer = new LithosNet.Compiler.Ast.LPCLexer(inputStream);
