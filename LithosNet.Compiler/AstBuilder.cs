@@ -150,14 +150,13 @@ namespace LithosNet.Compiler {
             Console.WriteLine($"🔍 [Assign AST X-Ray] left Type: {left.GetType().Name}, Text: {context.GetText()}");
 
             // 【終極路由】如果左邊是 IndexAccessNode，生成 IndexAssignmentNode！
-            if (left.GetType().Name == "IndexAccessNode") {
-                var arrProp = left.GetType().GetProperty("Array") ?? left.GetType().GetProperty("Target");
-                var idxProp = left.GetType().GetProperty("Index");
-                return CreateNode("IndexAssignmentNode", new Dictionary<string, object> {
-                    { "Array", arrProp?.GetValue(left) },
-                    { "Index", idxProp?.GetValue(left) },
-                    { "Value", right }
-                });
+            if (left is IndexAccessNode ian) {
+                Console.WriteLine($"🔍 [Assign AST X-Ray] IndexAssignment! Array={ian.Array?.GetType().Name}, Index={ian.Index?.GetType().Name}");
+                var idxAssignNode = new IndexAssignmentNode();
+                idxAssignNode.Array = ian.Array;
+                idxAssignNode.Index = ian.Index;
+                idxAssignNode.Value = right;
+                return idxAssignNode;
             }
 
             // 一般變數賦值
