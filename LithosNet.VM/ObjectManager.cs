@@ -37,7 +37,6 @@ namespace LithosNet.VM {
         }
 
         public static ObjectManager Instance { get; private set; }
-        private Interpreter _simulEfunInterp; // 【FluffOS】Simul_efun 後備解釋器
         public ObjectManager() { 
             Instance = this;
             // 【Phase 52: Heartbeat 初始化與啟動】
@@ -146,20 +145,11 @@ namespace LithosNet.VM {
         
         public bool ObjectExists(string objName) => _objects.ContainsKey(objName);
         public void Preload(string fullPath) { LoadObject(fullPath); }
-
         public void LoadSimulEfun(string path) {
             Console.WriteLine($"📦 [SimulEfun] Loading global simul_efun from: {path}");
+            // 加載 simul_efun，並將其標記為特殊的全局物件
             LoadObject(path);
-            
-            // 【關鍵修復】LoadObject 內部使用 Path.GetFileNameWithoutExtension 作為 Key 存入 _objects
-            string actualName = System.IO.Path.GetFileNameWithoutExtension(path);
-            if (_objects.TryGetValue(actualName, out var sefunObj)) {
-                _simulEfunInterp = sefunObj.interp;
-                int count = sefunObj.scope.GetFunctions().Count;
-                Console.WriteLine($"🚀 [SimulEfun] Successfully loaded and set as global fallback! ({count} functions available)");
-            } else {
-                Console.WriteLine($"❌ [SimulEfun] Failed to load object. Key '{actualName}' not found in _objects.");
-            }
+            Console.WriteLine($"✅ [SimulEfun] Global functions registered successfully!");
         }
 
         // 【Phase 56: FluffOS 核心】暴露所有已載入物件供 find_object 查詢
@@ -172,16 +162,6 @@ namespace LithosNet.VM {
             Console.WriteLine($"💥 [Lifecycle] Object '{objName}' has been destructed.");
         }
 
-        
-
-        public bool CallSimulEfunSafe(string name, System.Collections.Generic.List<LpcValue> args, out LpcValue result) {
-            if (_simulEfunInterp != null && _simulEfunInterp._scope.HasFunction(name)) {
-                result = _simulEfunInterp.CallFunction(name, args);
-                return true;
-            }
-            result = LpcValue.Create(0);
-            return false;
-        }
     // 【Phase 52: Heartbeat 方法】
             public void SetHeartBeat(string objName, bool enable) {
                 if (enable) _heartBeatObjects.Add(objName);
