@@ -247,6 +247,52 @@ namespace LithosNet.VM {
                         return LpcValue.Create(1);
                     }
 
+                    
+                    // 【FluffOS 相容】query_name: 獲取物件名稱
+                    if (c.Name == "query_name") {
+                        return LpcValue.Create(this.ObjectName);
+                    }
+                    
+                    // 【FluffOS 相容】environment: 獲取所在環境
+                    if (c.Name == "environment") {
+                        string env = _scope.Has("environment") ? _scope.Get("environment").AsString() : "";
+                        return LpcValue.Create(env);
+                    }
+
+                    // 【MMORPG 核心】present: 檢查某個物件是否在當前環境中
+                    if (c.Name == "present" && cArgs.Count >= 1) {
+                        string targetId = cArgs[0].AsString();
+                        // 簡單實現：檢查 _objMgr 中是否存在該 ID
+                        bool exists = _objMgr.ObjectExists(targetId);
+                        return LpcValue.Create(exists ? 1 : 0);
+                    }
+
+                    // 【MMORPG 核心】all_inventory: 獲取當前環境內的所有物件
+                    if (c.Name == "all_inventory") {
+                        var inv = new List<LpcValue>();
+                        // 這裡需要從 SpaceManager 或 ObjectManager 獲取當前房間的 inventory
+                        // 暫時返回空陣列作為佔位，後續接入 SpaceManager
+                        return LpcValue.Create(inv);
+                    }
+
+                    // 【FluffOS 相容】random: 隨機數生成器 (已存在，但確保語義一致)
+                    if (c.Name == "random" && cArgs.Count >= 1) {
+                        int max = cArgs[0].AsInt();
+                        return LpcValue.Create(new Random().Next(max));
+                    }
+
+                    // 【MMORPG 核心】sprintf: 格式化字串 (FluffOS 核心)
+                    if (c.Name == "sprintf" && cArgs.Count >= 1) {
+                        string fmt = cArgs[0].AsString();
+                        // 簡易實現：替換 %s, %d
+                        for (int i = 1; i < cArgs.Count; i++) {
+                            var arg = cArgs[i];
+                            if (fmt.Contains("%s")) fmt = fmt.Replace("%s", arg.AsString(), 1);
+                            else if (fmt.Contains("%d")) fmt = fmt.Replace("%d", arg.AsInt().ToString(), 1);
+                        }
+                        return LpcValue.Create(fmt);
+                    }
+
                     if (c.Name == "spawn_bot" && cArgs.Count >= 1) {
                         string blueprint = cArgs[0].AsString();
                         string cloneId = _objMgr.Clone(blueprint);
