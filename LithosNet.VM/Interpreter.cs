@@ -284,13 +284,21 @@ namespace LithosNet.VM {
                     // 【MMORPG 核心】sprintf: 格式化字串 (FluffOS 核心)
                     if (c.Name == "sprintf" && cArgs.Count >= 1) {
                         string fmt = cArgs[0].AsString();
-                        // 簡易實現：替換 %s, %d
-                        for (int i = 1; i < cArgs.Count; i++) {
-                            var arg = cArgs[i];
-                            if (fmt.Contains("%s")) fmt = fmt.Replace("%s", arg.AsString(), 1);
-                            else if (fmt.Contains("%d")) fmt = fmt.Replace("%d", arg.AsInt().ToString(), 1);
+                        int argIdx = 1;
+                        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                        for (int i = 0; i < fmt.Length; i++) {
+                            if (fmt[i] == '%' && i + 1 < fmt.Length && argIdx < cArgs.Count) {
+                                char spec = fmt[i+1];
+                                if (spec == 's' || spec == 'd' || spec == 'O' || spec == 'x') {
+                                    sb.Append(cArgs[argIdx].AsString());
+                                    argIdx++;
+                                    i++; // 跳過格式符
+                                    continue;
+                                }
+                            }
+                            sb.Append(fmt[i]);
                         }
-                        return LpcValue.Create(fmt);
+                        return LpcValue.Create(sb.ToString());
                     }
 
                     if (c.Name == "spawn_bot" && cArgs.Count >= 1) {
