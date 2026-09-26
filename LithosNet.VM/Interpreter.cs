@@ -88,23 +88,12 @@ namespace LithosNet.VM {
                     }
                     break;
                 case AssignmentNode a:
-                    var val = Eval(a.Value);
-                    if (a.Target is VariableRefNode vref) {
-                        // 【Phase 54.1 修復】強制確保變數正確寫入當前 Scope
-                        // 無論全域還是區域變數，都應寫入當前激活的 _scope
-                        _scope.Set(vref.Name, val);
-                        Console.WriteLine($"📝 [Scope Debug] Assigned '{vref.Name}' = {val.Type}:{val.AsString()}");
-                    } else if (a.Target is IndexAccessNode ian) {
-                        // 支援陣列/Mapping 的索引賦值 (簡化版)
-                        var collection = Eval(ian.Array);
-                        var idx = Eval(ian.Index);
-                        if (collection.Type == LpcType.Array) {
-                            collection.AsArray()[idx.AsInt()] = val;
-                        }
-                    }
-                    return val;
-                case AssignmentNode a:  var _assignVal = Eval(a.Value);
-                    _scope.Set(a.VariableName, _assignVal); break;
+                    var assignVal = Eval(a.Value);
+                    // 【Phase 54.1 修復】強制確保變數正確寫入當前 Scope
+                    _scope.Set(a.VariableName, assignVal);
+                    Console.WriteLine($"📝 [Scope Debug] Assigned '{a.VariableName}' = {assignVal.Type}:{assignVal.AsString()}");
+                    break;
+
                 case IndexAssignmentNode ia:
                     var col = Eval(ia.Array); var idx = Eval(ia.Index); var val = Eval(ia.Value);
                     if (col.Type == LpcType.Array) col.AsArray()[idx.AsInt()] = val;
