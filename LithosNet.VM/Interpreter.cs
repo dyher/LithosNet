@@ -228,7 +228,6 @@ namespace LithosNet.VM {
                     }
                     
                     
-                    
                     // 【核心路由】throw 必須在這裡被攔截！
                     if (c.Name == "throw") {
                         string errMsg = "Unknown Error";
@@ -351,17 +350,8 @@ namespace LithosNet.VM {
 
                     
                     // 【Phase 56: FluffOS 核心】find_object: 查找內存中已載入的物件
-                    
-                        }
-                        return LpcValue.Create(0);
-                    }
 
                     // 【Phase 56: FluffOS 核心】load_object: 強制載入或重新載入藍圖物件
-                     catch (Exception ex) {
-                            Console.WriteLine($"⚠️ [Efun] load_object failed: {ex.Message}");
-                            return LpcValue.Create(0);
-                        }
-                    }
 
                     // 【Phase 56: FluffOS 核心】destruct: 銷毀物件並觸發 clean_up
                     if (c.Name == "destruct" && cArgs.Count >= 1) {
@@ -378,12 +368,11 @@ namespace LithosNet.VM {
                         }
                     }
 
-                                        // 【Phase 56: FluffOS 核心】load_object: 強制載入或重新載入藍圖物件
+                    // 【Phase 56: FluffOS 核心】load_object: 強制載入或重新載入藍圖物件
                     if (c.Name == "load_object" && cArgs.Count >= 1) {
                         string path = cArgs[0].AsString();
                         try {
                             _objMgr.LoadObject(path);
-                            // 返回載入後的物件 Key (與 ObjectManager.LoadObject 內部邏輯保持一致)
                             string name = System.IO.Path.GetFileNameWithoutExtension(path);
                             return LpcValue.Create(name);
                         } catch (Exception ex) {
@@ -391,19 +380,14 @@ namespace LithosNet.VM {
                             return LpcValue.Create(0);
                         }
                     }
-
+                    
                     // 【Phase 56: FluffOS 核心】find_object: 查找內存中已載入的物件
                     if (c.Name == "find_object" && cArgs.Count >= 1) {
                         string path = cArgs[0].AsString();
-                        // 提取目標名稱，與 LoadObject 內部的 Key 生成邏輯 100% 對齊
                         string targetName = System.IO.Path.GetFileNameWithoutExtension(path);
-                        
-                        // 1. 優先嘗試精確匹配 Key
                         if (_objMgr.GetAllObjects().TryGetValue(targetName, out var obj)) {
                             return LpcValue.Create(targetName);
                         }
-                        
-                        // 2. 兜底：遍歷匹配（兼容絕對路徑等邊緣情況）
                         foreach(var kvp in _objMgr.GetAllObjects()) {
                             if (kvp.Key == path || kvp.Key.EndsWith(path) || kvp.Key.EndsWith(path + ".c") || kvp.Key.EndsWith(targetName)) {
                                 return LpcValue.Create(kvp.Key);
@@ -411,7 +395,6 @@ namespace LithosNet.VM {
                         }
                         return LpcValue.Create(0);
                     }
-
                     
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
