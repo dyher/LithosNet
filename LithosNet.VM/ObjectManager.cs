@@ -44,6 +44,7 @@ namespace LithosNet.VM {
             _heartBeatTimer.Elapsed += OnHeartBeatTick;
             _heartBeatTimer.AutoReset = true;
             _heartBeatTimer.Start();
+            SetupDefaultNativeHandlers();
         }
         private readonly Dictionary<string, (Scope scope, Interpreter interp)> _objects = new();
         // 【Phase 52: Heartbeat 管理器】
