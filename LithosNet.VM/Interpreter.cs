@@ -248,17 +248,36 @@ namespace LithosNet.VM {
                         return LpcValue.Create(result);
                     }
 
-                                        if (c.Name == "spawn_bot" && cArgs.Count >= 1) {
-                        string blueprint = cArgs[0].AsString();
-                        string cloneId = _objMgr.Clone(blueprint);
+                                        
+                    
+                        return LpcValue.Create(1);
+                    }
+                    
+                            }
+                            sb.Append(fmt[i]);
+                        }
+                        return LpcValue.Create(sb.ToString());
+                    }
+                    
+                    
+                    
+                    
+                    
+                        return LpcValue.Create(1);
+                    }
+
+                    if (c.Name == "query_name") {
+                        string name = this.ObjectName ?? "unknown";
+                        return LpcValue.Create(name);
+                    }
+                    if (c.Name == "spawn_bot" && cArgs.Count >= 1) {
+                        string cloneId = _objMgr.Clone(cArgs[0].AsString());
                         SessionManager.RegisterBot(cloneId);
                         return LpcValue.CreateObject(cloneId);
                     }
                     if (c.Name == "bot_say" && cArgs.Count >= 2) {
-                        var botObj = cArgs[0];
-                        string msg = cArgs[1].AsString();
-                        if (botObj.Type == LpcType.Object) {
-                            Console.WriteLine($"🤖 [Bot Efun] {botObj.AsString()} says: {msg}");
+                        if (cArgs[0].Type == LpcType.Object) {
+                            Console.WriteLine($"🤖 [Bot Efun] {cArgs[0].AsString()} says: {cArgs[1].AsString()}");
                         }
                         return LpcValue.Create(1);
                     }
@@ -282,22 +301,6 @@ namespace LithosNet.VM {
                     }
                     if (c.Name == "random" && cArgs.Count >= 1) {
                         return LpcValue.Create(new Random().Next(cArgs[0].AsInt()));
-                    }
-                    
-                    if (c.Name == "query_name") {
-                        string name = this.ObjectName ?? "unknown";
-                        return LpcValue.Create(name);
-                    }
-                    if (c.Name == "spawn_bot" && cArgs.Count >= 1) {
-                        string cloneId = _objMgr.Clone(cArgs[0].AsString());
-                        SessionManager.RegisterBot(cloneId);
-                        return LpcValue.CreateObject(cloneId);
-                    }
-                    if (c.Name == "bot_say" && cArgs.Count >= 2) {
-                        if (cArgs[0].Type == LpcType.Object) {
-                            Console.WriteLine($"🤖 [Bot Efun] {cArgs[0].AsString()} says: {cArgs[1].AsString()}");
-                        }
-                        return LpcValue.Create(1);
                     }
 
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
