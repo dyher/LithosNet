@@ -140,42 +140,22 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitAssignmentExpr(LPCParser.AssignmentExprContext context) {
-            // 【新語法】assignmentExpr : postfixExpr (ASSIGN|PLUS_ASSIGN|MINUS_ASSIGN) assignmentExpr | logicalOrExpr ;
-            AstNode left = null;
-            AstNode right = null;
-
-            // 優先嘗試 postfixExpr 路徑 (索引賦值: map["key"] = val)
-            if (context.postfixExpr() != null) {
-                left = Visit(context.postfixExpr());
-                if (context.assignmentExpr() != null) {
-                    right = Visit(context.assignmentExpr());
-                }
-            }
-            // 否則嘗試 logicalOrExpr 路徑 (一般賦值: x = val 或純表達式)
-            else if (context.logicalOrExpr() != null) {
-                left = Visit(context.logicalOrExpr());
-                if (context.assignmentExpr() != null) {
-                    right = Visit(context.assignmentExpr());
-                }
-            }
-
+            AstNode left = Visit(context.logicalOrExpr());
             if (left == null) return null;
 
-            // 沒有賦值運算子 → 純表達式，直接返回
-            if (right == null) return left;
+            // 如果沒有賦值運算子，它就是一個純表達式，直接返回
+            if (context.assignmentExpr() == null) return left;
 
+            AstNode right = Visit(context.assignmentExpr());
             Console.WriteLine($"🔍 [Assign AST X-Ray] left Type: {left.GetType().Name}, Text: {context.GetText()}");
 
             // 【終極路由】如果左邊是 IndexAccessNode，生成 IndexAssignmentNode！
             if (left.GetType().Name == "IndexAccessNode") {
                 var arrProp = left.GetType().GetProperty("Array") ?? left.GetType().GetProperty("Target");
                 var idxProp = left.GetType().GetProperty("Index");
-                var arrVal = arrProp?.GetValue(left);
-                var idxVal = idxProp?.GetValue(left);
-                Console.WriteLine($"🔍 [Assign AST X-Ray] IndexAssignment! Array={arrVal?.GetType().Name}, Index={idxVal?.GetType().Name}");
                 return CreateNode("IndexAssignmentNode", new Dictionary<string, object> {
-                    { "Array", arrVal },
-                    { "Index", idxVal },
+                    { "Array", arrProp?.GetValue(left) },
+                    { "Index", idxProp?.GetValue(left) },
                     { "Value", right }
                 });
             }

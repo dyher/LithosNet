@@ -102,7 +102,7 @@ expr
     ;
 
 assignmentExpr
-    : postfixExpr ((ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN) assignmentExpr)?
+    : logicalOrExpr ((ASSIGN | PLUS_ASSIGN | MINUS_ASSIGN) assignmentExpr)?
     ;
 
 logicalOrExpr

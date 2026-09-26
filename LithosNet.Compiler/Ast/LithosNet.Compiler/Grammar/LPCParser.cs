@@ -648,7 +648,7 @@ public partial class LPCParser : Parser {
 			State = 107;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
-			while ((((_la) & ~0x3f) == 0 && ((1L << _la) & 730144960864L) != 0)) {
+			while ((((_la) & ~0x3f) == 0 && ((1L << _la) & 734440976736L) != 0)) {
 				{
 				{
 				State = 104;
@@ -765,6 +765,8 @@ public partial class LPCParser : Parser {
 			case ID:
 			case INT_LITERAL:
 			case STRING_LITERAL:
+			case MINUS:
+			case NOT:
 			case ARRAY_OPEN:
 			case MAP_OPEN:
 			case LPAREN:
@@ -973,7 +975,7 @@ public partial class LPCParser : Parser {
 			State = 137;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
-			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 180389085184L) != 0)) {
+			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 184685101056L) != 0)) {
 				{
 				State = 136;
 				expr();
@@ -1097,8 +1099,8 @@ public partial class LPCParser : Parser {
 	}
 
 	public partial class AssignmentExprContext : ParserRuleContext {
-		[System.Diagnostics.DebuggerNonUserCode] public PostfixExprContext postfixExpr() {
-			return GetRuleContext<PostfixExprContext>(0);
+		[System.Diagnostics.DebuggerNonUserCode] public LogicalOrExprContext logicalOrExpr() {
+			return GetRuleContext<LogicalOrExprContext>(0);
 		}
 		[System.Diagnostics.DebuggerNonUserCode] public AssignmentExprContext assignmentExpr() {
 			return GetRuleContext<AssignmentExprContext>(0);
@@ -1138,7 +1140,7 @@ public partial class LPCParser : Parser {
 			EnterOuterAlt(_localctx, 1);
 			{
 			State = 146;
-			postfixExpr();
+			logicalOrExpr();
 			State = 149;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
@@ -1834,7 +1836,7 @@ public partial class LPCParser : Parser {
 					State = 207;
 					ErrorHandler.Sync(this);
 					_la = TokenStream.LA(1);
-					if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 180389085184L) != 0)) {
+					if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 184685101056L) != 0)) {
 						{
 						State = 206;
 						argList();
@@ -1861,7 +1863,7 @@ public partial class LPCParser : Parser {
 						State = 214;
 						ErrorHandler.Sync(this);
 						_la = TokenStream.LA(1);
-						if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 180389085184L) != 0)) {
+						if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 184685101056L) != 0)) {
 							{
 							State = 213;
 							argList();
@@ -2135,7 +2137,7 @@ public partial class LPCParser : Parser {
 			State = 256;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
-			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 180389085184L) != 0)) {
+			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 184685101056L) != 0)) {
 				{
 				State = 248;
 				expr();
@@ -2226,7 +2228,7 @@ public partial class LPCParser : Parser {
 			State = 274;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
-			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 180389085184L) != 0)) {
+			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & 184685101056L) != 0)) {
 				{
 				State = 261;
 				expr();
@@ -2325,7 +2327,7 @@ public partial class LPCParser : Parser {
 		0,0,133,134,3,16,8,0,134,21,1,0,0,0,135,137,5,5,0,0,136,138,3,26,13,0,
 		137,136,1,0,0,0,137,138,1,0,0,0,138,139,1,0,0,0,139,140,5,43,0,0,140,23,
 		1,0,0,0,141,142,3,26,13,0,142,143,5,43,0,0,143,25,1,0,0,0,144,145,3,28,
-		14,0,145,27,1,0,0,0,146,149,3,44,22,0,147,148,7,1,0,0,148,150,3,28,14,
+		14,0,145,27,1,0,0,0,146,149,3,30,15,0,147,148,7,1,0,0,148,150,3,28,14,
 		0,149,147,1,0,0,0,149,150,1,0,0,0,150,29,1,0,0,0,151,156,3,32,16,0,152,
 		153,5,31,0,0,153,155,3,32,16,0,154,152,1,0,0,0,155,158,1,0,0,0,156,154,
 		1,0,0,0,156,157,1,0,0,0,157,31,1,0,0,0,158,156,1,0,0,0,159,164,3,34,17,
