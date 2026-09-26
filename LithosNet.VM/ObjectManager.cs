@@ -131,14 +131,8 @@ namespace LithosNet.VM {
 
         public List<string> GetInventory(string objName) => _inventories.ContainsKey(objName) ? _inventories[objName] : new List<string>();
 
-        public void DestructObject(string objName) {
-            foreach(var inv in _inventories.Values) inv.Remove(objName);
-            _inventories.Remove(objName);
-            GridMapManager.Unregister(objName);
-            if (_objects.ContainsKey(objName)) { _objects.Remove(objName); Console.WriteLine($"💥 [VM] 銷毀: {objName}"); }
-        }
-
-        public LpcValue CallFunction(string objName, string funcName, params LpcValue[] args) {
+        
+public LpcValue CallFunction(string objName, string funcName, params LpcValue[] args) {
             if (!_objects.ContainsKey(objName)) throw new Exception($"[VM] Object '{objName}' not loaded.");
             return _objects[objName].interp.CallFunction(funcName, new List<LpcValue>(args));
         }
