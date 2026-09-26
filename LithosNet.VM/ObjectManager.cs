@@ -149,7 +149,7 @@ namespace LithosNet.VM {
 
         public void LoadSimulEfun(string path) {
             Console.WriteLine($"📦 [SimulEfun] Loading global simul_efun from: {path}");
-            string cleanPath = path.TrimStart('/');
+            string cleanPath = path; // 直接使用絕對路徑作為 Key
             LoadObject(cleanPath);
             
             if (_objects.TryGetValue(cleanPath, out var sefunObj)) {
