@@ -8,7 +8,14 @@ using LithosNet.Compiler;
 namespace LithosNet.VM {
     public class ObjectManager {
         public static ObjectManager Instance { get; private set; }
-        public ObjectManager() { Instance = this; }
+        public ObjectManager() { 
+            Instance = this;
+            // 【Phase 52: Heartbeat 初始化與啟動】
+            _heartBeatTimer = new System.Timers.Timer(1000); // 1 秒 tick 一次
+            _heartBeatTimer.Elapsed += OnHeartBeatTick;
+            _heartBeatTimer.AutoReset = true;
+            _heartBeatTimer.Start();
+        }
         private readonly Dictionary<string, (Scope scope, Interpreter interp)> _objects = new();
         // 【Phase 52: Heartbeat 管理器】
         private readonly HashSet<string> _heartBeatObjects = new HashSet<string>();
