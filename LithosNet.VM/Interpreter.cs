@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using LithosNet.Core;
 
 namespace LithosNet.VM {
+    public class BreakSignal : Exception { }
     public class ReturnSignal : Exception { public LpcValue Value; public ReturnSignal(LpcValue v) { Value = v; } }
 
     public class Interpreter {
@@ -64,6 +65,29 @@ namespace LithosNet.VM {
                 case FunctionDeclarationNode f: _scope.RegisterFunction(f); break;
                 case ReturnNode r: throw new ReturnSignal(r.Value != null ? Eval(r.Value) : LpcValue.Create(0));
                 case IfNode i: if (EvalBool(i.Condition)) Visit(i.ThenBranch); else if (i.ElseBranch != null) Visit(i.ElseBranch); break;
+                
+                case SwitchNode sw:
+                    var swCond = Eval(sw.Condition);
+                    bool swMatched = false;
+                    SwitchCaseNode defaultCase = null;
+                    foreach(var c in sw.Cases) {
+                        if (c.IsDefault) { defaultCase = c; continue; }
+                            var caseVal = Eval(c.Value);
+                            if ((swCond.Type == LpcType.Int && caseVal.Type == LpcType.Int && swCond.AsInt() == caseVal.AsInt()) ||
+                                (swCond.Type == LpcType.String && caseVal.Type == LpcType.String && swCond.AsString() == caseVal.AsString())) {
+                                swMatched = true;
+                            }
+                        }
+                        if (swMatched) {
+                            try { foreach(var s in c.Body) Visit(s); } catch (BreakSignal) { break; }
+                        }
+                    }
+                        try { foreach(var s in defaultCase.Body) Visit(s); } catch (BreakSignal) { }
+                    }
+                    break;
+                case BreakNode:
+                    throw new BreakSignal();
+
                 case WhileNode w: while (EvalBool(w.Condition)) Visit(w.Body); break;
                 case ForNode f2: 
                     if (f2.Init != null) Visit(f2.Init); 

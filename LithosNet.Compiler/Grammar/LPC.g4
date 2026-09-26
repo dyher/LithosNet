@@ -19,6 +19,7 @@ INT_TYPE    : 'int' ;
 STRING_TYPE : 'string' ;
 MAPPING_TYPE: 'mapping' ;
 MIXED_TYPE  : 'mixed' | 'void' ;
+SWITCH : 'switch' ; CASE : 'case' ; DEFAULT : 'default' ; BREAK : 'break' ;
 
 ID          : [a-zA-Z_][a-zA-Z0-9_]* ;
 INT_LITERAL : '-'? [0-9]+ ;
@@ -76,6 +77,8 @@ statement
     : block
     | varDecl
     | ifStmt
+    | switchStmt
+    | breakStmt
     | whileStmt
     | returnStmt
     | exprStmt
