@@ -117,12 +117,11 @@ namespace LithosNet.VM {
         public void Preload(string fullPath) { LoadObject(fullPath); }
     // 【Phase 52: Heartbeat 方法】
             public void SetHeartBeat(string objName, bool enable) {
-            Console.WriteLine($"🔥 [Heartbeat Debug] SetHeartBeat called: objName='{objName}', enable={enable}");
                 if (enable) _heartBeatObjects.Add(objName);
                 else _heartBeatObjects.Remove(objName);
             }
 
-                    private async void OnHeartBeatTick(object sender, System.Timers.ElapsedEventArgs e) {
+        private async void OnHeartBeatTick(object sender, System.Timers.ElapsedEventArgs e) {
             Console.WriteLine($"⏰ [Heartbeat Debug] OnHeartBeatTick triggered! Targets count: {_heartBeatObjects.Count}");
             Console.WriteLine($"📚 [Heartbeat Debug] Current _objects Keys: [{string.Join(", ", _objects.Keys)}]");
             
@@ -142,9 +141,7 @@ namespace LithosNet.VM {
                     Console.WriteLine($"❌ [Heartbeat Debug] Object '{objName}' NOT FOUND in _objects dictionary!");
                 }
             }
-        } catch { 
-                            // 忽略 Bot heart_beat 內部的錯誤，防止崩潰
-                        }
+        }
                     }
                 }
             }
