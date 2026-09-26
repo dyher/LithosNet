@@ -54,8 +54,14 @@ namespace LithosNet.VM {
                     _scope.Set(a.VariableName, _assignVal); break;
                 case IndexAssignmentNode ia:
                     var col = Eval(ia.Array); var idx = Eval(ia.Index); var val = Eval(ia.Value);
+                    Console.WriteLine($"🔍 [IndexAssign X-Ray] Target Type: {col.Type}, Index: '{idx.AsString()}', Val Type: {val.Type}");
                     if (col.Type == LpcType.Array) col.AsArray()[idx.AsInt()] = val;
-                    else if (col.Type == LpcType.Mapping) col.AsMapping()[idx.AsString()] = val;
+                    else if (col.Type == LpcType.Mapping) {
+                        var map = col.AsMapping();
+                        Console.WriteLine($"🔍 [IndexAssign X-Ray] Map Keys BEFORE: {string.Join(", ", map.Keys)}");
+                        map[idx.AsString()] = val;
+                        Console.WriteLine($"🔍 [IndexAssign X-Ray] Map Keys AFTER: {string.Join(", ", map.Keys)}");
+                    }
                     break;
                 case FunctionDeclarationNode f: _scope.RegisterFunction(f); break;
                 case ReturnNode r: throw new ReturnSignal(r.Value != null ? Eval(r.Value) : LpcValue.Create(0));
