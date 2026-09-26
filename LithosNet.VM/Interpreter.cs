@@ -322,6 +322,26 @@ namespace LithosNet.VM {
                         return LpcValue.Create(1);
                     }
 
+                    
+                    // 【Phase 55.1: C# 原生 FFI】類似 LuaJIT FFI 的極簡調用接口
+                    if (c.Name == "call_native" && cArgs.Count >= 1) {
+                        string funcName = cArgs[0].AsString();
+                        var args = cArgs.GetRange(1, cArgs.Count - 1).ToArray();
+                        
+                        // 嘗試從 ObjectManager 獲取註冊的 C# 原生處理器
+                        var handler = _objMgr.GetNativeHandler(funcName);
+                        if (handler != null) {
+                            try {
+                                return handler(args);
+                            } catch (Exception ex) {
+                                Console.WriteLine($"❌ [FFI Error] Native function '{funcName}' failed: {ex.Message}");
+                                return LpcValue.Create(0);
+                            }
+                        }
+                        Console.WriteLine($"⚠️ [FFI Warning] Native function '{funcName}' not registered.");
+                        return LpcValue.Create(0);
+                    }
+
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");

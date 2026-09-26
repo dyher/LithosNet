@@ -7,6 +7,35 @@ using LithosNet.Compiler;
 
 namespace LithosNet.VM {
     public class ObjectManager {
+        // 【Phase 55.1: C# 原生 FFI 管理器】
+        private readonly Dictionary<string, Func<LpcValue[], LpcValue>> _nativeHandlers = new();
+
+        public void RegisterNativeHandler(string name, Func<LpcValue[], LpcValue> handler) {
+            _nativeHandlers[name] = handler;
+        }
+
+        public Func<LpcValue[], LpcValue> GetNativeHandler(string name) {
+            _nativeHandlers.TryGetValue(name, out var handler);
+            return handler;
+        }
+
+        private void SetupDefaultNativeHandlers() {
+            // 示例 1: 高性能數學計算 (模擬 C/C++ 庫調用)
+            RegisterNativeHandler("fast_pow", args => {
+                double baseVal = args.Length > 0 ? args[0].AsInt() : 0;
+                double expVal = args.Length > 1 ? args[1].AsInt() : 0;
+                return LpcValue.Create((int)Math.Pow(baseVal, expVal));
+            });
+
+            // 示例 2: 字串處理 (模擬原生加密或編碼)
+            RegisterNativeHandler("string_hash", args => {
+                string input = args.Length > 0 ? args[0].AsString() : "";
+                int hash = 0;
+                foreach (char c in input) hash = (hash * 31) + c;
+                return LpcValue.Create(hash);
+            });
+        }
+
         public static ObjectManager Instance { get; private set; }
         public ObjectManager() { 
             Instance = this;
