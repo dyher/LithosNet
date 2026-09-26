@@ -139,6 +139,7 @@ namespace LithosNet.VM {
                         Console.WriteLine($"🔥 [Foreach Read X-Ray] Array count: {feCol.AsArray().Count}");
                         foreach (var item in feCol.AsArray()) { 
                             Console.WriteLine($"   -> Reading Item: Type={item.Type}, AsInt={item.AsInt()}");
+                            Console.WriteLine($"🔥 [Foreach Set X-Ray] Setting '{fe.VarName}' = {item.AsInt()}");
                             _scope.Set(fe.VarName, item); 
                             Visit(fe.Body); 
                         } 
