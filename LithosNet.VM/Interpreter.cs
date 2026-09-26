@@ -9,6 +9,11 @@ using LithosNet.Core;
 
 namespace LithosNet.VM {
     public class BreakSignal : Exception { }
+
+    public class LpcRuntimeException : Exception {
+        public LpcRuntimeException(string msg) : base(msg) { }
+    }
+
     public class ReturnSignal : Exception { public LpcValue Value; public ReturnSignal(LpcValue v) { Value = v; } }
 
     public class Interpreter {
@@ -142,7 +147,21 @@ namespace LithosNet.VM {
                 case LiteralNode l: return l.Value;
                 case VariableRefNode v: return _scope.Get(v.Name);
                 case FunctionPointerNode fp: return LpcValue.CreateFunction(this.ObjectName, fp.FuncName);
-                case FunctionCallNode c: 
+                case FunctionCallNode c:
+                    // 【特殊形式】catch 必須延遲求值，否則 throw 會在參數準備階段就崩潰！
+                    if (c.Name == "catch") {
+                        try {
+                            if (c.Arguments != null && c.Arguments.Count > 0) {
+                                Eval(c.Arguments[0]); // 在 try 區塊內安全執行
+                            }
+                            return LpcValue.Create(0); // 沒有錯誤，返回 0
+                        } catch (LpcRuntimeException ex) {
+                            return LpcValue.Create(ex.Message); // 完美捕獲！
+                        } catch (Exception ex) {
+                            return LpcValue.Create("Runtime Error: " + ex.Message);
+                        }
+                    }
+ 
                     var cArgs = new List<LpcValue>(); foreach (var a in c.Arguments) cArgs.Add(Eval(a));
                     
                                         if (c.Name == "exec" && cArgs.Count >= 2) {
@@ -153,6 +172,7 @@ namespace LithosNet.VM {
                         _objMgr.LoadObject(cArgs[0].AsString());
                         return LpcValue.Create(cArgs[0].AsString());
                     }
+                    
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");
