@@ -358,4 +358,13 @@ namespace LithosNet.Compiler {
         }
 
 }
+        public override AstNode VisitForeachStmt(LPCParser.ForeachStmtContext context) {
+            var node = new ForeachNode {
+                VarName = context.ID().GetText(),
+                Collection = Visit(context.expr())
+            };
+            node.Body = Visit(context.statement());
+            return node;
+        }
+
 }
