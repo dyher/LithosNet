@@ -236,7 +236,9 @@ namespace LithosNet.VM {
                             foreach(var item in arr) {
                         Console.WriteLine($"🔍 [Callback Param X-Ray] Passing to callback: Type={item.Type}, AsInt()={item.AsInt()}");
                                 var res = _objMgr.CallFunction(funcTuple.Item1, funcTuple.Item2, item);
+                                Console.WriteLine($"🔥 [MapArray Add X-Ray] res.AsInt() BEFORE Add: {res.AsInt()}");
                                 result.Add(res);
+                                Console.WriteLine($"🔥 [MapArray Add X-Ray] result.Last().AsInt() AFTER Add: {result[result.Count-1].AsInt()}");
                             }
                         } else {
                             // 寬容模式：如果不是函數，直接返回原陣列
