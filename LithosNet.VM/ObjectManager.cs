@@ -7,6 +7,37 @@ using LithosNet.Compiler;
 
 namespace LithosNet.VM {
     public class ObjectManager {
+        // 【Phase 52: Heartbeat 管理器】
+        private readonly HashSet<string> _heartBeatObjects = new HashSet<string>();
+        private readonly System.Timers.Timer _heartBeatTimer;
+
+        public ObjectManager() {
+            _heartBeatTimer = new System.Timers.Timer(1000); // 1 秒 tick 一次
+            _heartBeatTimer.Elapsed += OnHeartBeatTick;
+            _heartBeatTimer.AutoReset = true;
+            _heartBeatTimer.Start();
+        }
+
+        public void SetHeartBeat(string objName, bool enable) {
+            if (enable) _heartBeatObjects.Add(objName);
+            else _heartBeatObjects.Remove(objName);
+        }
+
+        private async void OnHeartBeatTick(object sender, System.Timers.ElapsedEventArgs e) {
+            // 複製一份以避免在迭代時修改集合
+            var targets = _heartBeatObjects.ToList();
+            foreach (var objName in targets) {
+                if (_objects.ContainsKey(objName)) {
+                    try {
+                        // 異步呼叫 LPC 的 heart_beat() 函數，不阻塞 Timer
+                        _ = Task.Run(() => CallFunction(objName, "heart_beat", Array.Empty<LpcValue>()));
+                    } catch {
+                        // 忽略 Bot 內部 heart_beat 的錯誤，防止崩潰
+                    }
+                }
+            }
+        }
+
         public static ObjectManager Instance { get; private set; }
         public ObjectManager() { Instance = this; }
         private readonly Dictionary<string, (Scope scope, Interpreter interp)> _objects = new();
