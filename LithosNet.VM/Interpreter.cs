@@ -248,25 +248,7 @@ namespace LithosNet.VM {
                         return LpcValue.Create(result);
                     }
 
-                                        
-                    
-                        return LpcValue.Create(1);
-                    }
-                    
-                            }
-                            sb.Append(fmt[i]);
-                        }
-                        return LpcValue.Create(sb.ToString());
-                    }
-                    
-                    
-                    
-                    
-                    
-                        return LpcValue.Create(1);
-                    }
-
-                    if (c.Name == "query_name") {
+                                        if (c.Name == "query_name") {
                         string name = this.ObjectName ?? "unknown";
                         return LpcValue.Create(name);
                     }
@@ -391,37 +373,27 @@ namespace LithosNet.VM {
                     if (l.Op == "||") return LpcValue.Create(lBool || EvalBool(l.Right) ? 1 : 0);
                     return LpcValue.Create(0);
                 case BinaryOpNode b:
-                    b.Op = b.Op?.Trim();
-                    var left = Eval(b.Left);
-                    var right = Eval(b.Right);
-
-                    // 【FluffOS/LDMud 標準】Type Promotion: String + Any = String
+                    b.Op = b.Op?.Trim(); // 【創世修復】強制 Trim 運算子！
+                    var left = Eval(b.Left); var right = Eval(b.Right);
+                    if (b.Op != null && b.Op.Contains("*")) Console.WriteLine($"🔍 [BinaryOp X-Ray] Op=[{b.Op}] (len={b.Op.Length}) | L={left.Type}:{left.AsInt()} | R={right.Type}:{right.AsInt()}");
                     if (b.Op == "+") {
-                        if (left.Type == LpcType.String || right.Type == LpcType.String)
-                            return LpcValue.Create(left.AsString() + right.AsString());
-                        if (left.Type == LpcType.Int && right.Type == LpcType.Int)
-                            return LpcValue.Create(left.AsInt() + right.AsInt());
-                        return LpcValue.Create(0);
+                        if (left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() + right.AsInt());
+                        if (left.Type == LpcType.String || right.Type == LpcType.String) return LpcValue.Create((left.Type == LpcType.String ? left.AsString() : left.ToString()) + (right.Type == LpcType.String ? right.AsString() : right.ToString()));
                     }
-                    if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int)
-                        return LpcValue.Create(left.AsInt() - right.AsInt());
-                    if (b.Op == "*" && left.Type == LpcType.Int && right.Type == LpcType.Int)
-                        return LpcValue.Create(left.AsInt() * right.AsInt());
-                    if (b.Op == "/" && left.Type == LpcType.Int && right.Type == LpcType.Int)
-                        return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() / right.AsInt() : 0);
-                    if (b.Op == "%" && left.Type == LpcType.Int && right.Type == LpcType.Int)
-                        return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() % right.AsInt() : 0);
-                    if (left.Type == LpcType.String && right.Type == LpcType.String) {
-                        bool res = b.Op == "==" ? left.AsString() == right.AsString() : left.AsString() != right.AsString();
-                        return LpcValue.Create(res ? 1 : 0);
+                    if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() - right.AsInt());
+                    if (b.Op != null && b.Op.Trim() == "*") { 
+                        Console.WriteLine($"🔥 [MAGIC HIT] Multiplying {left.AsInt()} * {right.AsInt()} = {left.AsInt() * right.AsInt()}");
+                        return LpcValue.Create(left.AsInt() * right.AsInt()); 
                     }
+                    if (b.Op == "/" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() / right.AsInt() : 0);
+                    if (b.Op == "%" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() % right.AsInt() : 0);
+                    if (left.Type == LpcType.String && right.Type == LpcType.String) { string lStr = left.AsString(); string rStr = right.AsString(); bool res = b.Op == "==" ? lStr == rStr : lStr != rStr; return LpcValue.Create(res ? 1 : 0); }
                     if (left.Type == LpcType.Int && right.Type == LpcType.Int) {
                         int lVal = left.AsInt(), rVal = right.AsInt();
                         bool res = b.Op switch { "==" => lVal == rVal, "!=" => lVal != rVal, "<" => lVal < rVal, ">" => lVal > rVal, "<=" => lVal <= rVal, ">=" => lVal >= rVal, _ => false };
                         return LpcValue.Create(res ? 1 : 0);
                     }
                     return LpcValue.Create(0);
-
                 default: return LpcValue.Create(0);
             }
         }
