@@ -311,33 +311,7 @@ namespace LithosNet.Compiler {
                     if (keyNode != null) node.Keys.Add(keyNode);
                     if (valNode != null) node.Values.Add(valNode);
                 }
-            }
-            return node;
-        }
-
-        }
-                        }
-                        node.Cases.Add(caseNode);
-                    }
-                }
-                if (context.switchBlock().defaultBlock() != null) {
-                    var defNode = new SwitchCaseNode();
-                    defNode.IsDefault = true;
-                    var db = context.switchBlock().defaultBlock();
-                    if (db.statement() != null) {
-                        foreach(var s in db.statement()) {
-                            var astNode = Visit(s);
-                            if (astNode != null) defNode.Body.Add(astNode);
-                        }
-                    }
-                    node.Cases.Add(defNode);
-                }
-            }
-            return node;
-        }
-
-        }
-
+            
         public override AstNode VisitSwitchStmt(LPCParser.SwitchStmtContext context) {
             var node = new SwitchNode();
             if (context.expr() != null) node.Condition = Visit(context.expr());
@@ -373,6 +347,10 @@ namespace LithosNet.Compiler {
 
         public override AstNode VisitBreakStmt(LPCParser.BreakStmtContext context) {
             return new BreakNode();
+        }
+
+    }
+            return node;
         }
 }
 }
