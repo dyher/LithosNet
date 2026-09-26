@@ -189,7 +189,7 @@ namespace LithosNet.VM {
             newScope.InheritFrom(blueprint.scope);
             
             // 4. 創建新的 Interpreter
-            var newInterp = new Interpreter(cloneId, newScope, this);
+            var newInterp = new Interpreter(cloneId, newScope);
             
             // 5. 註冊到 _objects
             _objects[cloneId] = (newScope, newInterp);
