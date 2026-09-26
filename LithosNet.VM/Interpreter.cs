@@ -135,7 +135,14 @@ namespace LithosNet.VM {
                     break;
                 case ForeachNode fe:
                     var feCol = Eval(fe.Collection);
-                    if (feCol.Type == LpcType.Array) { foreach (var item in feCol.AsArray()) { _scope.Set(fe.VarName, item); Visit(fe.Body); } }
+                    if (feCol.Type == LpcType.Array) { 
+                        Console.WriteLine($"🔥 [Foreach Read X-Ray] Array count: {feCol.AsArray().Count}");
+                        foreach (var item in feCol.AsArray()) { 
+                            Console.WriteLine($"   -> Reading Item: Type={item.Type}, AsInt={item.AsInt()}");
+                            _scope.Set(fe.VarName, item); 
+                            Visit(fe.Body); 
+                        } 
+                    }
                     else if (feCol.Type == LpcType.Mapping) { foreach (var kvp in feCol.AsMapping()) { _scope.Set(fe.VarName, LpcValue.Create(kvp.Key)); Visit(fe.Body); } }
                     break;
                 case BlockNode b: foreach (var s in b.Statements) Visit(s); break;
