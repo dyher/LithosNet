@@ -33,6 +33,10 @@ namespace LithosNet.VM {
         }
 
         public LpcValue CallFunction(string name, List<LpcValue> args) {
+            Console.WriteLine($"🔍 [CallFunc Entry] Calling: '{name}'");
+            var compiled = _scope.GetCompiled(name);
+            Console.WriteLine($"🔍 [CallFunc Entry] '{name}' JIT Status: {(compiled != null ? "HIT (Bypassing Interpreter!)" : "MISS")}");
+
             // 🔥【極致效能】優先呼叫 JIT 編譯後的 Delegate (納秒級跳轉)
             var compiled = _scope.GetCompiled(name);
             if (compiled != null) {
