@@ -7,9 +7,9 @@ using LithosNet.Compiler;
 
 namespace LithosNet.VM {
     public class ObjectManager {
+        private Interpreter _simulEfunInterp; // 【FluffOS】Simul_efun 後備解釋器
         // 【Phase 55.1: C# 原生 FFI 管理器】
         private readonly Dictionary<string, Func<LpcValue[], LpcValue>> _nativeHandlers = new();
-        private Interpreter _simulEfunInterp; // 【FluffOS】Simul_efun 後備解釋器
 
         public void RegisterNativeHandler(string name, Func<LpcValue[], LpcValue> handler) {
             _nativeHandlers[name] = handler;
@@ -148,6 +148,12 @@ namespace LithosNet.VM {
         public void Preload(string fullPath) { LoadObject(fullPath); }
         public void LoadSimulEfun(string path) {
             Console.WriteLine($"📦 [SimulEfun] Loading global simul_efun from: {path}");
+            // 加載 simul_efun，並將其標記為特殊的全局物件
+            LoadObject(path);
+            Console.WriteLine($"✅ [SimulEfun] Global functions registered successfully!");
+
+        public void LoadSimulEfun(string path) {
+            Console.WriteLine($"📦 [SimulEfun] Loading global simul_efun from: {path}");
             string cleanPath = path.TrimStart('/');
             LoadObject(cleanPath);
             
@@ -160,11 +166,6 @@ namespace LithosNet.VM {
             }
         }
 
-        public LpcValue CallSimulEfun(string name, System.Collections.Generic.List<LpcValue> args) {
-            if (_simulEfunInterp != null && _simulEfunInterp._scope.HasFunction(name)) {
-                return _simulEfunInterp.CallFunction(name, args);
-            }
-            throw new Exception($"[VM] Function '{name}' not found in scope, efuns, or simul_efun.");
         public bool CallSimulEfunSafe(string name, System.Collections.Generic.List<LpcValue> args, out LpcValue result) {
             if (_simulEfunInterp != null && _simulEfunInterp._scope.HasFunction(name)) {
                 result = _simulEfunInterp.CallFunction(name, args);
