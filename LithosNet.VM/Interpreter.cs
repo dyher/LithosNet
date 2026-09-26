@@ -17,7 +17,7 @@ namespace LithosNet.VM {
     public class ReturnSignal : Exception { public LpcValue Value; public ReturnSignal(LpcValue v) { Value = v; } }
 
     public class Interpreter {
-        private readonly Scope _scope;
+        private Scope _scope;
         private readonly ObjectManager _objMgr;
         public string ObjectName { get; set; } 
 
@@ -169,7 +169,7 @@ namespace LithosNet.VM {
         private LpcValue Eval(AstNode node) {
             switch (node) {
                 case LiteralNode l: return l.Value;
-                case VariableRefNode v: return _scope.Get(v.Name);
+                case VariableRefNode v: var val = _scope.Get(v.Name); Console.WriteLine($"🔍 [VarRef X-Ray] Reading \'{v.Name}\' -> Type: {val.Type}, Val: {val.AsInt()}"); return val;
                 case FunctionPointerNode fp: return LpcValue.CreateFunction(this.ObjectName, fp.FuncName);
                 case FunctionCallNode c:
                     // 【特殊形式】catch 必須延遲求值，否則 throw 會在參數準備階段就崩潰！
