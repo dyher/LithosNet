@@ -168,14 +168,10 @@ namespace LithosNet.VM {
         }
 
         // 【Phase 55.2/56: FluffOS 核心】SimulEfun Fallback 與生命週期管理
-        public bool CallSimulEfunSafe(string name, System.Collections.Generic.List<LpcValue> args, out LpcValue result) {
-            if (_simulEfunInterp != null && _simulEfunInterp._scope.HasFunction(name)) {
-                result = _simulEfunInterp.CallFunction(name, args);
-                return true;
-            }
-            result = LpcValue.Create(0);
-            return false;
-        }
+
+        // 【Phase 56: FluffOS 核心】暴露所有已載入物件供 find_object 查詢
+
+        // 【Phase 55.2/56: FluffOS 核心】SimulEfun Fallback 與生命週期管理
 
         // 【Phase 52: Heartbeat 方法】
             public void SetHeartBeat(string objName, bool enable) {
