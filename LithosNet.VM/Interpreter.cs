@@ -295,6 +295,27 @@ namespace LithosNet.VM {
                         _objMgr.SetHeartBeat(target, enable);
                         return LpcValue.Create(1);
                     }
+                                        // 【Phase 53: MMORPG 核心】environment: 獲取物件所在環境 (FluffOS 標準)
+                    if (c.Name == "environment") {
+                        string env = "";
+                        if (cArgs.Count > 0) {
+                            // 如果傳入參數，嘗試獲取該參數的環境 (簡化版：假設參數是物件 ID)
+                            env = cArgs[0].AsString(); // 實際應從 Scope 獲取，此處為相容性佔位
+                        } else {
+                            // 預設返回 this_object() 的環境
+                            env = _scope.Has("environment") ? _scope.Get("environment").AsString() : "";
+                        }
+                        return LpcValue.Create(env);
+                    }
+                    
+                    // 【Phase 53: MMORPG 核心】move: 移動物件到目標環境 (FluffOS 標準)
+                    if (c.Name == "move" && cArgs.Count >= 1) {
+                        string dest = cArgs[0].AsString();
+                        _scope.Set("environment", LpcValue.Create(dest));
+                        Console.WriteLine($"🚶 [Efun Debug] {this.ObjectName} moved to {dest}");
+                        return LpcValue.Create(1); // 成功返回 1
+                    }
+
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");
