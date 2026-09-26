@@ -7,7 +7,6 @@ namespace LithosNet.VM {
     public class Scope {
         private readonly Dictionary<string, LpcValue> _variables = new();
         public Scope Parent { get; set; }
-        public Scope Parent { get; set; }
         private readonly Dictionary<string, FunctionDeclarationNode> _functions = new();
         private readonly Dictionary<string, Delegate> _compiledFunctions = new(); // 【JIT】原生 Delegate 快取
 
