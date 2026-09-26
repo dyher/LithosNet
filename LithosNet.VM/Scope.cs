@@ -10,7 +10,15 @@ namespace LithosNet.VM {
         private readonly Dictionary<string, FunctionDeclarationNode> _functions = new();
         private readonly Dictionary<string, Delegate> _compiledFunctions = new(); // 【JIT】原生 Delegate 快取
 
-        public void Set(string name, LpcValue value) => _variables[name] = value;
+        public void Set(string name, LpcValue value) {
+            if (_variables.ContainsKey(name)) {
+                _variables[name] = value; // 區域變數或已存在的全域變數，直接更新當前 Scope
+            } else if (Parent != null) {
+                Parent.Set(name, value); // 【Phase 54.1 修復】全域變數委託給父級 (根) Scope 更新，防止局部 Scope 丟失
+            } else {
+                _variables[name] = value; // 根 Scope，直接創建
+            }
+        }
         public LpcValue Get(string name) {
             if (_variables.TryGetValue(name, out var v)) return v;
             if (Parent != null) return Parent.Get(name); // 【原型鏈】向上層查找
