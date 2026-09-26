@@ -74,7 +74,11 @@ namespace LithosNet.VM {
                 return LpcValue.Create(0);
             }
             if (EfunRegistry.TryGet(name, out var efun)) return efun(args.ToArray());
-            throw new Exception($"[VM] Function '{name}' not found in current scope.");
+            // 【FluffOS 核心機制】如果當前 Scope 和 Efun 都找不到，嘗試呼叫 simul_efun
+            if (_objMgr.CallSimulEfunSafe(name, args, out var sefunResult)) {
+                return sefunResult;
+            }
+            throw new Exception($"[VM] Function '{name}' not found in current scope, efuns, or simul_efun.");
         }
 
         private void Visit(AstNode node) {
