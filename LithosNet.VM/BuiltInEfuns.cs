@@ -279,7 +279,15 @@ namespace LithosNet.VM {
         private static extern int calc_damage(int atk, int def);
 
         [Efun("debug_message")]
-        public static LpcValue DebugMessage(LpcValue[] args) { if (args.Length > 0 && args[0].Type == LpcType.String) Console.WriteLine($"💬 [LPC]: {args[0].AsString()}"); return LpcValue.Create(0); }
+        public static LpcValue DebugMessage(LpcValue[] args) {
+            if (args.Length > 0) {
+                if (args[0].Type != LpcType.String) {
+                    Console.WriteLine($"⚠️ [Efun Warning] debug_message expected String, but got {args[0].Type}. Auto-converting...");
+                }
+                Console.WriteLine($"💬 [LPC]: {args[0].AsString()}");
+            }
+            return LpcValue.Create(0);
+        }
         [Efun("debug_int")]
         public static LpcValue DebugInt(LpcValue[] args) { if (args.Length > 0 && args[0].Type == LpcType.Int) Console.WriteLine($"🔢 [LPC]: {args[0].AsInt()}"); return LpcValue.Create(0); }
         [Efun("calculate_damage")]
