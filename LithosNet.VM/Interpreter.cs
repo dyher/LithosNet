@@ -328,13 +328,19 @@ namespace LithosNet.VM {
                         string funcName = cArgs[0].AsString();
                         var args = cArgs.GetRange(1, cArgs.Count - 1).ToArray();
                         
-                        // 嘗試從 ObjectManager 獲取註冊的 C# 原生處理器
+                        Console.WriteLine($"🔍 [FFI Debug] Calling '{funcName}' with {args.Length} args.");
+                        for(int i=0; i<args.Length; i++) {
+                            Console.WriteLine($"   -> Arg[{i}] Type: {args[i].Type}, Value: {args[i].AsString()}");
+                        }
+
                         var handler = _objMgr.GetNativeHandler(funcName);
                         if (handler != null) {
                             try {
-                                return handler(args);
+                                var result = handler(args);
+                                Console.WriteLine($"✅ [FFI Success] '{funcName}' returned: {result.Type}:{result.AsString()}");
+                                return result;
                             } catch (Exception ex) {
-                                Console.WriteLine($"❌ [FFI Error] Native function '{funcName}' failed: {ex.Message}");
+                                Console.WriteLine($"❌ [FFI Error] Native function '{funcName}' failed: {ex.ToString()}");
                                 return LpcValue.Create(0);
                             }
                         }
