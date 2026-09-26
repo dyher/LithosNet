@@ -42,8 +42,14 @@ namespace LithosNet.VM {
                 return LpcValue.Create(result);
             }
 
+            
             if (_scope.HasFunction(name)) {
                 var func = _scope.GetFunction(name);
+                Console.WriteLine($"🔍 [CallFunc X-Ray] '{name}' | Params Count: {func.Parameters?.Count ?? -1} | Args Count: {args.Count}");
+                if (func.Parameters != null && func.Parameters.Count > 0) {
+                    Console.WriteLine($"🔍 [CallFunc X-Ray] First Param Name: '{func.Parameters[0].Name}'");
+                }
+
                 for (int i = 0; i < func.Parameters.Count && i < args.Count; i++) _scope.Set(func.Parameters[i].Name, args[i]);
                 try { foreach (var s in func.Body) Visit(s); } catch (ReturnSignal r) { return r.Value; }
                 return LpcValue.Create(0);
