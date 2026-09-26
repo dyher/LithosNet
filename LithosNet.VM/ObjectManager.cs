@@ -147,9 +147,25 @@ namespace LithosNet.VM {
         public void Preload(string fullPath) { LoadObject(fullPath); }
         public void LoadSimulEfun(string path) {
             Console.WriteLine($"📦 [SimulEfun] Loading global simul_efun from: {path}");
-            // 加載 simul_efun，並將其標記為特殊的全局物件
-            LoadObject(path);
-            Console.WriteLine($"✅ [SimulEfun] Global functions registered successfully!");
+            // 移除前導斜杠以確保路徑解析正確
+            string cleanPath = path.TrimStart('/');
+            LoadObject(cleanPath);
+            
+            if (_objects.TryGetValue(cleanPath, out var sefunObj)) {
+                Console.WriteLine($"✅ [SimulEfun] Object loaded. Elevating functions to global Efun status...");
+                int count = 0;
+                foreach (var kvp in sefunObj.scope.GetFunctions()) {
+                    string funcName = kvp.Key;
+                    // 【FluffOS 核心機制】將 simul_efun 的函數包裝並註冊為全局 Efun
+                    EfunRegistry.Register(funcName, (args) => {
+                        return sefunObj.interp.CallFunction(funcName, new System.Collections.Generic.List<LpcValue>(args));
+                    });
+                    count++;
+                }
+                Console.WriteLine($"🚀 [SimulEfun] Successfully elevated {count} functions to global Efun registry!");
+            } else {
+                Console.WriteLine($"❌ [SimulEfun] Failed to load object at path: {cleanPath}");
+            }
         }
 
     // 【Phase 52: Heartbeat 方法】

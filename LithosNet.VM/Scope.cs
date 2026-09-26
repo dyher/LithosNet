@@ -43,5 +43,6 @@ namespace LithosNet.VM {
         }
         
         public Dictionary<string, LpcValue> GetAllVariables() => _variables;
+        public Dictionary<string, FunctionDeclarationNode> GetFunctions() => _functions;
     }
 }
