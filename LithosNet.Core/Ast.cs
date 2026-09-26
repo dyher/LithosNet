@@ -28,7 +28,9 @@ namespace LithosNet.Core {
     
     // 【新增】繼承節點: inherit "base";
     public class InheritNode : AstNode { public string ParentObjName; }
+
     public class SwitchNode : AstNode { public AstNode Condition; public List<SwitchCaseNode> Cases = new(); }
     public class SwitchCaseNode : AstNode { public AstNode Value; public List<AstNode> Body = new(); public bool IsDefault = false; }
     public class BreakNode : AstNode { }
+
 }
