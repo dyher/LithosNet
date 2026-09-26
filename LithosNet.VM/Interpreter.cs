@@ -38,7 +38,7 @@ namespace LithosNet.VM {
             Console.WriteLine($"🔍 [CallFunc Entry] '{name}' JIT Status: {(compiled != null ? "HIT (Bypassing Interpreter!)" : "MISS")}");
 
             // 🔥【極致效能】優先呼叫 JIT 編譯後的 Delegate (納秒級跳轉)
-            var compiled = _scope.GetCompiled(name);
+            // var compiled (Duplicate removed) = _scope.GetCompiled(name);
             if (compiled != null) {
                 int arg1 = args.Count > 0 ? args[0].AsInt() : 0;
                 int arg2 = args.Count > 1 ? args[1].AsInt() : 0;
