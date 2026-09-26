@@ -163,9 +163,47 @@ namespace LithosNet.VM {
 
         // 【Phase 56: FluffOS 核心】銷毀物件並清理相關狀態
         public void DestructObject(string objName) {
+            if (_objects.TryGetValue(objName, out var objData)) {
+                // 1. 嘗試呼叫 clean_up apply
+                try { objData.interp.CallFunction("clean_up", new System.Collections.Generic.List<LpcValue>()); } catch {}
+                // 2. 清空 Scope 變數，主動切斷引用鏈，協助 C# GC 快速回收
+                objData.scope.GetAllVariables().Clear();
+            }
             _objects.Remove(objName);
             _heartBeatObjects.Remove(objName);
-            Console.WriteLine($"💥 [Lifecycle] Object '{objName}' has been destructed.");
+            Console.WriteLine($"💥 [Lifecycle] Object '{objName}' has been destructed and GC-ready.");
+        }
+        // 【Phase 57: 架構優化】獲取指定環境中的所有物件
+        public List<string> GetInventory(string envName) {
+            return _objects.Where(kvp => kvp.Value.scope.Has("environment") && 
+                                         kvp.Value.scope.Get("environment").AsString() == envName)
+                           .Select(kvp => kvp.Key).ToList();
+        }
+        // 【Phase 57: 架構優化】標準 FluffOS clone_object 邏輯
+        public string CloneObject(string blueprintName) {
+            // 1. 確保藍圖已載入
+            if (!_objects.TryGetValue(blueprintName, out var blueprint)) {
+                LoadObject(blueprintName);
+                if (!_objects.TryGetValue(blueprintName, out blueprint)) throw new Exception($"Blueprint '{blueprintName}' not found");
+            }
+            // 2. 生成新的 clone ID (例如 obj/bot#1)
+            int cloneCount = _objects.Keys.Count(k => k.StartsWith(blueprintName + "#"));
+            string cloneId = $"{blueprintName}#{cloneCount + 1}";
+            
+            // 3. 創建新的 Scope 並繼承藍圖變數與函數
+            var newScope = new Scope();
+            newScope.InheritFrom(blueprint.scope);
+            
+            // 4. 創建新的 Interpreter
+            var newInterp = new Interpreter(cloneId, newScope, this);
+            
+            // 5. 註冊到 _objects
+            _objects[cloneId] = (newScope, newInterp);
+            
+            // 6. 呼叫 clone 的 create() apply
+            try { newInterp.CallFunction("create", new System.Collections.Generic.List<LpcValue>()); } catch {}
+            
+            return cloneId;
         }
 
         // 【Phase 55.2/56: FluffOS 核心】SimulEfun Fallback 與生命週期管理
