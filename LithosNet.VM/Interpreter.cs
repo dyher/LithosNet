@@ -340,8 +340,15 @@ namespace LithosNet.VM {
                     }
                     if (c.Name == "message" && cArgs.Count >= 2) {
                         string env = _scope.Has("environment") ? _scope.Get("environment").AsString() : "";
-                        string msg = cArgs[1].AsString(); var inv = _objMgr.GetInventory(env);
-                        foreach(var obj in inv) { if (obj != this.ObjectName) { try { _objMgr.CallFunction(obj, "receive_message", LpcValue.Create(msg), LpcValue.Create(this.ObjectName)); } catch {} } }
+                        string msg = cArgs[1].AsString(); 
+                        var inv = _objMgr.GetInventory(env);
+                        Console.WriteLine($"📡 [AOI Debug] Broadcasting to room '{env}'. Targets in room: {inv.Count}");
+                        foreach(var obj in inv) { 
+                            if (obj != this.ObjectName) { 
+                                Console.WriteLine($"  -> Sending to: {obj}");
+                                try { _objMgr.CallFunction(obj, "receive_message", LpcValue.Create(msg), LpcValue.Create(this.ObjectName)); } catch {} 
+                            } 
+                        }
                         return LpcValue.Create(1);
                     }
                     if (c.Name == "objectp" && cArgs.Count >= 1) return LpcValue.Create(_objMgr.ObjectExists(cArgs[0].AsString()) ? 1 : 0);
