@@ -27,10 +27,8 @@ namespace LithosNet.VM {
                     await Task.Delay(delaySec * 1000, cts.Token);
                     if (!cts.IsCancellationRequested) {
                         try {
-                            Console.WriteLine($"⏰ [CallOut] 觸發: {objName}->{funcName}");
                             objMgr.CallFunction(objName, funcName, args);
                         } catch (Exception ex) {
-                            Console.WriteLine($"⚠ [CallOut] 執行失敗: {ex.Message}");
                         }
                     }
                 } catch (TaskCanceledException) { }

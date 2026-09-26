@@ -87,10 +87,7 @@ namespace LithosNet.Compiler {
                     else if (stmtsField != null) body = (System.Collections.Generic.List<AstNode>)stmtsField.GetValue(blockNode);
                     else body.Add(blockNode); // Fallback
                 }
-                Console.WriteLine($"🔍 [AstBuilder X-Ray] 函數 '{name}' 的 Body 語句數量: {body.Count}");
-                Console.WriteLine($"🔍 [AST-Raw] Block ChildCount: {context.block().ChildCount}");
                 var rawText = context.block().GetText();
-                Console.WriteLine($"🔍 [AST-Raw] Block Text: {rawText.Substring(0, Math.Min(150, rawText.Length))}...");
             return CreateNode("FunctionDeclarationNode", new Dictionary<string, object> {
                 { "ReturnType", retType }, { "Name", name }, { "Parameters", parameters }, { "Body", body }
             });
@@ -147,11 +144,9 @@ namespace LithosNet.Compiler {
             if (context.assignmentExpr() == null) return left;
 
             AstNode right = Visit(context.assignmentExpr());
-            Console.WriteLine($"🔍 [Assign AST X-Ray] left Type: {left.GetType().Name}, Text: {context.GetText()}");
 
             // 【終極路由】如果左邊是 IndexAccessNode，生成 IndexAssignmentNode！
             if (left is IndexAccessNode ian) {
-                Console.WriteLine($"🔍 [Assign AST X-Ray] IndexAssignment! Array={ian.Array?.GetType().Name}, Index={ian.Index?.GetType().Name}");
                 var idxAssignNode = new IndexAssignmentNode();
                 idxAssignNode.Array = ian.Array;
                 idxAssignNode.Index = ian.Index;
@@ -205,7 +200,6 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitPostfixExpr(LPCParser.PostfixExprContext context) {
-            Console.WriteLine($"🔍 [Postfix X-Ray] Text: {context.GetText()}, ChildCount: {context.ChildCount}");
             for (int _i = 0; _i < context.ChildCount; _i++) {
                 var _c = context.GetChild(_i);
                 Console.WriteLine($"  -> Child {_i}: Type={_c.GetType().Name}, Text={_c.GetText()}");
@@ -217,7 +211,6 @@ namespace LithosNet.Compiler {
             while (i < context.ChildCount) {
                 var child = context.GetChild(i);
                 if (child is ITerminalNode term) {
-                    Console.WriteLine($"🔍 [Postfix Term X-Ray] Type={term.Symbol.Type}, Text='{term.GetText()}', LPAREN={LPCParser.LPAREN}, LBRACKET={LPCParser.LBRACKET}");
                     if (term.Symbol.Type == LPCParser.LPAREN) {
                         var args = new System.Collections.Generic.List<AstNode>();
                         if (i + 1 < context.ChildCount && context.GetChild(i + 1) is LPCParser.ArgListContext al) {
@@ -255,7 +248,6 @@ namespace LithosNet.Compiler {
                             i++; // skip expr
                             i++; // skip RBRACKET
                         } catch (Exception ex) {
-                            Console.WriteLine($"❌ [Postfix LBRACKET ERROR] {ex.Message}");
                         }
                     }
                 }
@@ -265,7 +257,6 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitPrimaryExpr(LPCParser.PrimaryExprContext context) {
-            Console.WriteLine($"🔍 [PrimaryExpr X-Ray] Text: {context.GetText()}, StartType: {context.Start?.Type}, StartText: {context.Start?.Text}");
             
             // 【最高優先級】Literal 路由
             if (context.mappingLiteral() != null) return Visit(context.mappingLiteral());
@@ -284,7 +275,6 @@ namespace LithosNet.Compiler {
     
         public override AstNode VisitArrayLiteral(LPCParser.ArrayLiteralContext context) {
             string rawText = context.GetText();
-            Console.WriteLine($"🔍 [AST Hijack] ArrayLiteral Text: {rawText.Substring(0, Math.Min(20, rawText.Length))}");
             
             // 【型別劫持】如果以 ([ 開頭，強制當作 Mapping 處理！
             if (rawText.StartsWith("([") || rawText.StartsWith("([")) {
@@ -298,7 +288,6 @@ namespace LithosNet.Compiler {
                         if (valNode != null) mapNode.Values.Add(valNode);
                     }
                 }
-                Console.WriteLine($"🔍 [AST Hijack] Converted to MappingLiteralNode with {mapNode.Keys.Count} keys!");
                 return mapNode;
             }
 
@@ -314,7 +303,6 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitMappingLiteral(LPCParser.MappingLiteralContext context) {
-            Console.WriteLine($"🔍 [AST X-Ray] VisitMappingLiteral called! Expr count: {(context.expr() != null ? context.expr().Length : 0)}");
             var node = new MappingLiteralNode();
             if (context.expr() != null) {
                 var exprs = context.expr();

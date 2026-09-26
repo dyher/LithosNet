@@ -27,7 +27,6 @@ namespace LithosNet.VM {
             } catch { return LpcValue.Create(new Dictionary<string, LpcValue>()); }
         }
 
-
         // 【MMORPG Fiber】非阻塞式異步延遲 (不卡死主線程)
         [Efun("task_sleep")]
         public static LpcValue TaskSleep(LpcValue[] args) {
@@ -46,7 +45,6 @@ namespace LithosNet.VM {
             return LpcValue.Create(1);
         }
 
-
         // 【Mudlib 基礎】to_int 字串轉整數
         [Efun("to_int")]
         public static LpcValue ToInt(LpcValue[] args) {
@@ -55,7 +53,6 @@ namespace LithosNet.VM {
             } else if (args.Length > 0 && args[0].Type == LpcType.Int) return args[0];
             return LpcValue.Create(0);
         }
-
 
         // 【MMORPG Efun】註冊實體到空間網格
         [Efun("map_register")]
@@ -80,7 +77,6 @@ namespace LithosNet.VM {
             foreach(var s in list) lpcList.Add(LpcValue.Create(s));
             return LpcValue.Create(lpcList);
         }
-
 
         // 【FFI 底層委託定義】
         [System.Runtime.InteropServices.UnmanagedFunctionPointer(System.Runtime.InteropServices.CallingConvention.Cdecl)]
@@ -153,7 +149,6 @@ namespace LithosNet.VM {
 
         [Efun("destruct")]
         public static LpcValue Destruct(LpcValue[] args) {
-            Console.WriteLine($"💥 [Efun] destruct({args[0].AsString()})");
             return LpcValue.Create(1);
         }
 

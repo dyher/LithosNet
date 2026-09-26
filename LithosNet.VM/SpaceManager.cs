@@ -20,7 +20,6 @@ namespace LithosNet.VM {
             Location newLoc = new Location { Env = "world", X = x, Y = y, Z = z };
             _positions[obj] = newLoc;
             
-            Console.WriteLine($"🌍 [Space] {obj} 移動到 ({x}, {y}, {z})");
 
             if (objMgr == null) return;
 
@@ -35,14 +34,12 @@ namespace LithosNet.VM {
             foreach (var target in entered) {
                 try { 
                     objMgr.CallFunction(target, "aoi_enter", LpcValue.Create(obj)); 
-                    Console.WriteLine($"👁 [AOI Event] {target} 看到 {obj} 進入視野！");
                 } catch {}
             }
 
             foreach (var target in left) {
                 try { 
                     objMgr.CallFunction(target, "aoi_leave", LpcValue.Create(obj)); 
-                    Console.WriteLine($"👁 [AOI Event] {target} 看到 {obj} 離開視野！");
                 } catch {}
             }
         }

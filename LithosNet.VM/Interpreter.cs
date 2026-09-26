@@ -50,11 +50,9 @@ namespace LithosNet.VM {
             switch (node) {
                 case VariableDeclarationNode v: Console.WriteLine($"🔍 [Scope] Decl: '{v.VariableName}'"); _scope.Set(v.VariableName, v.Initializer != null ? Eval(v.Initializer) : LpcValue.Create(0)); break;
                 case AssignmentNode a: Console.WriteLine($"🔍 [Scope] Assign: '{a.VariableName}'"); var _assignVal = Eval(a.Value);
-                    Console.WriteLine($"🔍 [Assign X-Ray] '{a.VariableName}' Type: {_assignVal.Type}");
                     _scope.Set(a.VariableName, _assignVal); break;
                 case IndexAssignmentNode ia:
                     var col = Eval(ia.Array); var idx = Eval(ia.Index); var val = Eval(ia.Value);
-                    Console.WriteLine($"🔍 [IndexAssign X-Ray] Target Type: {col.Type}, Index: '{idx.AsString()}', Val Type: {val.Type}");
                     if (col.Type == LpcType.Array) col.AsArray()[idx.AsInt()] = val;
                     else if (col.Type == LpcType.Mapping) {
                         var map = col.AsMapping();
@@ -202,10 +200,8 @@ namespace LithosNet.VM {
                     else targetObjName = Eval(co.Target).AsString();
                     return _objMgr.CallFunction(targetObjName, co.FuncName, coArgs.ToArray());
                 case ArrayLiteralNode al:
-                    Console.WriteLine($"🔍 [VM X-Ray] Evaluating ArrayLiteralNode with {al.Elements.Count} elements!");
                     var list = new List<LpcValue>(); foreach (var e in al.Elements) list.Add(Eval(e)); return LpcValue.Create(list);
                 case MappingLiteralNode ml:
-                    Console.WriteLine($"🔍 [VM X-Ray] Evaluating MappingLiteralNode with {ml.Keys.Count} keys!");
                     var dict = new Dictionary<string, LpcValue>();
                     for (int i = 0; i < ml.Keys.Count; i++) dict[Eval(ml.Keys[i]).AsString()] = Eval(ml.Values[i]);
                     return LpcValue.Create(dict);
