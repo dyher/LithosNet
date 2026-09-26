@@ -224,6 +224,7 @@ namespace LithosNet.VM {
                         if (funcVal.Type == LpcType.Function) {
                             var funcTuple = funcVal.AsFunction(); // Tuple<objName, funcName>
                             foreach(var item in arr) {
+                        Console.WriteLine($"🔍 [Callback Param X-Ray] Passing to callback: Type={item.Type}, AsInt()={item.AsInt()}");
                                 var res = _objMgr.CallFunction(funcTuple.Item1, funcTuple.Item2, item);
                                 result.Add(res);
                             }
