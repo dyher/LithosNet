@@ -365,9 +365,5 @@ namespace LithosNet.Compiler {
             node.Body = Visit(context.statement());
             return node;
         }
-
+    }
 }
-};
-            node.Body = Visit(context.statement());
-            return node;
-        }
