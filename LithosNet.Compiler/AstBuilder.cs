@@ -270,6 +270,7 @@ namespace LithosNet.Compiler {
                         // 【創世補齊】完美處理索引訪問 a[b]！
                         var indexNode = Visit(context.GetChild(i + 1));
                         node = CreateNode("IndexAccessNode", new Dictionary<string, object> { { "Array", node }, { "Target", node }, { "Index", indexNode } });
+                        Console.WriteLine($"🔍 [Postfix LBRACKET X-Ray] CreateNode returned: {(node != null ? node.GetType().Name : "NULL")}");
                         i++; // skip expr
                         i++; // skip RBRACKET
                     }
