@@ -396,6 +396,14 @@ namespace LithosNet.VM {
                         return LpcValue.Create(0);
                     }
                     
+                    
+                    // 【Phase 57: FluffOS 標準對齊】clonep: 判斷當前物件是否為克隆體
+                    if (c.Name == "clonep") {
+                        // 在 LithosNet 中，克隆體的 ObjectName 包含 '#' (例如 "bot#1")
+                        // 藍圖/主物件的 ObjectName 不包含 '#' (例如 "bot")
+                        return LpcValue.Create(this.ObjectName.Contains("#") ? 1 : 0);
+                    }
+
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");
