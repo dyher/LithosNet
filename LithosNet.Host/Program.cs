@@ -35,7 +35,7 @@ namespace LithosNet.Host {
 
             // 【Phase 55.2】加載 FluffOS 標準 simul_efun
             try {
-                var sefunResult = ObjMgr.CallFunction(MasterObj, "get_simul_efun", new System.Collections.Generic.List<LpcValue>());
+                var sefunResult = ObjMgr.CallFunction(MasterObj, "get_simul_efun", Array.Empty<LpcValue>());
                 string sefunPath = sefunResult.AsString();
                 if (!string.IsNullOrEmpty(sefunPath)) {
                     ObjMgr.LoadSimulEfun(sefunPath);
