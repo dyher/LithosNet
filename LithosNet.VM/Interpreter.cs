@@ -235,7 +235,19 @@ namespace LithosNet.VM {
                         return LpcValue.Create(result);
                     }
 
-                                        if (c.Name == "spawn_bot" && cArgs.Count >= 1) {
+                                                            // 【Phase 50 Efun】bot_say: 讓 Bot 說話 (C# 骨架處理廣播，LPC 負責呼叫)
+                    if (c.Name == "bot_say" && cArgs.Count >= 2) {
+                        var botObj = cArgs[0];
+                        string msg = cArgs[1].AsString();
+                        if (botObj.Type == LpcType.Object) {
+                            string botId = botObj.AsString();
+                            Console.WriteLine($"🤖 [Bot Efun] {botId} says: {msg}");
+                            // 未來可在此接入 AOI 廣播系統：SpaceManager.Broadcast(botId, msg);
+                        }
+                        return LpcValue.Create(1);
+                    }
+
+                    if (c.Name == "spawn_bot" && cArgs.Count >= 1) {
                         string blueprint = cArgs[0].AsString();
                         string cloneId = _objMgr.Clone(blueprint);
                         SessionManager.RegisterBot(cloneId);
