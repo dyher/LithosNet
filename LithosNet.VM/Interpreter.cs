@@ -420,11 +420,25 @@ namespace LithosNet.VM {
 
                     return CallFunction(c.Name, cArgs);
                 case CallOtherNode co:
-                    var coArgs = new List<LpcValue>(); foreach (var a in co.Arguments) coArgs.Add(Eval(a));
-                    string targetObjName;
-                    // 【FluffOS 經典特性】隱式物件引用：如果變數不存在，直接將其名稱視為物件 ID
-                    if (co.Target is VariableRefNode vref && !_scope.Has(vref.Name)) targetObjName = vref.Name;
-                    else targetObjName = Eval(co.Target).AsString();
+                    var coArgs = new List<LpcValue>(); 
+                    foreach (var a in co.Arguments) coArgs.Add(Eval(a));
+                    
+                    var coTarget = Eval(co.Target);
+                    // 【Phase 55.2: FluffOS 標準】支援對數組中的每個物件進行批量 call_other
+                    if (coTarget.Type == LpcType.Array) {
+                        var results = new List<LpcValue>();
+                        foreach (var item in coTarget.AsArray()) {
+                            string tName = item.Type == LpcType.Object ? item.AsString() : item.AsString();
+                            try {
+                                results.Add(_objMgr.CallFunction(tName, co.FuncName, coArgs.ToArray()));
+                            } catch {
+                                results.Add(LpcValue.Create(0)); // FluffOS 標準：失敗返回 0
+                            }
+                        }
+                        return LpcValue.Create(results);
+                    }
+                    
+                    string targetObjName = coTarget.Type == LpcType.Object ? coTarget.AsString() : coTarget.AsString();
                     return _objMgr.CallFunction(targetObjName, co.FuncName, coArgs.ToArray());
                 case ArrayLiteralNode al:
                     var list = new List<LpcValue>(); foreach (var e in al.Elements) list.Add(Eval(e)); return LpcValue.Create(list);

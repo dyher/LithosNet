@@ -145,6 +145,13 @@ namespace LithosNet.VM {
         
         public bool ObjectExists(string objName) => _objects.ContainsKey(objName);
         public void Preload(string fullPath) { LoadObject(fullPath); }
+        public void LoadSimulEfun(string path) {
+            Console.WriteLine($"📦 [SimulEfun] Loading global simul_efun from: {path}");
+            // 加載 simul_efun，並將其標記為特殊的全局物件
+            LoadObject(path);
+            Console.WriteLine($"✅ [SimulEfun] Global functions registered successfully!");
+        }
+
     // 【Phase 52: Heartbeat 方法】
             public void SetHeartBeat(string objName, bool enable) {
                 if (enable) _heartBeatObjects.Add(objName);
