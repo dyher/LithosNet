@@ -155,14 +155,7 @@ namespace LithosNet.VM {
                                 Eval(c.Arguments[0]); // 在 try 區塊內安全執行
                             }
 
-                    // 【特殊形式】throw 拋出異常
-                    if (c.Name == "throw") {
-                        string errMsg = "Unknown Error";
-                        if (c.Arguments != null && c.Arguments.Count > 0) {
-                            errMsg = Eval(c.Arguments[0]).AsString();
-                        }
-                        throw new LpcRuntimeException(errMsg);
-                    }
+                    
 
                             return LpcValue.Create(0); // 沒有錯誤，返回 0
                         } catch (LpcRuntimeException ex) {
@@ -183,6 +176,14 @@ namespace LithosNet.VM {
                         return LpcValue.Create(cArgs[0].AsString());
                     }
                     
+                    
+                    // 【核心路由】throw 必須在這裡被攔截！
+                    if (c.Name == "throw") {
+                        string errMsg = "Unknown Error";
+                        if (cArgs.Count > 0) errMsg = cArgs[0].AsString();
+                        throw new LpcRuntimeException(errMsg);
+                    }
+
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");
