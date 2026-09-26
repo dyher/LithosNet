@@ -99,7 +99,9 @@ namespace LithosNet.VM {
                     }
                     break;
                 case FunctionDeclarationNode f: _scope.RegisterFunction(f); break;
-                case ReturnNode r: throw new ReturnSignal(r.Value != null ? Eval(r.Value) : LpcValue.Create(0));
+                case ReturnNode r: 
+                    Console.WriteLine($"🔥 [ReturnNode Value X-Ray] r.Value is {(r.Value == null ? "NULL (Dismembered!)" : r.Value.GetType().Name)}");
+                    throw new ReturnSignal(r.Value != null ? Eval(r.Value) : LpcValue.Create(0));
                 case IfNode i: if (EvalBool(i.Condition)) Visit(i.ThenBranch); else if (i.ElseBranch != null) Visit(i.ElseBranch); break;
                 case SwitchNode sw:
                     var swCond = Eval(sw.Condition);
