@@ -12,7 +12,7 @@ namespace LithosNet.VM {
 
     public class LpcRuntimeException : Exception {
         public LpcRuntimeException(string msg) : base(msg) { }
-    }
+// }
 
     public class ReturnSignal : Exception { public LpcValue Value; public ReturnSignal(LpcValue v) { Value = v; } }
 
@@ -34,12 +34,12 @@ namespace LithosNet.VM {
 
         public LpcValue CallFunction(string name, List<LpcValue> args) {
             // 🔥【極致效能】優先呼叫 JIT 編譯後的 Delegate (納秒級跳轉)
-            var compiled = _scope.GetCompiled(name);
-            if (compiled != null) {
-                int arg1 = args.Count > 0 ? args[0].AsInt() : 0;
-                int arg2 = args.Count > 1 ? args[1].AsInt() : 0;
-                int result = ((Func<int, int, int>)compiled).Invoke(arg1, arg2);
-                return LpcValue.Create(result);
+            // var compiled = _scope.GetCompiled(name); // 暫時禁用 JIT 以驗證直譯器
+            // if (compiled != null) {
+                // int arg1 = args.Count > 0 ? args[0].AsInt() : 0;
+                // int arg2 = args.Count > 1 ? args[1].AsInt() : 0;
+                // int result = ((Func<int, int, int>)compiled).Invoke(arg1, arg2);
+                // return LpcValue.Create(result);
             }
 
             
@@ -246,7 +246,7 @@ namespace LithosNet.VM {
                             // 寬容模式：如果不是函數，直接返回原陣列
                             return cArgs[0]; 
                         }
-                        return LpcValue.Create(result);
+                        // return LpcValue.Create(result);
                     }
 
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
