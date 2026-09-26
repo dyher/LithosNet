@@ -46,12 +46,23 @@ namespace LithosNet.VM {
             if (_scope.HasFunction(name)) {
                 var func = _scope.GetFunction(name);
                 
-                if (func.Parameters != null && func.Parameters.Count > 0) {
-                    
+                // 【創世 Local Scope】建立獨立區域作用域，防止遞迴污染與參數覆蓋
+                var localScope = new Scope();
+                localScope.Parent = _scope; 
+                var prevScope = _scope;
+                _scope = localScope;
+                
+                try {
+                    for (int i = 0; i < func.Parameters.Count && i < args.Count; i++) {
+                        _scope.Set(func.Parameters[i].Name, args[i]);
+                    }
+                    foreach (var s in func.Body) Visit(s);
+                } catch (ReturnSignal r) { 
+                    _scope = prevScope;
+                    return r.Value; 
+                } finally {
+                    _scope = prevScope; // 完美恢復 Scope
                 }
-
-                for (int i = 0; i < func.Parameters.Count && i < args.Count; i++) _scope.Set(func.Parameters[i].Name, args[i]);
-                try { foreach (var s in func.Body) Visit(s); } catch (ReturnSignal r) { return r.Value; }
                 return LpcValue.Create(0);
             }
             if (EfunRegistry.TryGet(name, out var efun)) return efun(args.ToArray());
