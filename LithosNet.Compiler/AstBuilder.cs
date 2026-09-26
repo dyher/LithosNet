@@ -205,6 +205,12 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitPostfixExpr(LPCParser.PostfixExprContext context) {
+            Console.WriteLine($"🔍 [Postfix X-Ray] Text: {context.GetText()}, ChildCount: {context.ChildCount}");
+            for (int _i = 0; _i < context.ChildCount; _i++) {
+                var _c = context.GetChild(_i);
+                Console.WriteLine($"  -> Child {_i}: Type={_c.GetType().Name}, Text={_c.GetText()}");
+            }
+            
             AstNode node = Visit(context.primaryExpr());
             int i = 1;
             // 【終極循環】完美處理所有後綴操作 (函數呼叫、Call Other、索引訪問)
