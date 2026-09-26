@@ -33,9 +33,7 @@ namespace LithosNet.VM {
         }
 
         public LpcValue CallFunction(string name, List<LpcValue> args) {
-            Console.WriteLine($"🔍 [CallFunc Entry] Calling: '{name}'");
             var compiled = _scope.GetCompiled(name);
-            Console.WriteLine($"🔍 [CallFunc Entry] '{name}' JIT Status: {(compiled != null ? "HIT (Bypassing Interpreter!)" : "MISS")}");
 
             // 🔥【極致效能】優先呼叫 JIT 編譯後的 Delegate (納秒級跳轉)
             // var compiled (Duplicate removed) = _scope.GetCompiled(name);
@@ -46,7 +44,6 @@ namespace LithosNet.VM {
                 return LpcValue.Create(result);
             }
 
-            
             if (_scope.HasFunction(name)) {
                 var func = _scope.GetFunction(name);
                 
@@ -60,12 +57,10 @@ namespace LithosNet.VM {
                     for (int i = 0; i < func.Parameters.Count && i < args.Count; i++) {
                         _scope.Set(func.Parameters[i].Name, args[i]);
                     }
-                    foreach (var s in func.Body) { 
-                        Console.WriteLine($"🔍 [FullName X-Ray] Node: {s.GetType().FullName}");
+                    foreach (var s in func.Body) {
                         Visit(s); 
                     }
-                } catch (ReturnSignal r) { 
-                    Console.WriteLine($"🔥 [CATCH HIT] ReturnSignal CAUGHT! Value Type: {r.Value.Type}, AsInt: {r.Value.AsInt()}");
+                } catch (ReturnSignal r) {
                     _scope = prevScope;
                     return r.Value; 
                 } finally {
@@ -94,14 +89,11 @@ namespace LithosNet.VM {
                     if (col.Type == LpcType.Array) col.AsArray()[idx.AsInt()] = val;
                     else if (col.Type == LpcType.Mapping) {
                         var map = col.AsMapping();
-                        Console.WriteLine($"🔍 [IndexAssign X-Ray] Map Keys BEFORE: {string.Join(", ", map.Keys)}");
                         map[idx.AsString()] = val;
-                        Console.WriteLine($"🔍 [IndexAssign X-Ray] Map Keys AFTER: {string.Join(", ", map.Keys)}");
                     }
                     break;
                 case FunctionDeclarationNode f: _scope.RegisterFunction(f); break;
-                case ReturnNode r: 
-                    Console.WriteLine($"🔥 [ReturnNode Value X-Ray] r.Value is {(r.Value == null ? "NULL (Dismembered!)" : r.Value.GetType().Name)}");
+                case ReturnNode r:
                     throw new ReturnSignal(r.Value != null ? Eval(r.Value) : LpcValue.Create(0));
                 case IfNode i: if (EvalBool(i.Condition)) Visit(i.ThenBranch); else if (i.ElseBranch != null) Visit(i.ElseBranch); break;
                 case SwitchNode sw:
@@ -135,11 +127,9 @@ namespace LithosNet.VM {
                     break;
                 case ForeachNode fe:
                     var feCol = Eval(fe.Collection);
-                    if (feCol.Type == LpcType.Array) { 
-                        Console.WriteLine($"🔥 [Foreach Read X-Ray] Array count: {feCol.AsArray().Count}");
+                    if (feCol.Type == LpcType.Array) {
                         foreach (var item in feCol.AsArray()) { 
                             Console.WriteLine($"   -> Reading Item: Type={item.Type}, AsInt={item.AsInt()}");
-                            Console.WriteLine($"🔥 [Foreach Set X-Ray] Setting '{fe.VarName}' = {item.AsInt()}");
                             _scope.Set(fe.VarName, item); 
                             Visit(fe.Body); 
                         } 
@@ -197,8 +187,6 @@ namespace LithosNet.VM {
                                 Eval(c.Arguments[0]); // 在 try 區塊內安全執行
                             }
 
-                    
-
                             return LpcValue.Create(0); // 沒有錯誤，返回 0
                         } catch (LpcRuntimeException ex) {
                             return LpcValue.Create(ex.Message); // 完美捕獲！
@@ -217,8 +205,7 @@ namespace LithosNet.VM {
                         _objMgr.LoadObject(cArgs[0].AsString());
                         return LpcValue.Create(cArgs[0].AsString());
                     }
-                    
-                    
+
                     // 【核心路由】throw 必須在這裡被攔截！
                     if (c.Name == "throw") {
                         string errMsg = "Unknown Error";
@@ -226,7 +213,6 @@ namespace LithosNet.VM {
                         throw new LpcRuntimeException(errMsg);
                     }
 
-                    
                     // 【創世魔法】map_array 高階函數
                     if (c.Name == "map_array" && cArgs.Count >= 2) {
                         var arr = cArgs[0].AsArray();
@@ -235,11 +221,8 @@ namespace LithosNet.VM {
                         if (funcVal.Type == LpcType.Function) {
                             var funcTuple = funcVal.AsFunction(); // Tuple<objName, funcName>
                             foreach(var item in arr) {
-                        Console.WriteLine($"🔍 [Callback Param X-Ray] Passing to callback: Type={item.Type}, AsInt()={item.AsInt()}");
                                 var res = _objMgr.CallFunction(funcTuple.Item1, funcTuple.Item2, item);
-                                Console.WriteLine($"🔥 [MapArray Add X-Ray] res.AsInt() BEFORE Add: {res.AsInt()}");
                                 result.Add(res);
-                                Console.WriteLine($"🔥 [MapArray Add X-Ray] result.Last().AsInt() AFTER Add: {result[result.Count-1].AsInt()}");
                             }
                         } else {
                             // 寬容模式：如果不是函數，直接返回原陣列
@@ -338,14 +321,13 @@ namespace LithosNet.VM {
                 case BinaryOpNode b:
                     b.Op = b.Op?.Trim(); // 【創世修復】強制 Trim 運算子！
                     var left = Eval(b.Left); var right = Eval(b.Right);
-                    if (b.Op != null && b.Op.Contains("*")) Console.WriteLine($"🔍 [BinaryOp X-Ray] Op=[{b.Op}] (len={b.Op.Length}) | L={left.Type}:{left.AsInt()} | R={right.Type}:{right.AsInt()}");
+                    if (b.Op != null && b.Op.Contains("*"))
                     if (b.Op == "+") {
                         if (left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() + right.AsInt());
                         if (left.Type == LpcType.String || right.Type == LpcType.String) return LpcValue.Create((left.Type == LpcType.String ? left.AsString() : left.ToString()) + (right.Type == LpcType.String ? right.AsString() : right.ToString()));
                     }
                     if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() - right.AsInt());
-                    if (b.Op != null && b.Op.Trim() == "*") { 
-                        Console.WriteLine($"🔥 [MAGIC HIT] Multiplying {left.AsInt()} * {right.AsInt()} = {left.AsInt() * right.AsInt()}");
+                    if (b.Op != null && b.Op.Trim() == "*") {
                         return LpcValue.Create(left.AsInt() * right.AsInt()); 
                     }
                     if (b.Op == "/" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() / right.AsInt() : 0);
