@@ -92,6 +92,13 @@ whileStmt
     : WHILE LPAREN expr RPAREN statement
     ;
 
+switchStmt : SWITCH LPAREN expr RPAREN LBRACE switchBlock RBRACE ;
+switchBlock : (caseBlock)* (defaultBlock)? ;
+caseBlock : CASE expr COLON statement* ;
+defaultBlock : DEFAULT COLON statement* ;
+breakStmt : BREAK SEMI ;
+
+
 returnStmt
     : RETURN expr? SEMI
     ;
