@@ -316,9 +316,10 @@ namespace LithosNet.VM {
                     // 【Phase 53: MMORPG 核心】move: 移動物件到目標環境 (FluffOS 標準)
                     if (c.Name == "move" && cArgs.Count >= 1) {
                         string dest = cArgs[0].AsString();
-                        _scope.Set("environment", LpcValue.Create(dest));
+                        // 【Phase 54.2 修復】呼叫 ObjectManager 的 MoveObject，確保 _inventories 字典正確更新，實現真正的 AOI
+                        _objMgr.MoveObject(this.ObjectName, dest);
                         Console.WriteLine($"🚶 [Efun Debug] {this.ObjectName} moved to {dest}");
-                        return LpcValue.Create(1); // 成功返回 1
+                        return LpcValue.Create(1);
                     }
 
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
