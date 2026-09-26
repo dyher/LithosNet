@@ -172,6 +172,16 @@ namespace LithosNet.VM {
             result = LpcValue.Create(0);
             return false;
         }
+
+        // 【Phase 56: FluffOS 核心】暴露所有已載入物件供 find_object 查詢
+        public Dictionary<string, (Scope scope, Interpreter interp)> GetAllObjects() => _objects;
+
+        // 【Phase 56: FluffOS 核心】銷毀物件並清理相關狀態
+        public void DestructObject(string objName) {
+            _objects.Remove(objName);
+            _heartBeatObjects.Remove(objName);
+            Console.WriteLine($"💥 [Lifecycle] Object '{objName}' has been destructed.");
+        }
     // 【Phase 52: Heartbeat 方法】
             public void SetHeartBeat(string objName, bool enable) {
                 if (enable) _heartBeatObjects.Add(objName);
@@ -191,7 +201,4 @@ namespace LithosNet.VM {
                 }
             }
     }
-
-        // 【Phase 56: FluffOS 核心】暴露所有已載入物件供 find_object 查詢
-        public Dictionary<string, (Scope scope, Interpreter interp)> GetAllObjects() => _objects;
 }
