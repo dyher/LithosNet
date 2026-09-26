@@ -65,6 +65,7 @@ namespace LithosNet.VM {
                         Visit(s); 
                     }
                 } catch (ReturnSignal r) { 
+                    Console.WriteLine($"🔥 [CATCH HIT] ReturnSignal CAUGHT! Value Type: {r.Value.Type}, AsInt: {r.Value.AsInt()}");
                     _scope = prevScope;
                     return r.Value; 
                 } finally {
