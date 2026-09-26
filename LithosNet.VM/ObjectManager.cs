@@ -173,12 +173,6 @@ namespace LithosNet.VM {
             _heartBeatObjects.Remove(objName);
             Console.WriteLine($"💥 [Lifecycle] Object '{objName}' has been destructed and GC-ready.");
         }
-        // 【Phase 57: 架構優化】獲取指定環境中的所有物件
-        public List<string> GetInventory(string envName) {
-            return _objects.Where(kvp => kvp.Value.scope.Has("environment") && 
-                                         kvp.Value.scope.Get("environment").AsString() == envName)
-                           .Select(kvp => kvp.Key).ToList();
-        }
         // 【Phase 57: 架構優化】標準 FluffOS clone_object 邏輯
         public string CloneObject(string blueprintName) {
             // 1. 確保藍圖已載入
