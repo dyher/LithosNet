@@ -17,7 +17,7 @@ namespace LithosNet.VM {
     public class ReturnSignal : Exception { public LpcValue Value; public ReturnSignal(LpcValue v) { Value = v; } }
 
     public class Interpreter {
-        private Scope _scope;
+        public Scope _scope;
         private readonly ObjectManager _objMgr;
         public string ObjectName { get; set; } 
 
