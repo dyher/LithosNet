@@ -45,9 +45,9 @@ namespace LithosNet.VM {
             
             if (_scope.HasFunction(name)) {
                 var func = _scope.GetFunction(name);
-                Console.WriteLine($"🔍 [CallFunc X-Ray] '{name}' | Params Count: {func.Parameters?.Count ?? -1} | Args Count: {args.Count}");
+                
                 if (func.Parameters != null && func.Parameters.Count > 0) {
-                    Console.WriteLine($"🔍 [CallFunc X-Ray] First Param Name: '{func.Parameters[0].Name}'");
+                    
                 }
 
                 for (int i = 0; i < func.Parameters.Count && i < args.Count; i++) _scope.Set(func.Parameters[i].Name, args[i]);
@@ -60,8 +60,15 @@ namespace LithosNet.VM {
 
         private void Visit(AstNode node) {
             switch (node) {
-                case VariableDeclarationNode v: Console.WriteLine($"🔍 [Scope] Decl: '{v.VariableName}'"); _scope.Set(v.VariableName, v.Initializer != null ? Eval(v.Initializer) : LpcValue.Create(0)); break;
-                case AssignmentNode a: Console.WriteLine($"🔍 [Scope] Assign: '{a.VariableName}'"); var _assignVal = Eval(a.Value);
+                case VariableDeclarationNode v: 
+                    if (v.Initializer != null) {
+                        _scope.Set(v.VariableName, Eval(v.Initializer));
+                    } else if (!_scope.Has(v.VariableName)) {
+                        // 【參數保護】只有在變數不存在(不是參數)時，才初始化為 0
+                        _scope.Set(v.VariableName, LpcValue.Create(0));
+                    }
+                    break;
+                case AssignmentNode a:  var _assignVal = Eval(a.Value);
                     _scope.Set(a.VariableName, _assignVal); break;
                 case IndexAssignmentNode ia:
                     var col = Eval(ia.Array); var idx = Eval(ia.Index); var val = Eval(ia.Value);
