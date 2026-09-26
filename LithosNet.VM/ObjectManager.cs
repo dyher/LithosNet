@@ -117,11 +117,13 @@ namespace LithosNet.VM {
         public void Preload(string fullPath) { LoadObject(fullPath); }
     // 【Phase 52: Heartbeat 方法】
             public void SetHeartBeat(string objName, bool enable) {
+            Console.WriteLine($"🔥 [Heartbeat Debug] SetHeartBeat called: objName='{objName}', enable={enable}");
                 if (enable) _heartBeatObjects.Add(objName);
                 else _heartBeatObjects.Remove(objName);
             }
 
             private async void OnHeartBeatTick(object sender, System.Timers.ElapsedEventArgs e) {
+            Console.WriteLine($"⏰ [Heartbeat Debug] OnHeartBeatTick triggered! Targets count: {_heartBeatObjects.Count}");
                 var targets = _heartBeatObjects.ToList();
                 foreach (var objName in targets) {
                     if (_objects.ContainsKey(objName)) {
