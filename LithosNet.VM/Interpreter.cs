@@ -249,6 +249,7 @@ namespace LithosNet.VM {
 
                     
                     // 【FluffOS 相容】query_name: 獲取物件名稱
+                    Console.WriteLine($"🔍 [Efun X-Ray] Calling: '{c.Name}' with {cArgs.Count} args");
                     if (c.Name == "query_name") {
                         return LpcValue.Create(this.ObjectName);
                     }
