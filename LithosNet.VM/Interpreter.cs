@@ -231,6 +231,13 @@ namespace LithosNet.VM {
                         return LpcValue.Create(result);
                     }
 
+                                        if (c.Name == "spawn_bot" && cArgs.Count >= 1) {
+                        string blueprint = cArgs[0].AsString();
+                        string cloneId = _objMgr.Clone(blueprint);
+                        SessionManager.RegisterBot(cloneId);
+                        return LpcValue.CreateObject(cloneId);
+                    }
+
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");

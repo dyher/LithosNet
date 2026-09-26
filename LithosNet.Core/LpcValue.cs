@@ -22,6 +22,8 @@ namespace LithosNet.Core {
         public static LpcValue Create(Dictionary<string, LpcValue> value) => new LpcValue(LpcType.Mapping, 0, value);
         
         // 【新增】建立函數指標 (儲存 物件名稱 與 函數名稱)
+        public static LpcValue CreateObject(string objName) => new LpcValue(LpcType.Object, 0, objName);
+        
         public static LpcValue CreateFunction(string objName, string funcName) => 
             new LpcValue(LpcType.Function, 0, new Tuple<string, string>(objName, funcName));
         

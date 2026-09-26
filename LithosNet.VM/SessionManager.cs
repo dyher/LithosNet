@@ -23,6 +23,15 @@ namespace LithosNet.VM {
             Console.WriteLine($"🔌 [Session] 綁定連線: {objName}");
         }
 
+        
+        public static void RegisterBot(string objName) {
+            // 為 Bot 創建一個純記憶體的 Pipe，完美相容現有 SendAsync 邏輯，不會觸發暴力廣播
+            var pipe = new System.IO.Pipelines.Pipe();
+            _sessions[objName] = pipe.Writer;
+            _writerToObj[pipe.Writer] = objName;
+            Console.WriteLine($"🤖 [Session] 虛擬 Bot 註冊成功: {objName} (Memory Pipe)");
+        }
+
         public static void Unbind(string objName) {
             if (_sessions.TryRemove(objName, out var writer)) {
                 _writerToObj.TryRemove(writer, out _);
