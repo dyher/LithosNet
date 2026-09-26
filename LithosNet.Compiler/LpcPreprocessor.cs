@@ -9,26 +9,52 @@ namespace LithosNet.Compiler {
         private HashSet<string> _includedFiles = new HashSet<string>();
         private Dictionary<string, string> _defines = new Dictionary<string, string>();
         private Dictionary<string, (List<string> Args, string Body)> _macroFunctions = new Dictionary<string, (List<string>, string)>();
-        private string _basePath;
+        private string _mudlibRoot;
+        private Stack<string> _currentFilePaths = new Stack<string>();
 
-        public LpcPreprocessor(string basePath) {
-            _basePath = basePath;
+        public LpcPreprocessor(string mudlibRoot) {
+            _mudlibRoot = mudlibRoot ?? "";
         }
 
         public string Process(string filePath) {
-            string fullPath = Path.IsPathRooted(filePath) ? filePath : Path.Combine(_basePath, filePath);
+            string fullPath = "";
             
+            // 1. 如果是絕對路徑，直接使用
+            if (Path.IsPathRooted(filePath)) {
+                fullPath = filePath;
+            } 
+            // 2. 否則，相對於當前正在處理的檔案目錄尋找 (路徑記憶！)
+            else if (_currentFilePaths.Count > 0) {
+                string currentDir = Path.GetDirectoryName(_currentFilePaths.Peek());
+                fullPath = Path.Combine(currentDir ?? "", filePath);
+            } 
+            // 3. 最後嘗試相對於 mudlibRoot
+            else {
+                fullPath = Path.Combine(_mudlibRoot, filePath);
+            }
+
+            fullPath = Path.GetFullPath(fullPath);
+
             if (!File.Exists(fullPath)) {
-                string incPath = Path.Combine(_basePath, "include", Path.GetFileName(filePath));
-                if (File.Exists(incPath)) fullPath = incPath;
-                else {
-                    Console.WriteLine($"⚠ [Preprocessor] File not found: {fullPath}");
-                    return $"// File not found: {filePath}\n";
+                // Fallback: 嘗試在 mudlibRoot/include/ 下尋找 (全域 Include 目錄)
+                string incPath = Path.Combine(_mudlibRoot, "include", Path.GetFileName(filePath));
+                if (File.Exists(incPath)) {
+                    fullPath = Path.GetFullPath(incPath);
+                } else {
+                    // 最後嘗試直接相對於 mudlibRoot
+                    string rootPath = Path.Combine(_mudlibRoot, filePath);
+                    if (File.Exists(rootPath)) {
+                        fullPath = Path.GetFullPath(rootPath);
+                    } else {
+                        Console.WriteLine($"⚠ [Preprocessor] File not found: {filePath}");
+                        return $"// File not found: {filePath}\n";
+                    }
                 }
             }
 
-            if (_includedFiles.Contains(fullPath)) return $"// Already included: {filePath}\n";
+            if (_includedFiles.Contains(fullPath)) return $"// Already included: {Path.GetFileName(fullPath)}\n";
             _includedFiles.Add(fullPath);
+            _currentFilePaths.Push(fullPath); // Push 當前路徑，支援遞迴 include
 
             string code = File.ReadAllText(fullPath);
             string processedCode = $"// === Included: {Path.GetFileName(fullPath)} ===\n";
@@ -44,7 +70,6 @@ namespace LithosNet.Compiler {
                     continue;
                 }
 
-                // 【創世升級】支援帶參數巨集 #define MACRO(a, b) body
                 var macroMatch = Regex.Match(trimmed, @"^#define\s+([A-Za-z0-9_]+)\(([^)]*)\)\s*(.*)");
                 if (macroMatch.Success) {
                     string name = macroMatch.Groups[1].Value;
@@ -54,7 +79,6 @@ namespace LithosNet.Compiler {
                     continue;
                 }
 
-                // 無參數巨集 #define MACRO value
                 var defineMatch = Regex.Match(trimmed, @"^#define\s+([A-Za-z0-9_]+)\s*(.*)");
                 if (defineMatch.Success) {
                     _defines[defineMatch.Groups[1].Value] = defineMatch.Groups[2].Value.Trim();
@@ -63,7 +87,6 @@ namespace LithosNet.Compiler {
 
                 string processedLine = line;
                 
-                // 1. 替換帶參數巨集 (包含括號深度平衡)
                 foreach (var kvp in _macroFunctions) {
                     string pattern = $@"\b{kvp.Key}\s*\(";
                     Match m = Regex.Match(processedLine, pattern);
@@ -91,16 +114,16 @@ namespace LithosNet.Compiler {
                     }
                 }
 
-                // 2. 替換無參數巨集
                 foreach (var kvp in _defines) {
                     processedLine = Regex.Replace(processedLine, $@"\b{kvp.Key}\b", kvp.Value);
                 }
                 processedCode += processedLine + "\n";
             }
+            
+            _currentFilePaths.Pop(); // Pop 當前路徑
             return processedCode;
         }
 
-        // 輔助函數：精準分割巨集參數 (處理參數內部包含逗號的情況，如函數呼叫)
         private List<string> SplitArgs(string argsStr) {
             var result = new List<string>();
             int depth = 0;
