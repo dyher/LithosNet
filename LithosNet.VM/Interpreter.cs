@@ -251,12 +251,9 @@ namespace LithosNet.VM {
                     // 【FluffOS 相容】query_name: 獲取物件名稱
                     Console.WriteLine($"🔍 [Efun X-Ray] Calling: '{c.Name}' with {cArgs.Count} args");
                     if (c.Name == "query_name") {
-                        // 【FluffOS 標準】若無特定名稱，回退到物件 ID 或 "unknown"，確保永遠不回傳 null 或 Int
                         string name = this.ObjectName ?? "unknown";
                         return LpcValue.Create(name);
                     }
-                    
-                    // 【FluffOS 相容】environment: 獲取所在環境
                     if (c.Name == "environment") {
                         string env = _scope.Has("environment") ? _scope.Get("environment").AsString() : "";
                         return LpcValue.Create(env);
@@ -399,18 +396,33 @@ namespace LithosNet.VM {
                     if (l.Op == "||") return LpcValue.Create(lBool || EvalBool(l.Right) ? 1 : 0);
                     return LpcValue.Create(0);
                 case BinaryOpNode b:
-                    b.Op = b.Op?.Trim(); // 【創世修復】強制 Trim 運算子！
-                    var left = Eval(b.Left); var right = Eval(b.Right);
-                    if (b.Op != null && b.Op.Contains("*"))
+                    b.Op = b.Op?.Trim();
+                    var left = Eval(b.Left);
+                    var right = Eval(b.Right);
+
+                    // 【FluffOS/LDMud 標準】Type Promotion: String + Any = String
                     if (b.Op == "+") {
-                        // 【FluffOS 標準】Type Promotion: 任何與 String 的 + 運算都應返回 String
-                        if (left.Type == LpcType.String || right.Type == LpcType.String) {
-                            string lStr = left.Type == LpcType.String ? left.AsString() : left.AsString();
-                            string rStr = right.Type == LpcType.String ? right.AsString() : right.AsString();
-                            return LpcValue.Create(lStr + rStr);
-                        }
-                        if (left.Type == LpcType.Int && right.Type == LpcType.Int) {
+                        if (left.Type == LpcType.String || right.Type == LpcType.String)
+                            return LpcValue.Create(left.AsString() + right.AsString());
+                        if (left.Type == LpcType.Int && right.Type == LpcType.Int)
                             return LpcValue.Create(left.AsInt() + right.AsInt());
-                        }
                         return LpcValue.Create(0);
                     }
+                    if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int)
+                        return LpcValue.Create(left.AsInt() - right.AsInt());
+                    if (b.Op == "*" && left.Type == LpcType.Int && right.Type == LpcType.Int)
+                        return LpcValue.Create(left.AsInt() * right.AsInt());
+                    if (b.Op == "/" && left.Type == LpcType.Int && right.Type == LpcType.Int)
+                        return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() / right.AsInt() : 0);
+                    if (b.Op == "%" && left.Type == LpcType.Int && right.Type == LpcType.Int)
+                        return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() % right.AsInt() : 0);
+                    if (left.Type == LpcType.String && right.Type == LpcType.String) {
+                        bool res = b.Op == "==" ? left.AsString() == right.AsString() : left.AsString() != right.AsString();
+                        return LpcValue.Create(res ? 1 : 0);
+                    }
+                    if (left.Type == LpcType.Int && right.Type == LpcType.Int) {
+                        int lVal = left.AsInt(), rVal = right.AsInt();
+                        bool res = b.Op switch { "==" => lVal == rVal, "!=" => lVal != rVal, "<" => lVal < rVal, ">" => lVal > rVal, "<=" => lVal <= rVal, ">=" => lVal >= rVal, _ => false };
+                        return LpcValue.Create(res ? 1 : 0);
+                    }
+                    return LpcValue.Create(0);
