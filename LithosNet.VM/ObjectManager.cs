@@ -191,4 +191,7 @@ namespace LithosNet.VM {
                 }
             }
     }
+
+        // 【Phase 56: FluffOS 核心】暴露所有已載入物件供 find_object 查詢
+        public Dictionary<string, (Scope scope, Interpreter interp)> GetAllObjects() => _objects;
 }
