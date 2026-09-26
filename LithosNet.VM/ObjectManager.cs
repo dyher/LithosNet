@@ -7,6 +7,7 @@ using LithosNet.Compiler;
 
 namespace LithosNet.VM {
     public class ObjectManager {
+    private Interpreter _simulEfunInterp; // 【FluffOS】Simul_efun 後備解釋器
         // 【Phase 55.1: C# 原生 FFI 管理器】
         private readonly Dictionary<string, Func<LpcValue[], LpcValue>> _nativeHandlers = new();
 
@@ -166,6 +167,10 @@ namespace LithosNet.VM {
             _heartBeatObjects.Remove(objName);
             Console.WriteLine($"💥 [Lifecycle] Object '{objName}' has been destructed.");
         }
+
+        // 【Phase 55.2/56: FluffOS 核心】SimulEfun Fallback 與生命週期管理
+
+        // 【Phase 56: FluffOS 核心】暴露所有已載入物件供 find_object 查詢
 
         // 【Phase 55.2/56: FluffOS 核心】SimulEfun Fallback 與生命週期管理
 
