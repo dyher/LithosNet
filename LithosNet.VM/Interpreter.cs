@@ -251,7 +251,8 @@ namespace LithosNet.VM {
                     // 【FluffOS 相容】query_name: 獲取物件名稱
                     Console.WriteLine($"🔍 [Efun X-Ray] Calling: '{c.Name}' with {cArgs.Count} args");
                     if (c.Name == "query_name") {
-                        return LpcValue.Create(this.ObjectName);
+                        string name = this.ObjectName ?? "unknown";
+                        return LpcValue.Create(name); // 強制確保返回非空 String
                     }
                     
                     // 【FluffOS 相容】environment: 獲取所在環境
@@ -401,7 +402,8 @@ namespace LithosNet.VM {
                     var left = Eval(b.Left); var right = Eval(b.Right);
                     if (b.Op != null && b.Op.Contains("*"))
                     if (b.Op == "+") {
-                        if (left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() + right.AsInt());
+                    Console.WriteLine($"🔍 [BinaryOp + X-Ray] left.Type={left.Type}, right.Type={right.Type}");
+                    if (left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() + right.AsInt());
                         if (left.Type == LpcType.String || right.Type == LpcType.String) return LpcValue.Create((left.Type == LpcType.String ? left.AsString() : left.ToString()) + (right.Type == LpcType.String ? right.AsString() : right.ToString()));
                     }
                     if (b.Op == "-" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() - right.AsInt());
