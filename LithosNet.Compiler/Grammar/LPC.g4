@@ -20,6 +20,7 @@ STRING_TYPE : 'string' ;
 MAPPING_TYPE: 'mapping' ;
 MIXED_TYPE  : 'mixed' | 'void' ;
 SWITCH : 'switch' ; CASE : 'case' ; DEFAULT : 'default' ; BREAK : 'break' ;
+CLOSURE_OPEN : '(:' ; CLOSURE_CLOSE : ':)' ;
 
 ID          : [a-zA-Z_][a-zA-Z0-9_]* ;
 INT_LITERAL : '-'? [0-9]+ ;
@@ -158,6 +159,7 @@ argList
 
 primaryExpr
     : arrayLiteral
+    | CLOSURE_OPEN ID CLOSURE_CLOSE
     | mappingLiteral
     | ID
     | INT_LITERAL

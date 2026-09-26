@@ -256,6 +256,10 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitPrimaryExpr(LPCParser.PrimaryExprContext context) {
+            if (context.CLOSURE_OPEN() != null && context.ID() != null) {
+                return new FunctionPointerNode { FuncName = context.ID().GetText() };
+            }
+
             
             // 【最高優先級】Literal 路由
             if (context.mappingLiteral() != null) return Visit(context.mappingLiteral());

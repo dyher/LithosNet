@@ -184,6 +184,25 @@ namespace LithosNet.VM {
                         throw new LpcRuntimeException(errMsg);
                     }
 
+                    
+                    // 【創世魔法】map_array 高階函數
+                    if (c.Name == "map_array" && cArgs.Count >= 2) {
+                        var arr = cArgs[0].AsArray();
+                        var funcVal = cArgs[1];
+                        var result = new System.Collections.Generic.List<LpcValue>();
+                        if (funcVal.Type == LpcType.Function) {
+                            var funcTuple = funcVal.AsFunction(); // Tuple<objName, funcName>
+                            foreach(var item in arr) {
+                                var res = _objMgr.CallFunction(funcTuple.Item1, funcTuple.Item2, item);
+                                result.Add(res);
+                            }
+                        } else {
+                            // 寬容模式：如果不是函數，直接返回原陣列
+                            return cArgs[0]; 
+                        }
+                        return LpcValue.Create(result);
+                    }
+
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");
