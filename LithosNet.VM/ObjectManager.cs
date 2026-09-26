@@ -131,8 +131,14 @@ namespace LithosNet.VM {
 
         public List<string> GetInventory(string objName) => _inventories.ContainsKey(objName) ? _inventories[objName] : new List<string>();
 
-        
-public LpcValue CallFunction(string objName, string funcName, params LpcValue[] args) {
+        public void DestructObject(string objName) {
+            foreach(var inv in _inventories.Values) inv.Remove(objName);
+            _inventories.Remove(objName);
+            GridMapManager.Unregister(objName);
+            if (_objects.ContainsKey(objName)) { _objects.Remove(objName); Console.WriteLine($"💥 [VM] 銷毀: {objName}"); }
+        }
+
+        public LpcValue CallFunction(string objName, string funcName, params LpcValue[] args) {
             if (!_objects.ContainsKey(objName)) throw new Exception($"[VM] Object '{objName}' not loaded.");
             return _objects[objName].interp.CallFunction(funcName, new List<LpcValue>(args));
         }
@@ -146,10 +152,18 @@ public LpcValue CallFunction(string objName, string funcName, params LpcValue[] 
             Console.WriteLine($"✅ [SimulEfun] Global functions registered successfully!");
         }
 
-        // 【Phase 56: FluffOS 核心】暴露所有已載入物件供 find_object 查詢
+        // 【Phase 55.2/56: FluffOS 核心】SimulEfun Fallback 與生命週期管理
+        public bool CallSimulEfunSafe(string name, System.Collections.Generic.List<LpcValue> args, out LpcValue result) {
+            if (_simulEfunInterp != null && _simulEfunInterp._scope.HasFunction(name)) {
+                result = _simulEfunInterp.CallFunction(name, args);
+                return true;
+            }
+            result = LpcValue.Create(0);
+            return false;
+        }
+
         public Dictionary<string, (Scope scope, Interpreter interp)> GetAllObjects() => _objects;
 
-        // 【Phase 56: FluffOS 核心】銷毀物件並清理相關狀態
         public void DestructObject(string objName) {
             _objects.Remove(objName);
             _heartBeatObjects.Remove(objName);
