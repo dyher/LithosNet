@@ -187,6 +187,8 @@ namespace LithosNet.VM {
             // 3. 創建新的 Scope 並繼承藍圖變數與函數
             var newScope = new Scope();
             newScope.InheritFrom(blueprint.scope);
+            // 【Phase 57: 架構優化】為克隆體打上標記，防止 LPC 腳本中的無限遞迴
+            newScope.Set("is_clone", LpcValue.Create(1));
             
             // 4. 創建新的 Interpreter
             var newInterp = new Interpreter(newScope, this);
