@@ -284,6 +284,22 @@ namespace LithosNet.VM {
                         return LpcValue.Create(new Random().Next(cArgs[0].AsInt()));
                     }
                     
+                    if (c.Name == "query_name") {
+                        string name = this.ObjectName ?? "unknown";
+                        return LpcValue.Create(name);
+                    }
+                    if (c.Name == "spawn_bot" && cArgs.Count >= 1) {
+                        string cloneId = _objMgr.Clone(cArgs[0].AsString());
+                        SessionManager.RegisterBot(cloneId);
+                        return LpcValue.CreateObject(cloneId);
+                    }
+                    if (c.Name == "bot_say" && cArgs.Count >= 2) {
+                        if (cArgs[0].Type == LpcType.Object) {
+                            Console.WriteLine($"🤖 [Bot Efun] {cArgs[0].AsString()} says: {cArgs[1].AsString()}");
+                        }
+                        return LpcValue.Create(1);
+                    }
+
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
                     if (c.Name == "this_player") return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "");
                     if (c.Name == "environment") return _scope.Has("environment") ? _scope.Get("environment") : LpcValue.Create("");
