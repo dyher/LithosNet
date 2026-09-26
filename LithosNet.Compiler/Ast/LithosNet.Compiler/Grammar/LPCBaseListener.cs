@@ -420,6 +420,18 @@ public partial class LPCBaseListener : ILPCListener {
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	public virtual void ExitMappingLiteral([NotNull] LPCParser.MappingLiteralContext context) { }
+	/// <summary>
+	/// Enter a parse tree produced by <see cref="LPCParser.foreachStmt"/>.
+	/// <para>The default implementation does nothing.</para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	public virtual void EnterForeachStmt([NotNull] LPCParser.ForeachStmtContext context) { }
+	/// <summary>
+	/// Exit a parse tree produced by <see cref="LPCParser.foreachStmt"/>.
+	/// <para>The default implementation does nothing.</para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	public virtual void ExitForeachStmt([NotNull] LPCParser.ForeachStmtContext context) { }
 
 	/// <inheritdoc/>
 	/// <remarks>The default implementation does nothing.</remarks>

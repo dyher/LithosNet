@@ -83,6 +83,7 @@ statement
     | whileStmt
     | returnStmt
     | exprStmt
+    | foreachStmt
     ;
 
 ifStmt
@@ -171,3 +172,7 @@ primaryExpr
 arrayLiteral : ARRAY_OPEN (expr (COMMA expr)*)? ARRAY_CLOSE ;
 
 mappingLiteral : MAP_OPEN (expr COLON expr (COMMA expr COLON expr)*)? MAP_CLOSE ;
+
+foreachStmt
+    : FOREACH '(' ID IN expr ')' statement
+    ;

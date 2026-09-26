@@ -224,5 +224,11 @@ public interface ILPCVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitMappingLiteral([NotNull] LPCParser.MappingLiteralContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="LPCParser.foreachStmt"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitForeachStmt([NotNull] LPCParser.ForeachStmtContext context);
 }
 } // namespace LithosNet.Compiler.Ast

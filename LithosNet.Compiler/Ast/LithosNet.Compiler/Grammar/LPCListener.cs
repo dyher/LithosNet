@@ -351,5 +351,15 @@ public interface ILPCListener : IParseTreeListener {
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	void ExitMappingLiteral([NotNull] LPCParser.MappingLiteralContext context);
+	/// <summary>
+	/// Enter a parse tree produced by <see cref="LPCParser.foreachStmt"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	void EnterForeachStmt([NotNull] LPCParser.ForeachStmtContext context);
+	/// <summary>
+	/// Exit a parse tree produced by <see cref="LPCParser.foreachStmt"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	void ExitForeachStmt([NotNull] LPCParser.ForeachStmtContext context);
 }
 } // namespace LithosNet.Compiler.Ast
