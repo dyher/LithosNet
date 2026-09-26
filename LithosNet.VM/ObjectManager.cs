@@ -149,10 +149,11 @@ namespace LithosNet.VM {
 
         public void LoadSimulEfun(string path) {
             Console.WriteLine($"📦 [SimulEfun] Loading global simul_efun from: {path}");
-            string cleanPath = path; // 直接使用絕對路徑作為 Key
+            string cleanPath = path;
             LoadObject(cleanPath);
             
-            if (_objects.TryGetValue(cleanPath, out var sefunObj)) {
+            string actualName = System.IO.Path.GetFileNameWithoutExtension(cleanPath);
+            if (_objects.TryGetValue(actualName, out var sefunObj)) {
                 _simulEfunInterp = sefunObj.interp;
                 int count = sefunObj.scope.GetFunctions().Count;
                 Console.WriteLine($"🚀 [SimulEfun] Successfully loaded and set as global fallback! ({count} functions available)");
