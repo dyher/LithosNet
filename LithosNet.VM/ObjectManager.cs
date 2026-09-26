@@ -90,25 +90,6 @@ namespace LithosNet.VM {
             _inventories[destName].Add(objName);
             if(_objects.ContainsKey(objName)) _objects[objName].scope.Set("environment", LpcValue.Create(destName));
             try { CallFunction(destName, "init", LpcValue.Create(objName)); } catch {}
-
-        // 【Phase 52: Heartbeat 方法】
-        public void SetHeartBeat(string objName, bool enable) {
-            if (enable) _heartBeatObjects.Add(objName);
-            else _heartBeatObjects.Remove(objName);
-        }
-
-        private async void OnHeartBeatTick(object sender, System.Timers.ElapsedEventArgs e) {
-            var targets = _heartBeatObjects.ToList();
-            foreach (var objName in targets) {
-                if (_objects.ContainsKey(objName)) {
-                    try {
-                        _ = Task.Run(() => CallFunction(objName, "heart_beat", Array.Empty<LpcValue>()));
-                    } catch { 
-                        // 忽略 Bot heart_beat 內部的錯誤，防止崩潰
-                    }
-                }
-            }
-        }
         }
 
         public List<string> GetInventory(string objName) => _inventories.ContainsKey(objName) ? _inventories[objName] : new List<string>();
@@ -127,5 +108,23 @@ namespace LithosNet.VM {
         
         public bool ObjectExists(string objName) => _objects.ContainsKey(objName);
         public void Preload(string fullPath) { LoadObject(fullPath); }
+    // 【Phase 52: Heartbeat 方法】
+            public void SetHeartBeat(string objName, bool enable) {
+                if (enable) _heartBeatObjects.Add(objName);
+                else _heartBeatObjects.Remove(objName);
+            }
+
+            private async void OnHeartBeatTick(object sender, System.Timers.ElapsedEventArgs e) {
+                var targets = _heartBeatObjects.ToList();
+                foreach (var objName in targets) {
+                    if (_objects.ContainsKey(objName)) {
+                        try {
+                            _ = Task.Run(() => CallFunction(objName, "heart_beat", Array.Empty<LpcValue>()));
+                        } catch { 
+                            // 忽略 Bot heart_beat 內部的錯誤，防止崩潰
+                        }
+                    }
+                }
+            }
     }
 }
