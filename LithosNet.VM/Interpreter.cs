@@ -323,7 +323,9 @@ namespace LithosNet.VM {
                     if (l.Op == "||") return LpcValue.Create(lBool || EvalBool(l.Right) ? 1 : 0);
                     return LpcValue.Create(0);
                 case BinaryOpNode b:
+                    b.Op = b.Op?.Trim(); // 【創世修復】強制 Trim 運算子！
                     var left = Eval(b.Left); var right = Eval(b.Right);
+                    if (b.Op != null && b.Op.Contains("*")) Console.WriteLine($"🔍 [BinaryOp X-Ray] Op=[{b.Op}] (len={b.Op.Length}) | L={left.Type}:{left.AsInt()} | R={right.Type}:{right.AsInt()}");
                     if (b.Op == "+") {
                         if (left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(left.AsInt() + right.AsInt());
                         if (left.Type == LpcType.String || right.Type == LpcType.String) return LpcValue.Create((left.Type == LpcType.String ? left.AsString() : left.ToString()) + (right.Type == LpcType.String ? right.AsString() : right.ToString()));
