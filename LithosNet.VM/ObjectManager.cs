@@ -151,6 +151,27 @@ namespace LithosNet.VM {
             // 加載 simul_efun，並將其標記為特殊的全局物件
             LoadObject(path);
             Console.WriteLine($"✅ [SimulEfun] Global functions registered successfully!");
+        }
+
+    // 【Phase 52: Heartbeat 方法】
+            public void SetHeartBeat(string objName, bool enable) {
+                if (enable) _heartBeatObjects.Add(objName);
+                else _heartBeatObjects.Remove(objName);
+            }
+
+            private async void OnHeartBeatTick(object sender, System.Timers.ElapsedEventArgs e) {
+                var targets = _heartBeatObjects.ToList();
+                foreach (var objName in targets) {
+                    if (_objects.ContainsKey(objName)) {
+                        try {
+                            _ = Task.Run(() => CallFunction(objName, "heart_beat", Array.Empty<LpcValue>()));
+                        } catch { 
+                            // 忽略 Bot heart_beat 內部的錯誤，防止崩潰
+                        }
+                    }
+                }
+            }
+    }
 
         public void LoadSimulEfun(string path) {
             Console.WriteLine($"📦 [SimulEfun] Loading global simul_efun from: {path}");
@@ -174,25 +195,4 @@ namespace LithosNet.VM {
             result = LpcValue.Create(0);
             return false;
         }
-        }
-
-    // 【Phase 52: Heartbeat 方法】
-            public void SetHeartBeat(string objName, bool enable) {
-                if (enable) _heartBeatObjects.Add(objName);
-                else _heartBeatObjects.Remove(objName);
-            }
-
-            private async void OnHeartBeatTick(object sender, System.Timers.ElapsedEventArgs e) {
-                var targets = _heartBeatObjects.ToList();
-                foreach (var objName in targets) {
-                    if (_objects.ContainsKey(objName)) {
-                        try {
-                            _ = Task.Run(() => CallFunction(objName, "heart_beat", Array.Empty<LpcValue>()));
-                        } catch { 
-                            // 忽略 Bot heart_beat 內部的錯誤，防止崩潰
-                        }
-                    }
-                }
-            }
-    }
 }
