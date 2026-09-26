@@ -140,33 +140,54 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitAssignmentExpr(LPCParser.AssignmentExprContext context) {
-            if (context.assignmentExpr() != null) {
-                var left = Visit(context.logicalOrExpr());
-                Console.WriteLine($"🔍 [Assign AST X-Ray] left Type: {left?.GetType().Name}, Text: {context.logicalOrExpr().GetText()}");
-                var right = Visit(context.assignmentExpr());
-                
-                // 【終極路由】如果左邊是索引存取 (IndexAccessNode)，強制生成 IndexAssignmentNode！
-                if (left != null && left.GetType().Name == "IndexAccessNode") {
-                    var arrProp = left.GetType().GetProperty("Array") ?? left.GetType().GetProperty("Target");
-                    var idxProp = left.GetType().GetProperty("Index");
-                    return CreateNode("IndexAssignmentNode", new Dictionary<string, object> {
-                        { "Array", arrProp?.GetValue(left) },
-                        { "Index", idxProp?.GetValue(left) },
-                        { "Value", right }
-                    });
-                }
+            // 【新語法】assignmentExpr : postfixExpr (ASSIGN|PLUS_ASSIGN|MINUS_ASSIGN) assignmentExpr | logicalOrExpr ;
+            AstNode left = null;
+            AstNode right = null;
 
-                string varName = "unknown";
-                if (left != null) {
-                    var nameProp = left.GetType().GetProperty("Name", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                    var nameField = left.GetType().GetField("Name", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (nameProp != null) varName = nameProp.GetValue(left)?.ToString() ?? "unknown";
-                    else if (nameField != null) varName = nameField.GetValue(left)?.ToString() ?? "unknown";
+            // 優先嘗試 postfixExpr 路徑 (索引賦值: map["key"] = val)
+            if (context.postfixExpr() != null) {
+                left = Visit(context.postfixExpr());
+                if (context.assignmentExpr() != null) {
+                    right = Visit(context.assignmentExpr());
                 }
-                
-                return CreateNode("AssignmentNode", new Dictionary<string, object> { { "VariableName", varName }, { "Value", right } });
             }
-            return Visit(context.logicalOrExpr());
+            // 否則嘗試 logicalOrExpr 路徑 (一般賦值: x = val 或純表達式)
+            else if (context.logicalOrExpr() != null) {
+                left = Visit(context.logicalOrExpr());
+                if (context.assignmentExpr() != null) {
+                    right = Visit(context.assignmentExpr());
+                }
+            }
+
+            if (left == null) return null;
+
+            // 沒有賦值運算子 → 純表達式，直接返回
+            if (right == null) return left;
+
+            Console.WriteLine($"🔍 [Assign AST X-Ray] left Type: {left.GetType().Name}, Text: {context.GetText()}");
+
+            // 【終極路由】如果左邊是 IndexAccessNode，生成 IndexAssignmentNode！
+            if (left.GetType().Name == "IndexAccessNode") {
+                var arrProp = left.GetType().GetProperty("Array") ?? left.GetType().GetProperty("Target");
+                var idxProp = left.GetType().GetProperty("Index");
+                var arrVal = arrProp?.GetValue(left);
+                var idxVal = idxProp?.GetValue(left);
+                Console.WriteLine($"🔍 [Assign AST X-Ray] IndexAssignment! Array={arrVal?.GetType().Name}, Index={idxVal?.GetType().Name}");
+                return CreateNode("IndexAssignmentNode", new Dictionary<string, object> {
+                    { "Array", arrVal },
+                    { "Index", idxVal },
+                    { "Value", right }
+                });
+            }
+
+            // 一般變數賦值
+            string varName = "unknown";
+            var nameProp = left.GetType().GetProperty("Name", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            var nameField = left.GetType().GetField("Name", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            if (nameProp != null) varName = nameProp.GetValue(left)?.ToString() ?? "unknown";
+            else if (nameField != null) varName = nameField.GetValue(left)?.ToString() ?? "unknown";
+
+            return CreateNode("AssignmentNode", new Dictionary<string, object> { { "VariableName", varName }, { "Value", right } });
         }
 
         private AstNode ProcessBinaryOps(ParserRuleContext context, ParserRuleContext[] children) {
