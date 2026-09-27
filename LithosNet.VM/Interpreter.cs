@@ -17,6 +17,7 @@ namespace LithosNet.VM {
     public class ReturnSignal : Exception { public LpcValue Value; public ReturnSignal(LpcValue v) { Value = v; } }
 
     public class Interpreter {
+        public string ObjectName { get; set; } = ""; // 【Phase 57: 終極防禦】預設空字串
         public Scope _scope;
         private readonly ObjectManager _objMgr;
         public string ObjectName { get; set; } 
@@ -399,9 +400,9 @@ namespace LithosNet.VM {
                     
                     // 【Phase 57: FluffOS 標準對齊】clonep: 判斷當前物件是否為克隆體
                     if (c.Name == "clonep") {
-                        // 在 LithosNet 中，克隆體的 ObjectName 包含 '#' (例如 "bot#1")
-                        // 藍圖/主物件的 ObjectName 不包含 '#' (例如 "bot")
-                        return LpcValue.Create(this.ObjectName.Contains("#") ? 1 : 0);
+                        // 【Phase 57: 終極防禦】確保 ObjectName 絕對不為 null
+                        string name = this.ObjectName ?? "";
+                        return LpcValue.Create(name.Contains("#") ? 1 : 0);
                     }
 
                     if (c.Name == "this_object") return LpcValue.Create(this.ObjectName);
