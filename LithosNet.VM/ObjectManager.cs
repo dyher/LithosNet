@@ -10,6 +10,11 @@ using LithosNet.Compiler;
 namespace LithosNet.VM {
     public class ObjectManager {
 
+        // 【Phase 60: call_out 核心欄位】
+        private readonly object _callOutLock = new object();
+        private readonly System.Collections.Generic.List<CallOutTask> _callOutTasks = new System.Collections.Generic.List<CallOutTask>();
+        private System.Timers.Timer _callOutTimer;
+
         // 【Phase 59: P1】線程親和性護城河
         private void AssertThreadAffinity(string context) {
             // 【Phase 59: 啟動豁免】允許 Main Thread (Thread 1) 在 Worker 啟動前執行
@@ -66,6 +71,12 @@ namespace LithosNet.VM {
             _workerThread = new System.Threading.Thread(EventLoop);
             _workerThread.IsBackground = true;
             _workerThread.Start();
+
+            // 【Phase 60: 啟動 call_out 監控計時器】
+            _callOutTimer = new System.Timers.Timer(100); 
+            _callOutTimer.Elapsed += (s, e) => ProcessCallOuts();
+            _callOutTimer.AutoReset = true;
+            _callOutTimer.Start();
             SetupDefaultNativeHandlers();
         }
         private readonly Dictionary<string, (Scope scope, Interpreter interp)> _objects = new();
@@ -200,6 +211,11 @@ namespace LithosNet.VM {
                 objData.scope.GetAllVariables().Clear();
             }
             _objects.Remove(objName);
+
+            // 【Phase 60: 物件銷毀時清理其未執行的 call_out】
+            lock (_callOutLock) {
+                _callOutTasks.RemoveAll(t => t.ObjName == objName);
+            }
             _heartBeatObjects.Remove(objName);
             Console.WriteLine($"💥 [Lifecycle] Object '{objName}' has been destructed and GC-ready.");
         }
@@ -276,6 +292,58 @@ namespace LithosNet.VM {
                     // 【Phase 58: FluffOS 核心】推入事件隊列，確保單執行緒順序執行，杜絕 Race Condition
                     _eventQueue.Add(() => CallFunction(objName, "heart_beat", Array.Empty<LpcValue>()));
                 }
+            }
+        }
+
+        // ==========================================
+        // 【Phase 60: MUD 靈魂】call_out 核心實作
+        // ==========================================
+        private class CallOutTask {
+            public string ObjName;
+            public string FuncName;
+            public System.Collections.Generic.List<LpcValue> Args;
+            public long TriggerTicks;
+        }
+
+        public void ScheduleCallOut(string objName, string funcName, double delaySeconds, System.Collections.Generic.List<LpcValue> args) {
+            long triggerTicks = DateTime.UtcNow.AddSeconds(delaySeconds).Ticks;
+            lock (_callOutLock) {
+                _callOutTasks.Add(new CallOutTask {
+                    ObjName = objName,
+                    FuncName = funcName,
+                    Args = args,
+                    TriggerTicks = triggerTicks
+                });
+            }
+        }
+
+        public bool RemoveCallOut(string objName, string funcName) {
+            lock (_callOutLock) {
+                return _callOutTasks.RemoveAll(t => t.ObjName == objName && t.FuncName == funcName) > 0;
+            }
+        }
+
+        private void ProcessCallOuts() {
+            long now = DateTime.UtcNow.Ticks;
+            System.Collections.Generic.List<CallOutTask> triggered = new System.Collections.Generic.List<CallOutTask>();
+            lock (_callOutLock) {
+                for (int i = _callOutTasks.Count - 1; i >= 0; i--) {
+                    if (_callOutTasks[i].TriggerTicks <= now) {
+                        triggered.Add(_callOutTasks[i]);
+                        _callOutTasks.RemoveAt(i);
+                    }
+                }
+            }
+            foreach (var task in triggered) {
+                _eventQueue.Add(() => {
+                    if (_objects.ContainsKey(task.ObjName)) {
+                        try {
+                            CallFunction(task.ObjName, task.FuncName, task.Args.ToArray());
+                        } catch (Exception ex) {
+                            Console.WriteLine(string.Format("[CallOut Error] {0}->{1}: {2}", task.ObjName, task.FuncName, ex.Message));
+                        }
+                    }
+                });
             }
         }
             }
