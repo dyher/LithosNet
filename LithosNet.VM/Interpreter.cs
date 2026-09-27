@@ -472,6 +472,7 @@ namespace LithosNet.VM {
                         string func = cArgs[0].AsString();
                         string verb = cArgs[1].AsString();
                         _scope.Actions[verb] = func;
+                        Console.WriteLine($"🔥 [DEBUG add_action] Registered verb='{verb}' -> func='{func}' in Scope Hash={_scope.GetHashCode()}, Total Actions={_scope.Actions.Count}");
                         return LpcValue.Create(1);
                     }
 
@@ -481,8 +482,9 @@ namespace LithosNet.VM {
                         string[] parts = input.Split(new char[] { ' ' }, 2);
                         string verb = parts[0];
                         string args = parts.Length > 1 ? parts[1] : "";
-                        
+                        Console.WriteLine($"🔥 [DEBUG command] Searching verb='{verb}' in Scope Hash={_scope.GetHashCode()}, Total Actions={_scope.Actions.Count}");
                         if (_scope.Actions.TryGetValue(verb, out string funcName)) {
+                            Console.WriteLine($"✅ [DEBUG command] MATCH FOUND! verb='{verb}' -> func='{funcName}'");
                             try {
                                 // 呼叫註冊的函數，並將剩餘參數傳入
                                 return CallFunction(funcName, new System.Collections.Generic.List<LpcValue> { LpcValue.Create(args) });
@@ -491,6 +493,7 @@ namespace LithosNet.VM {
                                 return LpcValue.Create(0);
                             }
                         }
+                        Console.WriteLine($"❌ [DEBUG command] NO MATCH for verb='{verb}'!");
                         return LpcValue.Create(0); // 指令未找到
                     }
                     if (c.Name == "send_to_user" && cArgs.Count >= 1) { string target = this.ObjectName; // 【FluffOS 語意】嚴格發給當前執行的物件 (this_object)
