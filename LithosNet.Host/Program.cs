@@ -82,8 +82,19 @@ namespace LithosNet.Host {
                         currentObj = SessionManager.GetObjNameByWriter(writer) ?? currentObj;
                         
                         var line = await reader.ReadLineAsync();
-                        Console.WriteLine($"🔍 [Diag] 收到輸入: '{line}' (IsNullOrEmpty: {string.IsNullOrEmpty(line)})");
+                        
+                        // 【Phase 63: FluffOS 對齊】客戶端斷開或物件銷毀時立即跳出
                         if (line == null) break;
+                        
+                        // 動態查詢當前物件名（exec 後會改變）
+                        currentObj = SessionManager.GetObjNameByWriter(writer) ?? currentObj;
+                        
+                        // 檢查物件是否存在（可能被 destruct）
+                        if (!ObjectManager.Instance.ObjectExists(currentObj)) {
+                            Console.WriteLine($"⚠ [Session] Object '{currentObj}' destructed. Closing.");
+                            break;
+                        }
+                        Console.WriteLine($"🔍 [Diag] 收到輸入: '{line}' (IsNullOrEmpty: {string.IsNullOrEmpty(line)})");
 
                         string trapFunc = SessionManager.GetAndClearInputTrap(currentObj);
                         if (!string.IsNullOrEmpty(trapFunc)) {
