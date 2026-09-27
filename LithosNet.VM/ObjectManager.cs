@@ -9,6 +9,10 @@ using LithosNet.Compiler;
 
 namespace LithosNet.VM {
     public class ObjectManager {
+        // 【Phase 58: FluffOS 核心】單執行緒事件隊列相關欄位
+        private System.Collections.Concurrent.ConcurrentQueue<Action> _eventQueue = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        private System.Threading.Thread _workerThread;
+
     private Interpreter _simulEfunInterp; // 【FluffOS】Simul_efun 後備解釋器
         // 【Phase 55.1: C# 原生 FFI 管理器】
         private readonly Dictionary<string, Func<LpcValue[], LpcValue>> _nativeHandlers = new();
