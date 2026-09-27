@@ -147,6 +147,14 @@ namespace LithosNet.VM {
             interp.ObjectName = objName;
             interp.Execute(ast);
             _objects[objName] = (scope, interp);
+            
+            // 【Phase 60: 強制觸發】編譯註冊後，必須立即呼叫 create() apply
+            try { 
+                interp.ObjectName = objName; 
+                interp.CallFunction("create", new System.Collections.Generic.List<LpcValue>()); 
+            } catch (Exception ex) {
+                Console.WriteLine($"🚨 [CompileAndRegister] create() failed for {objName}: {ex.Message}");
+            }
             return scope;
         }
 
