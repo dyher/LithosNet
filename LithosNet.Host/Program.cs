@@ -91,7 +91,7 @@ namespace LithosNet.Host {
                         
                         // 檢查物件是否存在（可能被 destruct）
                         if (!ObjectManager.Instance.ObjectExists(currentObj)) {
-                            Console.WriteLine($"⚠ [Session] Object '{currentObj}' destructed. Closing.");
+                            Console.WriteLine($"🏁 [Session] Object '{currentObj}' destructed gracefully.");
                             break;
                         }
                         Console.WriteLine($"🔍 [Diag] 收到輸入: '{line}' (IsNullOrEmpty: {string.IsNullOrEmpty(line)})");
@@ -115,7 +115,6 @@ namespace LithosNet.Host {
                 }
                 }
                 client.Close();
-                Console.WriteLine($"❌ [Session] 斷開連線: {currentObj}");
             }
         }
     }
