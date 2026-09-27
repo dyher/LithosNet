@@ -9,8 +9,18 @@ using LithosNet.Compiler;
 
 namespace LithosNet.VM {
     public class ObjectManager {
+
+        // 【Phase 59: P1】線程親和性護城河
+        private void AssertThreadAffinity(string context) {
+            #if DEBUG
+            if (_workerThread != null && Thread.CurrentThread != _workerThread) {
+                throw new InvalidOperationException($"🚨 [CRITICAL] LPC Thread Affinity Violated! '{context}' on Thread {Thread.CurrentThread.ManagedThreadId} instead of {_workerThread.ManagedThreadId}");
+            }
+            #endif
+        }
+
         // 【Phase 58: FluffOS 核心】單執行緒事件隊列相關欄位
-        private System.Collections.Concurrent.ConcurrentQueue<Action> _eventQueue = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        private System.Collections.Concurrent.BlockingCollection<Action> _eventQueue = new BlockingCollection<Action>(new ConcurrentQueue<Action>());
         private System.Threading.Thread _workerThread;
 
     private Interpreter _simulEfunInterp; // 【FluffOS】Simul_efun 後備解釋器
@@ -89,9 +99,12 @@ namespace LithosNet.VM {
         }
 
         public void ReloadObject(string path) {
-            string objName = Path.GetFileNameWithoutExtension(path);
-            Console.WriteLine($"🔄 [VM] 熱更新: {objName}.c");
-            CompileAndRegister(path, objName);
+            // 【Phase 59: P0】熱重載強制推入 Event Queue
+            _eventQueue.Add(() => {
+                string objName = Path.GetFileNameWithoutExtension(path);
+                Console.WriteLine($"🔄 [VM] 熱更新: {objName}.c");
+                CompileAndRegister(path, objName);
+            });
         }
 
         private Scope CompileAndRegister(string path, string objName) {
@@ -149,6 +162,7 @@ namespace LithosNet.VM {
 
         public LpcValue CallFunction(string objName, string funcName, params LpcValue[] args) {
             if (!_objects.ContainsKey(objName)) throw new Exception($"[VM] Object '{objName}' not loaded.");
+            AssertThreadAffinity("CallFunction");
             return _objects[objName].interp.CallFunction(funcName, new List<LpcValue>(args));
         }
         
@@ -229,14 +243,14 @@ namespace LithosNet.VM {
             
         // 【Phase 58: FluffOS 核心】單執行緒事件循環 (偽多線程)
         private void EventLoop() {
-            while (true) {
-                if (_eventQueue.TryDequeue(out var action)) {
-                    try { action(); } catch (Exception ex) { Console.WriteLine($"[EventLoop Error] {ex.Message}"); }
-                } else {
-                    System.Threading.Thread.Sleep(1);
-                }
+            _workerThread = Thread.CurrentThread;
+            Console.WriteLine($"🚀 [EventLoop] Worker Thread started on ID: {_workerThread.ManagedThreadId}");
+            foreach (var action in _eventQueue.GetConsumingEnumerable()) {
+                try { action(); } catch (Exception ex) { Console.WriteLine($"[EventLoop Error] {ex.Message}"); }
             }
         }
+
+        public void EnqueueAction(Action action) => _eventQueue.Add(action);
 
         public void SetHeartBeat(string objName, bool enable) {
                 if (enable) _heartBeatObjects.Add(objName);
@@ -248,7 +262,7 @@ namespace LithosNet.VM {
             foreach (var objName in targets) {
                 if (_objects.ContainsKey(objName)) {
                     // 【Phase 58: FluffOS 核心】推入事件隊列，確保單執行緒順序執行，杜絕 Race Condition
-                    _eventQueue.Enqueue(() => CallFunction(objName, "heart_beat", Array.Empty<LpcValue>()));
+                    _eventQueue.Add(() => CallFunction(objName, "heart_beat", Array.Empty<LpcValue>()));
                 }
             }
         }
