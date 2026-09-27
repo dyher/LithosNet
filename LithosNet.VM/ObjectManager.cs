@@ -116,11 +116,18 @@ namespace LithosNet.VM {
         }
 
         public void ReloadObject(string path) {
-            // 【Phase 59: P0】熱重載強制推入 Event Queue
-            _eventQueue.Add(() => {
-                string objName = Path.GetFileNameWithoutExtension(path);
-                Console.WriteLine($"🔄 [VM] 熱更新: {objName}.c");
-                CompileAndRegister(path, objName);
+            // 【地雷 A 修復】徹底非同步化：ThreadPool 讀檔，Worker Thread 解析
+            System.Threading.Tasks.Task.Run(async () => {
+                try {
+                    string src = await System.IO.File.ReadAllTextAsync(path);
+                    string objName = Path.GetFileNameWithoutExtension(path);
+                    _eventQueue.Add(() => {
+                        Console.WriteLine($"🔄 [VM] 熱更新 (Async I/O): {objName}.c");
+                        ParseAndRegisterFromSource(src, objName);
+                    });
+                } catch (Exception ex) {
+                    Console.WriteLine($"[Reload Error] {ex.Message}");
+                }
             });
         }
 
@@ -130,7 +137,11 @@ namespace LithosNet.VM {
             // 【Phase 58: FluffOS 關鍵字降級】完美兼容現有 Mudlib (在 ANTLR 解析前清洗)
             src = System.Text.RegularExpressions.Regex.Replace(src, @"\b(object|array|mapping)\b", "mixed");
             src = System.Text.RegularExpressions.Regex.Replace(src, @"\b(public|private|protected|static|nosave|ref)\b", "");
+            return ParseAndRegisterFromSource(src, objName);
+        }
 
+        // 【地雷 A 修復】純記憶體解析，由 Worker Thread 執行
+        private Scope ParseAndRegisterFromSource(string src, string objName) {
             var inputStream = new Antlr4.Runtime.AntlrInputStream(src);
             var lexer = new LithosNet.Compiler.Ast.LPCLexer(inputStream);
             var tokenStream = new Antlr4.Runtime.CommonTokenStream(lexer);
@@ -281,15 +292,23 @@ namespace LithosNet.VM {
         }
 
         // 【Phase 59: P0.1 核心】同步阻塞等待 Worker Thread 執行並返回結果
-        public LpcValue EnqueueAndAwait(Func<LpcValue> func) {
-            var tcs = new System.Threading.Tasks.TaskCompletionSource<LpcValue>();
-            _eventQueue.Add(() => {
-                try { tcs.SetResult(func()); } catch (Exception ex) { tcs.SetException(ex); }
-            });
-            return tcs.Task.Result;
-        }
 
         public void EnqueueAction(Action action) => _eventQueue.Add(action);
+
+        // 【地雷 B 終極修復】非阻塞式等待：使用 TaskCompletionSource，消除 ThreadPool .Result 死鎖
+        public System.Threading.Tasks.Task<LpcValue> EnqueueAndAwaitAsync(System.Func<LpcValue> func) {
+            var tcs = new System.Threading.Tasks.TaskCompletionSource<LpcValue>();
+            _eventQueue.Add(() => {
+                try { 
+                    var result = func(); 
+                    tcs.SetResult(result); 
+                } catch (Exception ex) { 
+                    tcs.SetException(ex); 
+                }
+            });
+            return tcs.Task;
+        }
+
 
         public void SetHeartBeat(string objName, bool enable) {
                 if (enable) _heartBeatObjects.Add(objName);

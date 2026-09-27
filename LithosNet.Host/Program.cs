@@ -31,11 +31,11 @@ namespace LithosNet.Host {
             int port = cfg.GetProperty("port").GetInt32();
 
             ObjMgr.Preload(MudlibPath + "obj/" + MasterObj + ".c");
-            try { ObjectManager.Instance.EnqueueAndAwait(() => ObjMgr.CallFunction(MasterObj, "preload")); } catch (Exception e) { Console.WriteLine($"⚠️ Master preload 錯誤: {e.ToString()}"); }
+            try { await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(MasterObj, "preload")); } catch (Exception e) { Console.WriteLine($"⚠️ Master preload 錯誤: {e.ToString()}"); }
 
             // 【Phase 55.2】加載 FluffOS 標準 simul_efun
             try {
-                var sefunResult = ObjectManager.Instance.EnqueueAndAwait(() => ObjMgr.CallFunction(MasterObj, "get_simul_efun", Array.Empty<LpcValue>()));
+                var sefunResult = await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(MasterObj, "get_simul_efun", Array.Empty<LpcValue>()));
                 string sefunPath = sefunResult.AsString();
                 if (!string.IsNullOrEmpty(sefunPath)) {
                     ObjMgr.LoadSimulEfun(sefunPath);
@@ -62,7 +62,7 @@ namespace LithosNet.Host {
         
         string currentObj = "";
         try {
-            var connectRet = ObjectManager.Instance.EnqueueAndAwait(() => ObjMgr.CallFunction(MasterObj, "connect"));
+            var connectRet = await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(MasterObj, "connect"));
             Console.WriteLine($"🔍 [Diag] master->connect() 返回: {connectRet.AsString()}");
             currentObj = connectRet.AsString();
             if (string.IsNullOrEmpty(currentObj) || currentObj == "0") {
@@ -72,7 +72,7 @@ namespace LithosNet.Host {
                 // 探測真實的物件名稱 (可能是 "obj/login" 或 "login")
                 currentObj = "obj/login";
                 try { 
-                    ObjectManager.Instance.EnqueueAndAwait(() => ObjMgr.CallFunction(currentObj, "query_name")); 
+                    await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, "query_name")); 
                 } catch { 
                     currentObj = "login"; 
                 }
@@ -90,7 +90,7 @@ namespace LithosNet.Host {
         try { 
             Console.WriteLine($"🔍 [Diag] 準備呼叫 {currentObj}->logon()...");
             SessionManager.CurrentPlayer.Value = currentObj;
-            ObjectManager.Instance.EnqueueAndAwait(() => ObjMgr.CallFunction(currentObj, "logon")); 
+            await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, "logon")); 
             Console.WriteLine("✅ logon() 呼叫成功！");
         } catch (Exception ex) { 
             Console.WriteLine($"❌ logon() 呼叫失敗:\n{ex}"); 
@@ -119,7 +119,7 @@ namespace LithosNet.Host {
                         SessionManager.CurrentPlayer.Value = currentObj;
                         Console.WriteLine($"🔥 [X-Ray] Calling receive_binary on {currentObj} with: {json}");
                         currentObj = SessionManager.GetObjName(writer) ?? currentObj;
-                        ObjectManager.Instance.EnqueueAndAwait(() => ObjMgr.CallFunction(currentObj, "receive_binary", LpcValue.Create(json)));
+                        await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, "receive_binary", LpcValue.Create(json)));
                         buffer = buffer.Slice(5 + length);
                     } else {
                         SequencePosition? position = buffer.PositionOf((byte)10);
@@ -129,7 +129,7 @@ namespace LithosNet.Host {
                         SessionManager.CurrentPlayer.Value = currentObj;
                         Console.WriteLine($"🔥 [X-Ray] Calling receive_message on {currentObj} with: {line}");
                         currentObj = SessionManager.GetObjName(writer) ?? currentObj;
-                        ObjectManager.Instance.EnqueueAndAwait(() => ObjMgr.CallFunction(currentObj, "receive_message", LpcValue.Create(line)));
+                        await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, "receive_message", LpcValue.Create(line)));
                         buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
                     }
                 }
@@ -144,7 +144,7 @@ namespace LithosNet.Host {
         } finally {
             Console.WriteLine($"❌ [Session] 斷開連線: {currentObj}");
             SessionManager.Unbind(currentObj);
-            try { ObjectManager.Instance.EnqueueAndAwait(() => ObjMgr.CallFunction(currentObj, "logoff")); } catch {}
+            try { await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, "logoff")); } catch {}
             client.Close();
         }
     }
