@@ -17,6 +17,9 @@ namespace LithosNet.VM {
     public class ReturnSignal : Exception { public LpcValue Value; public ReturnSignal(LpcValue v) { Value = v; } }
 
     public class Interpreter {
+        // 【Phase 61: 終極修復】指令路由表屬於 Object (Interpreter)，不屬於詞法 Scope
+        public System.Collections.Generic.Dictionary<string, string> Actions = new System.Collections.Generic.Dictionary<string, string>();
+
         public string ObjectName { get; set; } = ""; // 【Phase 58】唯一且安全的 ObjectName
         // 【Phase 57: 終極防禦】預設空字串
         public Scope _scope;
@@ -471,8 +474,8 @@ namespace LithosNet.VM {
                     if (c.Name == "add_action" && cArgs.Count >= 2) {
                         string func = cArgs[0].AsString();
                         string verb = cArgs[1].AsString();
-                        _scope.Actions[verb] = func;
-                        Console.WriteLine($"🔥 [DEBUG add_action] Registered verb='{verb}' -> func='{func}' in Scope Hash={_scope.GetHashCode()}, Total Actions={_scope.Actions.Count}");
+                        this.Actions[verb] = func;
+                        Console.WriteLine($"🔥 [DEBUG add_action] Registered verb='{verb}' -> func='{func}' in Object Hash={this.GetHashCode()}, Total Actions={this.Actions.Count}");
                         return LpcValue.Create(1);
                     }
 
@@ -482,8 +485,8 @@ namespace LithosNet.VM {
                         string[] parts = input.Split(new char[] { ' ' }, 2);
                         string verb = parts[0];
                         string args = parts.Length > 1 ? parts[1] : "";
-                        Console.WriteLine($"🔥 [DEBUG command] Searching verb='{verb}' in Scope Hash={_scope.GetHashCode()}, Total Actions={_scope.Actions.Count}");
-                        if (_scope.Actions.TryGetValue(verb, out string funcName)) {
+                        Console.WriteLine($"🔥 [DEBUG command] Searching verb='{verb}' in Object Hash={this.GetHashCode()}, Total Actions={this.Actions.Count}");
+                        if (this.Actions.TryGetValue(verb, out string funcName)) {
                             Console.WriteLine($"✅ [DEBUG command] MATCH FOUND! verb='{verb}' -> func='{funcName}'");
                             try {
                                 // 呼叫註冊的函數，並將剩餘參數傳入

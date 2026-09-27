@@ -5,9 +5,7 @@ using LithosNet.Core;
 
 namespace LithosNet.VM {
     public class Scope {
-        // 【Phase 61: FluffOS 核心】指令路由註冊表 (verb -> function_name)
-        public System.Collections.Generic.Dictionary<string, string> Actions = new System.Collections.Generic.Dictionary<string, string>();
-
+        
         private readonly Dictionary<string, LpcValue> _variables = new();
         public Scope Parent { get; set; }
         private readonly Dictionary<string, FunctionDeclarationNode> _functions = new();
