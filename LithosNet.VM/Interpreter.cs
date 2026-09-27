@@ -466,6 +466,33 @@ namespace LithosNet.VM {
                         bool removed = _objMgr.RemoveCallOut(this.ObjectName, func);
                         return LpcValue.Create(removed ? 1 : 0);
                     }
+
+                    // 【Phase 61: FluffOS 靈魂】add_action: 註冊指令路由
+                    if (c.Name == "add_action" && cArgs.Count >= 2) {
+                        string func = cArgs[0].AsString();
+                        string verb = cArgs[1].AsString();
+                        _scope.Actions[verb] = func;
+                        return LpcValue.Create(1);
+                    }
+
+                    // 【Phase 61: FluffOS 靈魂】command: 觸發指令路由
+                    if (c.Name == "command" && cArgs.Count >= 1) {
+                        string input = cArgs[0].AsString().Trim();
+                        string[] parts = input.Split(new char[] { ' ' }, 2);
+                        string verb = parts[0];
+                        string args = parts.Length > 1 ? parts[1] : "";
+                        
+                        if (_scope.Actions.TryGetValue(verb, out string funcName)) {
+                            try {
+                                // 呼叫註冊的函數，並將剩餘參數傳入
+                                return CallFunction(funcName, new System.Collections.Generic.List<LpcValue> { LpcValue.Create(args) });
+                            } catch (Exception ex) {
+                                Console.WriteLine($"[command] Error executing {funcName}: {ex.Message}");
+                                return LpcValue.Create(0);
+                            }
+                        }
+                        return LpcValue.Create(0); // 指令未找到
+                    }
                     if (c.Name == "send_to_user" && cArgs.Count >= 1) { string target = this.ObjectName; // 【FluffOS 語意】嚴格發給當前執行的物件 (this_object)
                         Task.Run(() => SessionManager.SendAsync(target, cArgs[0].AsString())); return LpcValue.Create(1); }
                     if (c.Name == "save_object" && cArgs.Count >= 1) { SaveScope(cArgs[0].AsString()); return LpcValue.Create(1); }
