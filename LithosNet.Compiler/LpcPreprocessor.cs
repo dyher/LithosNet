@@ -122,9 +122,6 @@ namespace LithosNet.Compiler {
             
             _currentFilePaths.Pop(); // Pop 當前路徑
             
-            // 【Phase 58: FluffOS 關鍵字降級】完美兼容現有 Mudlib
-            src = System.Text.RegularExpressions.Regex.Replace(src, @"(object|array|mapping)", "mixed");
-            src = System.Text.RegularExpressions.Regex.Replace(src, @"(public|private|protected|static|nosave)", "");
 return processedCode;
         }
 

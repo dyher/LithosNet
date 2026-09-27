@@ -93,6 +93,10 @@ namespace LithosNet.VM {
         private Scope CompileAndRegister(string path, string objName) {
             string src = (new LithosNet.Compiler.LpcPreprocessor(System.IO.Path.GetDirectoryName(System.IO.Path.GetDirectoryName(path))).Process(path));
             src = LithosNet.Compiler.Preprocessor.Process(src, Path.GetDirectoryName(path));
+            // 【Phase 58: FluffOS 關鍵字降級】完美兼容現有 Mudlib (在 ANTLR 解析前清洗)
+            src = System.Text.RegularExpressions.Regex.Replace(src, @"\b(object|array|mapping)\b", "mixed");
+            src = System.Text.RegularExpressions.Regex.Replace(src, @"\b(public|private|protected|static|nosave|ref)\b", "");
+
             var inputStream = new Antlr4.Runtime.AntlrInputStream(src);
             var lexer = new LithosNet.Compiler.Ast.LPCLexer(inputStream);
             var tokenStream = new Antlr4.Runtime.CommonTokenStream(lexer);
