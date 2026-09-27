@@ -1,152 +1,111 @@
-using System;
-using System.Buffers;
-using System.IO;
 using System.IO.Pipelines;
+using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using LithosNet.Core;
 using LithosNet.VM;
+using LithosNet.Core;
 
 namespace LithosNet.Host {
     class Program {
-        static readonly ObjectManager ObjMgr = new();
+        static ObjectManager ObjMgr;
         static string MudlibPath;
         static string MasterObj;
 
         static async Task Main(string[] args) {
-        LithosNet.VM.BuiltInEfuns.ObjMgr = ObjMgr;
             Console.WriteLine("==================================================");
-            Console.WriteLine("🔥 [Phase 34] 啟動雙軌制 MMORPG 引擎 (Text + Binary)！");
-            Console.WriteLine("==================================================\n");
+            Console.WriteLine("🔥 LithosNet Driver (FluffOS Aligned)");
+            Console.WriteLine("==================================================");
 
-            EfunRegistry.RegisterFromType(typeof(BuiltInEfuns));
-            
-            string cfgText = File.ReadAllText("config.json");
-            var cfg = JsonDocument.Parse(cfgText).RootElement;
+            // 1. 讀取配置
+            if (!File.Exists("config.json")) {
+                Console.WriteLine("❌ 找不到 config.json");
+                return;
+            }
+            var cfg = JsonDocument.Parse(File.ReadAllText("config.json")).RootElement;
             MudlibPath = cfg.GetProperty("mudlib_dir").GetString();
             MasterObj = cfg.GetProperty("master_object").GetString();
             int port = cfg.GetProperty("port").GetInt32();
 
-            ObjMgr.Preload(MudlibPath + "obj/" + MasterObj + ".c");
-            try { await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(MasterObj, "preload")); } catch (Exception e) { Console.WriteLine($"⚠️ Master preload 錯誤: {e.ToString()}"); }
+            // 2. 初始化 ObjectManager
+            ObjMgr = new ObjectManager();
+            BuiltInEfuns.ObjMgr = ObjMgr;
 
-            // 【Phase 55.2】加載 FluffOS 標準 simul_efun
+            // 3. 預載入 master 並執行 preload
             try {
-                var sefunResult = await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(MasterObj, "get_simul_efun", Array.Empty<LpcValue>()));
-                string sefunPath = sefunResult.AsString();
-                if (!string.IsNullOrEmpty(sefunPath)) {
-                    ObjMgr.LoadSimulEfun(sefunPath);
-                }
-            } catch (Exception ex) {
-                Console.WriteLine($"⚠️ [SimulEfun] Failed to load: {ex.Message}");
+                ObjMgr.LoadObject(MudlibPath + "obj/" + MasterObj + ".c");
+                await ObjMgr.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(MasterObj, "preload"));
+                Console.WriteLine("✅ Master preload 完成。");
+            } catch (Exception e) {
+                Console.WriteLine($"⚠ Master preload 錯誤: {e}");
             }
 
+            // 4. 啟動 TCP 監聽
             var listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
-            Console.WriteLine($"\n🚀 {cfg.GetProperty("name").GetString()} Driver 啟動！監聽端口: {port}\n");
+            Console.WriteLine($"🚀 Driver 啟動！監聽端口: {port}");
 
-            Console.WriteLine("🔍 [Diag] 進入 TCP 讀取迴圈...");
-                while (true) {
-                                var client = await listener.AcceptTcpClientAsync();
-                _ = Task.Run(() => HandleClientAsync(client));
+            while (true) {
+                var client = await listener.AcceptTcpClientAsync();
+                _ = HandleClientAsync(client);
             }
         }
 
         static async Task HandleClientAsync(TcpClient client) {
-        Console.WriteLine("🔌 [Network] 新客戶端連線！");
-        var reader = PipeReader.Create(client.GetStream());
-        var writer = PipeWriter.Create(client.GetStream());
-        
-        string currentObj = "";
-        try {
-            var connectRet = await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(MasterObj, "connect"));
-            Console.WriteLine($"🔍 [Diag] master->connect() 返回: {connectRet.AsString()}");
-            currentObj = connectRet.AsString();
-            if (string.IsNullOrEmpty(currentObj) || currentObj == "0") {
-                Console.WriteLine("⚠ connect() 返回無效值，強制 Fallback 載入藍圖並直接使用它...");
-                ObjMgr.LoadObject("obj/login");
-                
-                // 探測真實的物件名稱 (可能是 "obj/login" 或 "login")
-                currentObj = "obj/login";
-                try { 
-                    await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, "query_name")); 
-                } catch { 
-                    currentObj = "login"; 
+            string currentObj = "";
+            try {
+                // 1. master->connect()
+                var connectRet = await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(MasterObj, "connect"));
+                currentObj = connectRet.AsString();
+
+                if (string.IsNullOrEmpty(currentObj) || currentObj == "0") {
+                    Console.WriteLine("⚠ connect() 返回無效值");
+                    client.Close();
+                    return;
                 }
-                Console.WriteLine($"✅ Fallback 鎖定物件: {currentObj}");
-            }
-        } catch (Exception ex) {
-            Console.WriteLine($"❌ master->connect() 失敗:\n{ex}");
-            client.Close(); return;
-        }
 
-        SessionManager.Bind(currentObj, writer);
-        Console.WriteLine($"🔌 [Session] 綁定連線: {currentObj}");
-        
-        // 【關鍵】強制呼叫 logon() apply
-        try { 
-            Console.WriteLine($"🔍 [Diag] 準備呼叫 {currentObj}->logon()...");
-            SessionManager.CurrentPlayer.Value = currentObj;
-            await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, "logon")); 
-            Console.WriteLine("✅ logon() 呼叫成功！");
-        } catch (Exception ex) { 
-            Console.WriteLine($"❌ logon() 呼叫失敗:\n{ex}"); 
-        }
+                // 2. 綁定 Session
+                var writer = System.IO.Pipelines.PipeWriter.Create(client.GetStream());
+                SessionManager.Bind(currentObj, writer); // TODO: 需要正確的 PipeWriter
+                Console.WriteLine($"🔌 [Session] 綁定連線: {currentObj}");
 
-        try {
-            Console.WriteLine("🔍 [Diag] 進入 TCP 讀取迴圈...");
-            while (true) {
-                // 【絕對關鍵】必須有 await，否則會變成 Busy Loop 瞬間耗盡 CPU！
-                ReadResult result = await reader.ReadAsync();
-                Console.WriteLine("🔍 [Diag] PipeReader 收到資料！");
-                ReadOnlySequence<byte> buffer = result.Buffer;
+                // 3. logon()
+                await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, "logon"));
 
-                while (true) {
-                    if (buffer.Length == 0) break;
-                    byte firstByte = buffer.Slice(0, 1).ToArray()[0];
-                    
-                    if (firstByte == 255) {
-                        if (buffer.Length < 5) break;
-                        byte[] lenBytes = buffer.Slice(1, 4).ToArray();
-                        int length = (lenBytes[0] << 24) | (lenBytes[1] << 16) | (lenBytes[2] << 8) | lenBytes[3];
-                        if (buffer.Length < 5 + length) break;
+                // 4. 穩健的逐行讀取循環
+                using (var stream = client.GetStream())
+                using (var reader = new StreamReader(stream)) {
+                    while (client.Connected) {
+                        // 【Phase 63: FluffOS 對齊】動態查詢當前綁定的物件名（exec() 後會改變）
+                        currentObj = SessionManager.GetObjNameByWriter(writer) ?? currentObj;
                         
-                        byte[] payload = buffer.Slice(5, length).ToArray();
-                        string json = Encoding.UTF8.GetString(payload);
-                        SessionManager.CurrentPlayer.Value = currentObj;
-                        Console.WriteLine($"🔥 [X-Ray] Calling receive_binary on {currentObj} with: {json}");
-                        currentObj = SessionManager.GetObjName(writer) ?? currentObj;
-                        await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, "receive_binary", LpcValue.Create(json)));
-                        buffer = buffer.Slice(5 + length);
-                    } else {
-                        SequencePosition? position = buffer.PositionOf((byte)10);
-                        if (position == null) break;
-                        byte[] lineBytes = buffer.Slice(0, position.Value).ToArray();
-                        string line = Encoding.UTF8.GetString(lineBytes).Trim();
-                        SessionManager.CurrentPlayer.Value = currentObj;
-                        Console.WriteLine($"🔥 [X-Ray] Calling receive_message on {currentObj} with: {line}");
-                        currentObj = SessionManager.GetObjName(writer) ?? currentObj;
-                        await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, "receive_message", LpcValue.Create(line)));
-                        buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
+                        var line = await reader.ReadLineAsync();
+                        Console.WriteLine($"🔍 [Diag] 收到輸入: '{line}' (IsNullOrEmpty: {string.IsNullOrEmpty(line)})");
+                        if (line == null) break;
+
+                        string trapFunc = SessionManager.GetAndClearInputTrap(currentObj);
+                        if (!string.IsNullOrEmpty(trapFunc)) {
+                            await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, trapFunc, new LpcValue[] { LpcValue.Create(line) }));
+                        } else {
+                            await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, "command", new LpcValue[] { LpcValue.Create(line) }));
+                        }
                     }
                 }
-                reader.AdvanceTo(buffer.Start, buffer.End);
-                if (result.IsCompleted) {
-                    Console.WriteLine("⚠️ [Diag] PipeReader 收到 EOF，客戶端已斷開！");
-                    break;
+
+            } catch (Exception ex) {
+                Console.WriteLine($"❌ [Session] 錯誤: {ex.Message}");
+            } finally {
+                if (!string.IsNullOrEmpty(currentObj)) {
+                    SessionManager.Unbind(currentObj);
+                    if (!string.IsNullOrEmpty(currentObj) && ObjectManager.Instance.ObjectExists(currentObj)) {
+                    try { await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, "logoff")); } catch {}
                 }
+                }
+                client.Close();
+                Console.WriteLine($"❌ [Session] 斷開連線: {currentObj}");
             }
-        } catch (Exception ex) {
-            Console.WriteLine($"❌ [Network] TCP 讀取異常:\n{ex}");
-        } finally {
-            Console.WriteLine($"❌ [Session] 斷開連線: {currentObj}");
-            SessionManager.Unbind(currentObj);
-            try { await ObjectManager.Instance.EnqueueAndAwaitAsync(() => ObjMgr.CallFunction(currentObj, "logoff")); } catch {}
-            client.Close();
         }
-    }
     }
 }

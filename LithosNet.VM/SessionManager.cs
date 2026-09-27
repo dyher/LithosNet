@@ -8,6 +8,20 @@ using System.Threading.Tasks;
 
 namespace LithosNet.VM {
     public static class SessionManager {
+        // 【Phase 62: 登入流程】Session 級別的輸入攔截器 (Input Trap)
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> InputTraps = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
+
+        public static void SetInputTrap(string sessionObj, string funcName) {
+            InputTraps[sessionObj] = funcName;
+        }
+
+        public static string GetAndClearInputTrap(string sessionObj) {
+            if (InputTraps.TryRemove(sessionObj, out string func)) {
+                return func;
+            }
+            return null;
+        }
+
 
         public static List<PipeWriter> GetAllWriters() {
             return new List<PipeWriter>(_sessions.Values);
@@ -57,6 +71,11 @@ namespace LithosNet.VM {
 
         public static List<string> GetAllSessions() => _sessions.Keys.ToList();
         
+        
+        public static string GetObjNameByWriter(System.IO.Pipelines.PipeWriter writer) {
+            return _writerToObj.TryGetValue(writer, out var name) ? name : null;
+        }
+
         public static string GetObjName(PipeWriter writer) {
             return _writerToObj.TryGetValue(writer, out var name) ? name : "";
         }

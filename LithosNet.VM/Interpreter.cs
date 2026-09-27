@@ -81,6 +81,35 @@ namespace LithosNet.VM {
             if (_objMgr.CallSimulEfunSafe(name, args, out var sefunResult)) {
                 return sefunResult;
             }
+
+                // 【Phase 63: 終極修復】在拋出異常前處理所有核心 efun
+                switch (name) {
+                    case "debug_message":
+                        Console.WriteLine($"💬 [LPC]: {(args.Count > 0 ? args[0].AsString() : "")}");
+                        return LpcValue.Create(1);
+                    case "tell_object":
+                        if (args.Count >= 2) _ = SessionManager.SendAsync(args[0].AsString(), args[1].AsString());
+                        return LpcValue.Create(1);
+                    case "write":
+                        if (args.Count >= 1) _ = SessionManager.SendAsync(this.ObjectName, args[0].AsString());
+                        return LpcValue.Create(1);
+                    case "input_to":
+                        if (args.Count >= 1) SessionManager.SetInputTrap(this.ObjectName, args[0].AsString());
+                        return LpcValue.Create(1);
+                    case "exec":
+                        if (args.Count >= 2) {
+                            SessionManager.Exec(args[0].AsString(), args[1].AsString());
+                            try { _objMgr.CallFunction(args[0].AsString(), "logon"); } catch {}
+                        }
+                        return LpcValue.Create(1);
+                    case "call_other":
+                        if (args.Count >= 2) {
+                            var callArgs = args.Count > 2 ? args.GetRange(2, args.Count - 2).ToArray() : new LpcValue[0];
+                            try { return _objMgr.CallFunction(args[0].AsString(), args[1].AsString(), callArgs); } catch { return LpcValue.Create(0); }
+                        }
+                        return LpcValue.Create(0);
+                }
+
             throw new Exception($"[VM] Function '{name}' not found in current scope, efuns, or simul_efun.");
         }
 
@@ -224,6 +253,24 @@ namespace LithosNet.VM {
                     }
  
                     var cArgs = new List<LpcValue>(); foreach (var a in c.Arguments) cArgs.Add(Eval(a));
+                    if (c.Name == "tell_object" && cArgs.Count >= 2) {
+                        _ = SessionManager.SendAsync(cArgs[0].AsString(), cArgs[1].AsString());
+                        return LpcValue.Create(1);
+                    }
+                    if (c.Name == "write" && cArgs.Count >= 1) {
+                        _ = SessionManager.SendAsync(this.ObjectName, cArgs[0].AsString());
+                        return LpcValue.Create(1);
+                    }
+                    if (c.Name == "input_to" && cArgs.Count >= 1) {
+                        SessionManager.SetInputTrap(this.ObjectName, cArgs[0].AsString());
+                        return LpcValue.Create(1);
+                    }
+                    if (c.Name == "call_other" && cArgs.Count >= 2) {
+                        string target = cArgs[0].AsString();
+                        string func = cArgs[1].AsString();
+                        var args = cArgs.Count > 2 ? cArgs.GetRange(2, cArgs.Count - 2).ToArray() : new LpcValue[0];
+                        try { return _objMgr.CallFunction(target, func, args); } catch { return LpcValue.Create(0); }
+                    }
                     
                                         if (c.Name == "exec" && cArgs.Count >= 2) {
                         SessionManager.Exec(cArgs[0].AsString(), cArgs[1].AsString());
@@ -302,6 +349,11 @@ namespace LithosNet.VM {
                         bool enable = cArgs[1].AsInt() != 0;
                         _objMgr.SetHeartBeat(target, enable);
                         return LpcValue.Create(1);
+                    // 【核心 Efun】debug_message: 输出调试信息
+                    if (c.Name == "debug_message" && cArgs.Count >= 1) {
+                        Console.WriteLine($"💬 [LPC]: {cArgs[0].AsString()}");
+                        return LpcValue.Create(1);
+                    }
                     }
                                         // 【Phase 53: MMORPG 核心】environment: 獲取物件所在環境 (FluffOS 標準)
                     if (c.Name == "environment") {
@@ -551,7 +603,7 @@ namespace LithosNet.VM {
                     }
                     if (b.Op == "/" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() / right.AsInt() : 0);
                     if (b.Op == "%" && left.Type == LpcType.Int && right.Type == LpcType.Int) return LpcValue.Create(right.AsInt() != 0 ? left.AsInt() % right.AsInt() : 0);
-                    if (left.Type == LpcType.String && right.Type == LpcType.String) { string lStr = left.AsString(); string rStr = right.AsString(); bool res = b.Op == "==" ? lStr == rStr : lStr != rStr; return LpcValue.Create(res ? 1 : 0); }
+                    if (left.Type == LpcType.String || right.Type == LpcType.String) { string lStr = left.Type == LpcType.String ? left.AsString() : left.AsInt().ToString(); string rStr = right.Type == LpcType.String ? right.AsString() : right.AsInt().ToString(); bool res = b.Op == "==" ? lStr == rStr : lStr != rStr; return LpcValue.Create(res ? 1 : 0); }
                     if (left.Type == LpcType.Int && right.Type == LpcType.Int) {
                         int lVal = left.AsInt(), rVal = right.AsInt();
                         bool res = b.Op switch { "==" => lVal == rVal, "!=" => lVal != rVal, "<" => lVal < rVal, ">" => lVal > rVal, "<=" => lVal <= rVal, ">=" => lVal >= rVal, _ => false };

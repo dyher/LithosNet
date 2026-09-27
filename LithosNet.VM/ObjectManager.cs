@@ -170,6 +170,7 @@ namespace LithosNet.VM {
         }
 
         public string Clone(string blueprintName) {
+            Console.WriteLine($"🔍 [DEBUG Clone] Blueprint: '{blueprintName}'");
             string fullPath = ResolvePath(blueprintName);
             string actualName = Path.GetFileNameWithoutExtension(fullPath);
             if (!_objects.ContainsKey(actualName)) LoadObject(fullPath);
@@ -181,6 +182,7 @@ namespace LithosNet.VM {
             interp.ObjectName = cloneId;
             _objects[cloneId] = (newScope, interp);
             if (newScope.HasFunction("create")) interp.CallFunction("create", new List<LpcValue>());
+            Console.WriteLine($"🔍 [DEBUG Clone] Returning cloneId: '{cloneId}'");
             return cloneId;
         }
 
@@ -267,6 +269,7 @@ namespace LithosNet.VM {
             // 6. 呼叫 clone 的 create() apply
             try { newInterp.CallFunction("create", new System.Collections.Generic.List<LpcValue>()); } catch {}
             
+            Console.WriteLine($"🔍 [DEBUG Clone] Returning cloneId: '{cloneId}'");
             return cloneId;
         }
 
