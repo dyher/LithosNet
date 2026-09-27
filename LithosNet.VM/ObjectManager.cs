@@ -12,11 +12,13 @@ namespace LithosNet.VM {
 
         // 【Phase 59: P1】線程親和性護城河
         private void AssertThreadAffinity(string context) {
-            #if DEBUG
+            // 【Phase 59: 啟動豁免】允許 Main Thread (Thread 1) 在 Worker 啟動前執行
+            if (_workerThread == null && Thread.CurrentThread.ManagedThreadId == 1) return;
+            
             if (_workerThread != null && Thread.CurrentThread != _workerThread) {
-                throw new InvalidOperationException($"🚨 [CRITICAL] LPC Thread Affinity Violated! '{context}' on Thread {Thread.CurrentThread.ManagedThreadId} instead of {_workerThread.ManagedThreadId}");
+                string msg = string.Format("🚨 [CRITICAL] LPC Thread Affinity Violated! [{0}] on Thread {1} instead of {2}", context, Thread.CurrentThread.ManagedThreadId, _workerThread.ManagedThreadId);
+                throw new InvalidOperationException(msg);
             }
-            #endif
         }
 
         // 【Phase 58: FluffOS 核心】單執行緒事件隊列相關欄位
@@ -76,6 +78,7 @@ namespace LithosNet.VM {
         private readonly string _mudlibBase = "/home/tiny/LithosNet/mudlib/";
 
         public Scope LoadObject(string pathOrName) {
+            Instance = this;
             string fullPath = pathOrName;
             if (System.IO.File.Exists(fullPath) == false) {
                 string[] dirs = { "/home/tiny/LithosNet/mudlib/obj/", "/home/tiny/LithosNet/mudlib/room/", "/home/tiny/LithosNet/mudlib/" };
@@ -248,6 +251,15 @@ namespace LithosNet.VM {
             foreach (var action in _eventQueue.GetConsumingEnumerable()) {
                 try { action(); } catch (Exception ex) { Console.WriteLine($"[EventLoop Error] {ex.Message}"); }
             }
+        }
+
+        // 【Phase 59: P0.1 核心】同步阻塞等待 Worker Thread 執行並返回結果
+        public LpcValue EnqueueAndAwait(Func<LpcValue> func) {
+            var tcs = new System.Threading.Tasks.TaskCompletionSource<LpcValue>();
+            _eventQueue.Add(() => {
+                try { tcs.SetResult(func()); } catch (Exception ex) { tcs.SetException(ex); }
+            });
+            return tcs.Task.Result;
         }
 
         public void EnqueueAction(Action action) => _eventQueue.Add(action);
