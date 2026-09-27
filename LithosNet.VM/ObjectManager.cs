@@ -98,7 +98,10 @@ namespace LithosNet.VM {
                 }
             }
             string objName = Path.GetFileNameWithoutExtension(fullPath);
-            if (_objects.ContainsKey(objName)) return _objects[objName].scope;
+            if (_objects.ContainsKey(objName)) {
+                Console.WriteLine($"🔍 [LoadObject] Cache HIT for {objName}. Skipping create().");
+                return _objects[objName].scope;
+            }
             return CompileAndRegister(fullPath, objName);
         }
 
