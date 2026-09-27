@@ -17,11 +17,10 @@ namespace LithosNet.VM {
     public class ReturnSignal : Exception { public LpcValue Value; public ReturnSignal(LpcValue v) { Value = v; } }
 
     public class Interpreter {
-        public string ObjectName { get; set; } = ""; // 【Phase 57: 終極防禦】預設空字串
+        public string ObjectName { get; set; } = ""; // 【Phase 58】唯一且安全的 ObjectName
+        // 【Phase 57: 終極防禦】預設空字串
         public Scope _scope;
         private readonly ObjectManager _objMgr;
-        public string ObjectName { get; set; } 
-
         public Interpreter(Scope scope, ObjectManager objMgr) { _scope = scope; _objMgr = objMgr; }
 
         public void Execute(List<AstNode> ast) { 

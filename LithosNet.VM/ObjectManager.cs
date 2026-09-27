@@ -45,6 +45,9 @@ namespace LithosNet.VM {
             _heartBeatTimer.Elapsed += OnHeartBeatTick;
             _heartBeatTimer.AutoReset = true;
             _heartBeatTimer.Start();
+            _workerThread = new System.Threading.Thread(EventLoop);
+            _workerThread.IsBackground = true;
+            _workerThread.Start();
             SetupDefaultNativeHandlers();
         }
         private readonly Dictionary<string, (Scope scope, Interpreter interp)> _objects = new();
@@ -213,22 +216,32 @@ namespace LithosNet.VM {
         // 【Phase 55.2/56: FluffOS 核心】SimulEfun Fallback 與生命週期管理
 
         // 【Phase 52: Heartbeat 方法】
-            public void SetHeartBeat(string objName, bool enable) {
+            
+        // 【Phase 58: FluffOS 核心】單執行緒事件循環 (偽多線程)
+        private void EventLoop() {
+            while (true) {
+                if (_eventQueue.TryDequeue(out var action)) {
+                    try { action(); } catch (Exception ex) { Console.WriteLine($"[EventLoop Error] {ex.Message}"); }
+                } else {
+                    System.Threading.Thread.Sleep(1);
+                }
+            }
+        }
+
+        public void SetHeartBeat(string objName, bool enable) {
                 if (enable) _heartBeatObjects.Add(objName);
                 else _heartBeatObjects.Remove(objName);
             }
 
-            private async void OnHeartBeatTick(object sender, System.Timers.ElapsedEventArgs e) {
-                var targets = _heartBeatObjects.ToList();
-                foreach (var objName in targets) {
-                    if (_objects.ContainsKey(objName)) {
-                        try {
-                            _ = Task.Run(() => CallFunction(objName, "heart_beat", Array.Empty<LpcValue>()));
-                        } catch { 
-                            // 忽略 Bot heart_beat 內部的錯誤，防止崩潰
-                        }
-                    }
+            private void OnHeartBeatTick(object sender, System.Timers.ElapsedEventArgs e) {
+            var targets = _heartBeatObjects.ToList();
+            foreach (var objName in targets) {
+                if (_objects.ContainsKey(objName)) {
+                    // 【Phase 58: FluffOS 核心】推入事件隊列，確保單執行緒順序執行，杜絕 Race Condition
+                    _eventQueue.Enqueue(() => CallFunction(objName, "heart_beat", Array.Empty<LpcValue>()));
                 }
+            }
+        }
             }
     }
 }
