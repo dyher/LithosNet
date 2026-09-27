@@ -250,4 +250,3 @@ namespace LithosNet.VM {
         }
             }
     }
-}
