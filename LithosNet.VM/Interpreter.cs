@@ -8,6 +8,12 @@ using System.Threading.Tasks;
 using LithosNet.Core;
 
 namespace LithosNet.VM {
+    // 【Phase 73-B: 核心架構】專門用於 LPC throw() 的異常類別
+    public class LpcThrowException : System.Exception {
+        public LpcValue Value { get; }
+        public LpcThrowException(LpcValue val) : base("LPC Throw") { Value = val; }
+    }
+
     public class BreakSignal : Exception { }
 
     public class LpcRuntimeException : Exception {
@@ -148,6 +154,53 @@ namespace LithosNet.VM {
 
                     case "environment":
                         return LpcValue.Create(GetRootScope().Environment);
+
+                                        case "explode":
+                        if (args.Count >= 2) {
+                            string str = args[0].AsString();
+                            string delimiter = args[1].AsString();
+                            if (string.IsNullOrEmpty(delimiter)) {
+                                return LpcValue.Create(new System.Collections.Generic.List<LpcValue> { LpcValue.Create(str) });
+                            }
+                            string[] parts = str.Split(new string[] { delimiter }, System.StringSplitOptions.None);
+                            var result = new System.Collections.Generic.List<LpcValue>();
+                            foreach (var p in parts) {
+                                result.Add(LpcValue.Create(p));
+                            }
+                            return LpcValue.Create(result);
+                        }
+                        return LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
+
+                    case "implode":
+                        if (args.Count >= 2) {
+                            var arr = args[0].AsArray();
+                            string delimiter = args[1].AsString();
+                            var strParts = new System.Collections.Generic.List<string>();
+                            foreach (var item in arr) {
+                                strParts.Add(item.AsString());
+                            }
+                            return LpcValue.Create(string.Join(delimiter, strParts));
+                        }
+                        return LpcValue.Create("");
+
+                    case "member_array":
+                        if (args.Count >= 2) {
+                            var target = args[0];
+                            var arr = args[1].AsArray();
+                            int index = -1;
+                            for (int i = 0; i < arr.Count; i++) {
+                                if (arr[i].Type == target.Type && arr[i].AsString() == target.AsString()) {
+                                    index = i;
+                                    break;
+                                }
+                            }
+                            return LpcValue.Create(index);
+                        }
+                        return LpcValue.Create(-1);
+
+                    case "throw":
+                        if (args.Count >= 1) throw new LpcThrowException(args[0]);
+                        throw new LpcThrowException(LpcValue.Create(0));
 
                     case "clonep":
                         if (args.Count >= 1) {
@@ -315,18 +368,21 @@ namespace LithosNet.VM {
                 case FunctionCallNode c:
 
                     // 【特殊形式】catch 必須延遲求值，否則 throw 會在參數準備階段就崩潰！
-                    if (c.Name == "catch") {
+                                        if (c.Name == "catch") {
                         try {
                             if (c.Arguments != null && c.Arguments.Count > 0) {
-                                Eval(c.Arguments[0]); // 在 try 區塊內安全執行
+                                Eval(c.Arguments[0]);
                             }
-
-                    
-
-                            return LpcValue.Create(0); // 沒有錯誤，返回 0
+                            return LpcValue.Create(0);
+                        } catch (LpcThrowException tex) {
+                            return tex.Value; // 【Phase 73-B】捕獲 LPC throw
                         } catch (LpcRuntimeException ex) {
-                            return LpcValue.Create(ex.Message); // 完美捕獲！
+                            return LpcValue.Create(ex.Message);
                         } catch (Exception ex) {
+                            // 【關鍵防禦】放行內部的 return/break 信號
+                            if (ex.GetType().Name.Contains("Return") || ex.GetType().Name.Contains("Signal") || ex.GetType().Name.Contains("Break")) {
+                                throw; 
+                            }
                             return LpcValue.Create("Runtime Error: " + ex.Message);
                         }
                     }
@@ -359,9 +415,7 @@ namespace LithosNet.VM {
                     
                     // 【核心路由】throw 必須在這裡被攔截！
                     if (c.Name == "throw") {
-                        string errMsg = "Unknown Error";
-                        if (cArgs.Count > 0) errMsg = cArgs[0].AsString();
-                        throw new LpcRuntimeException(errMsg);
+                        throw new LpcThrowException(cArgs.Count > 0 ? cArgs[0] : LpcValue.Create(0));
                     }
 
                     
