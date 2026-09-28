@@ -108,6 +108,45 @@ namespace LithosNet.VM {
                             try { return _objMgr.CallFunction(args[0].AsString(), args[1].AsString(), callArgs); } catch { return LpcValue.Create(0); }
                         }
                         return LpcValue.Create(0);
+                    case "to_string":
+                        if (args.Count >= 1) return LpcValue.Create(args[0].AsString());
+                        return LpcValue.Create(0);
+                    
+                    case "sizeof":
+                        if (args.Count >= 1) {
+                            var v = args[0];
+                            if (v.Type == LpcType.String) return LpcValue.Create(v.AsString().Length);
+                            if (v.Type == LpcType.Array) return LpcValue.Create(v.AsArray().Count);
+                            if (v.Type == LpcType.Mapping) return LpcValue.Create(v.AsMapping().Count);
+                        }
+                        return LpcValue.Create(0);
+
+                    case "clonep":
+                        if (args.Count >= 1) {
+                            string objName = args[0].AsString();
+                            return LpcValue.Create(objName.Contains("#") ? 1 : 0);
+                        }
+                        return LpcValue.Create(this.ObjectName.Contains("#") ? 1 : 0);
+
+                    case "objectp":
+                        if (args.Count >= 1) {
+                            string objName = args[0].AsString();
+                            var scope = _objMgr.GetScope(objName);
+                            return LpcValue.Create((scope != null && !scope.IsDestructed) ? 1 : 0);
+                        }
+                        return LpcValue.Create(0);
+
+                    case "destruct":
+                        if (args.Count >= 1) {
+                            string objName = args[0].AsString();
+                            var scope = _objMgr.GetScope(objName);
+                            if (scope != null && !scope.IsDestructed) {
+                                _objMgr.DestructObject(objName);
+                                return LpcValue.Create(1);
+                            }
+                        }
+                        return LpcValue.Create(0);
+
                 }
 
             throw new Exception($"[VM] Function '{name}' not found in current scope, efuns, or simul_efun.");

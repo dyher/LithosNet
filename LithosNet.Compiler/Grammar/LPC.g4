@@ -37,7 +37,7 @@ MAP_OPEN    : '([' ;
 MAP_CLOSE   : '])' ;
 LPAREN      : '(' ; RPAREN      : ')' ; LBRACE      : '{' ; RBRACE      : '}' ;
 LBRACKET    : '[' ; RBRACKET    : ']' ; SEMI        : ';' ; COMMA       : ',' ; COLON       : ':' ;
-ARROW       : '->' ; PLUS_ASSIGN: '+='; MINUS_ASSIGN: '-=';
+ARROW       : '->' ; PLUS_ASSIGN: '+='; MINUS_ASSIGN: '-='; SUPER_CALL : '::' ;
 
 // 【Parser 規則】
 program
@@ -78,6 +78,8 @@ statement
     : block
     | varDecl
     | ifStmt
+    | forStmt
+    | foreachStmt
     | switchStmt
     | breakStmt
     | whileStmt
@@ -162,12 +164,14 @@ primaryExpr
     : arrayLiteral
     | CLOSURE_OPEN ID CLOSURE_CLOSE
     | mappingLiteral
+    | SUPER_CALL ID LPAREN exprList? RPAREN
     | ID
     | INT_LITERAL
     | STRING_LITERAL
     | LPAREN expr RPAREN
-    
     ;
+
+exprList : expr (COMMA expr)* ;
 
 arrayLiteral : ARRAY_OPEN (expr (COMMA expr)*)? ARRAY_CLOSE ;
 
@@ -175,4 +179,8 @@ mappingLiteral : MAP_OPEN (expr COLON expr (COMMA expr COLON expr)*)? MAP_CLOSE 
 
 foreachStmt
     : FOREACH '(' ID IN expr ')' statement
+    ;
+
+forStmt
+    : FOR '(' (varDecl | exprStmt)? expr? ';' expr? ')' statement
     ;

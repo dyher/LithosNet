@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using LithosNet.Core;
-using LithosNet.Compiler.Ast;
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 
@@ -257,9 +256,19 @@ namespace LithosNet.Compiler {
         }
 
         public override AstNode VisitPrimaryExpr(LPCParser.PrimaryExprContext context) {
-            if (context.CLOSURE_OPEN() != null && context.ID() != null) {
-                return new FunctionPointerNode { FuncName = context.ID().GetText() };
+            if (context.SUPER_CALL() != null) {
+                var args = new System.Collections.Generic.List<AstNode>();
+                if (context.exprList() != null) {
+                    foreach(var e in context.exprList().expr()) {
+                        args.Add(Visit(e));
+                    }
+                }
+                return CreateNode("SuperCallNode", new System.Collections.Generic.Dictionary<string, object> { 
+                    { "FuncName", context.ID().GetText() }, 
+                    { "Arguments", args } 
+                });
             }
+            
 
             
             // 【最高優先級】Literal 路由
@@ -355,6 +364,32 @@ namespace LithosNet.Compiler {
 
         public override AstNode VisitBreakStmt(LPCParser.BreakStmtContext context) {
             return new BreakNode();
+        }
+
+        public override AstNode VisitForStmt(LPCParser.ForStmtContext context) {
+            var node = new ForNode();
+            
+            // Init: 可能是 varDecl 或 exprStmt
+            if (context.varDecl() != null) {
+                node.Init = Visit(context.varDecl());
+            } else if (context.exprStmt() != null) {
+                node.Init = Visit(context.exprStmt());
+            }
+            
+            // Condition 和 Step: 明確轉換為 IList 以避免 Method Group 錯誤
+            var exprs = context.expr() as System.Collections.Generic.IList<LPCParser.ExprContext>;
+            if (exprs != null) {
+                if (exprs.Count > 0) {
+                    node.Condition = Visit(exprs[0]);
+                }
+                if (exprs.Count > 1) {
+                    node.Step = Visit(exprs[1]);
+                }
+            }
+            
+            // Body
+            node.Body = Visit(context.statement());
+            return node;
         }
 
         public override AstNode VisitForeachStmt(LPCParser.ForeachStmtContext context) {

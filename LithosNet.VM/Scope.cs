@@ -5,8 +5,13 @@ using LithosNet.Core;
 
 namespace LithosNet.VM {
     public class Scope {
+        public bool IsDestructed { get; set; } = false;
         
         private readonly Dictionary<string, LpcValue> _variables = new();
+        
+        // 【Phase 66: 房間系統基礎】
+        public string Environment { get; set; } = ""; // 當前所在的房間/容器物件名稱
+        public readonly System.Collections.Generic.List<string> Inventory = new(); // 內部包含的物件名稱列表
         public Scope Parent { get; set; }
         private readonly Dictionary<string, FunctionDeclarationNode> _functions = new();
         private readonly Dictionary<string, Delegate> _compiledFunctions = new(); // 【JIT】原生 Delegate 快取
@@ -39,9 +44,16 @@ namespace LithosNet.VM {
         public Delegate GetCompiled(string name) => _compiledFunctions.TryGetValue(name, out var d) ? d : null;
 
         public void InheritFrom(Scope parent) {
+            this.Parent = parent; // 【Phase 64】建立原型鏈，支援 :: 查找
             foreach (var kvp in parent._variables) if (!_variables.ContainsKey(kvp.Key)) _variables[kvp.Key] = kvp.Value;
             foreach (var kvp in parent._functions) if (!_functions.ContainsKey(kvp.Key)) _functions[kvp.Key] = kvp.Value;
         }
+        
+        public FunctionDeclarationNode GetParentFunction(string name) {
+            if (Parent != null) return Parent.GetFunction(name);
+            throw new Exception($"[VM] Parent function '{name}' not found in inheritance chain.");
+        }
+        public bool HasParentFunction(string name) => Parent?.HasFunction(name) ?? false;
         
         public Dictionary<string, LpcValue> GetAllVariables() => _variables;
         public Dictionary<string, FunctionDeclarationNode> GetFunctions() => _functions;

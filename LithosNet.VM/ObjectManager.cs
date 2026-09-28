@@ -9,6 +9,10 @@ using LithosNet.Compiler;
 
 namespace LithosNet.VM {
     public class ObjectManager {
+        public Scope GetScope(string objName) {
+            if (_objects.TryGetValue(objName, out var tuple)) return tuple.scope;
+            return null;
+        }
 
         // 【Phase 60: call_out 核心欄位】
         private readonly object _callOutLock = new object();
@@ -143,9 +147,9 @@ namespace LithosNet.VM {
         // 【地雷 A 修復】純記憶體解析，由 Worker Thread 執行
         private Scope ParseAndRegisterFromSource(string src, string objName) {
             var inputStream = new Antlr4.Runtime.AntlrInputStream(src);
-            var lexer = new LithosNet.Compiler.Ast.LPCLexer(inputStream);
+            var lexer = new LPCLexer(inputStream);
             var tokenStream = new Antlr4.Runtime.CommonTokenStream(lexer);
-            var parser = new LithosNet.Compiler.Ast.LPCParser(tokenStream);
+            var parser = new LPCParser(tokenStream);
             var tree = parser.program();
             var builder = new LithosNet.Compiler.AstBuilder();
                 var ast = new System.Collections.Generic.List<LithosNet.Core.AstNode>();
