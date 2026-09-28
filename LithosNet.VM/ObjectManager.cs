@@ -9,6 +9,8 @@ using LithosNet.Compiler;
 
 namespace LithosNet.VM {
     public class ObjectManager {
+        private int _globalCallDepth = 0;
+        private const int MaxCallDepth = 800;
         public Scope GetScope(string objName) {
             if (_objects.TryGetValue(objName, out var tuple)) return tuple.scope;
             return null;
@@ -203,6 +205,8 @@ namespace LithosNet.VM {
         
 
         public LpcValue CallFunction(string objName, string funcName, params LpcValue[] args) {
+            // 【Phase 71: 終極防護】每次外部呼叫重置 Eval 深度計數器
+            LithosNet.VM.Interpreter.ResetEvalDepth();
             if (!_objects.ContainsKey(objName)) throw new Exception($"[VM] Object '{objName}' not loaded.");
             AssertThreadAffinity("CallFunction");
             return _objects[objName].interp.CallFunction(funcName, new List<LpcValue>(args));
@@ -361,6 +365,7 @@ namespace LithosNet.VM {
         }
 
         private void ProcessCallOuts() {
+            _globalCallDepth = 0; // 【Phase 71: 定期重置】
             long now = DateTime.UtcNow.Ticks;
             System.Collections.Generic.List<CallOutTask> triggered = new System.Collections.Generic.List<CallOutTask>();
             lock (_callOutLock) {

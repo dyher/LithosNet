@@ -17,6 +17,9 @@ namespace LithosNet.VM {
     public class ReturnSignal : Exception { public LpcValue Value; public ReturnSignal(LpcValue v) { Value = v; } }
 
     public class Interpreter {
+        public static void ResetEvalDepth() { _globalCallDepth = 0; }
+        private static int _globalCallDepth = 0;
+        private const int MaxCallDepth = 100;
         // 【Phase 61: 終極修復】指令路由表屬於 Object (Interpreter)，不屬於詞法 Scope
         public System.Collections.Generic.Dictionary<string, string> Actions = new System.Collections.Generic.Dictionary<string, string>();
 
@@ -36,6 +39,12 @@ namespace LithosNet.VM {
         }
 
         public LpcValue CallFunction(string name, List<LpcValue> args) {
+            _globalCallDepth++;
+            if (_globalCallDepth > MaxCallDepth) {
+                _globalCallDepth--;
+                throw new System.Exception($"[VM] Max call depth exceeded ({MaxCallDepth}). Infinite recursion detected in '{name}'.");
+            }
+
             Console.WriteLine($"🔍 [CallFunc Entry] Calling: '{name}'");
             var compiled = _scope.GetCompiled(name);
             Console.WriteLine($"🔍 [CallFunc Entry] '{name}' JIT Status: {(compiled != null ? "HIT (Bypassing Interpreter!)" : "MISS")}");
@@ -273,7 +282,19 @@ namespace LithosNet.VM {
                 case LiteralNode l: return l.Value;
                 case VariableRefNode v: var val = _scope.Get(v.Name); Console.WriteLine($"🔍 [VarRef X-Ray] Reading \'{v.Name}\' -> Type: {val.Type}, Val: {val.AsInt()}"); return val;
                 case FunctionPointerNode fp: return LpcValue.CreateFunction(this.ObjectName, fp.FuncName);
+                                case SuperCallNode sc:
+                    // 【Phase 71: 繼承系統】處理 Parent::function() 呼叫
+                    if (!_scope.HasParentFunction(sc.FuncName)) throw new Exception($"[VM] Parent function '{sc.FuncName}' not found.");
+                    var pFunc = _scope.GetParentFunction(sc.FuncName);
+                    if (pFunc.Body != null) { 
+                        foreach (var stmt in pFunc.Body) { 
+                            Visit(stmt); // 【關鍵修復】語句必須用 Visit 執行，而非 Eval！
+                        } 
+                    }
+                    return LpcValue.Create(0);
+
                 case FunctionCallNode c:
+
                     // 【特殊形式】catch 必須延遲求值，否則 throw 會在參數準備階段就崩潰！
                     if (c.Name == "catch") {
                         try {
@@ -629,6 +650,19 @@ namespace LithosNet.VM {
                     return LpcValue.Create(0);
                 case BinaryOpNode b:
                     b.Op = b.Op?.Trim(); // 【創世修復】強制 Trim 運算子！
+                    
+                    // 【Phase 69/71 核心修復】攔截 && 和 ||，確保正確的邏輯運算與短路求值
+                    if (b.Op == "&&") {
+                        bool leftBool = EvalBool(b.Left);
+                        if (!leftBool) return LpcValue.Create(0);
+                        return LpcValue.Create(EvalBool(b.Right) ? 1 : 0);
+                    }
+                    if (b.Op == "||") {
+                        bool leftBool = EvalBool(b.Left);
+                        if (leftBool) return LpcValue.Create(1);
+                        return LpcValue.Create(EvalBool(b.Right) ? 1 : 0);
+                    }
+                    
                     var left = Eval(b.Left); var right = Eval(b.Right);
                     if (b.Op != null && b.Op.Contains("*")) Console.WriteLine($"🔍 [BinaryOp X-Ray] Op=[{b.Op}] (len={b.Op.Length}) | L={left.Type}:{left.AsInt()} | R={right.Type}:{right.AsInt()}");
                     if (b.Op == "+") {
