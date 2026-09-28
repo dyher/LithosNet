@@ -11,6 +11,7 @@ namespace LithosNet.VM {
         
         // 【Phase 66: 房間系統基礎】
         public string Environment { get; set; } = ""; // 當前所在的房間/容器物件名稱
+        public readonly System.Collections.Generic.Dictionary<string, string> Actions = new(); // 【Phase 72: 指令路由註冊表】
         public readonly System.Collections.Generic.List<string> Inventory = new(); // 內部包含的物件名稱列表
         public Scope Parent { get; set; }
         private readonly Dictionary<string, FunctionDeclarationNode> _functions = new();

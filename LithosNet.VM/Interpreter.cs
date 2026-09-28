@@ -17,11 +17,20 @@ namespace LithosNet.VM {
     public class ReturnSignal : Exception { public LpcValue Value; public ReturnSignal(LpcValue v) { Value = v; } }
 
     public class Interpreter {
+        // 【Phase 72: 核心架構】獲取物件的根 Scope，確保狀態修改(如 add_action)不會丟失在 localScope 中
+        private Scope GetRootScope() {
+            Scope root = _scope;
+            while (root.Parent != null) {
+                root = root.Parent;
+            }
+            return root;
+        }
+
         public static void ResetEvalDepth() { _globalCallDepth = 0; }
         private static int _globalCallDepth = 0;
         private const int MaxCallDepth = 100;
         // 【Phase 61: 終極修復】指令路由表屬於 Object (Interpreter)，不屬於詞法 Scope
-        public System.Collections.Generic.Dictionary<string, string> Actions = new System.Collections.Generic.Dictionary<string, string>();
+        
 
         public string ObjectName { get; set; } = ""; // 【Phase 58】唯一且安全的 ObjectName
         // 【Phase 57: 終極防禦】預設空字串
@@ -129,6 +138,16 @@ namespace LithosNet.VM {
                             if (v.Type == LpcType.Mapping) return LpcValue.Create(v.AsMapping().Count);
                         }
                         return LpcValue.Create(0);
+
+                                        case "set_environment":
+                        if (args.Count >= 1) {
+                            GetRootScope().Environment = args[0].AsString();
+                            return LpcValue.Create(1);
+                        }
+                        return LpcValue.Create(0);
+
+                    case "environment":
+                        return LpcValue.Create(GetRootScope().Environment);
 
                     case "clonep":
                         if (args.Count >= 1) {
@@ -586,30 +605,57 @@ namespace LithosNet.VM {
                     if (c.Name == "add_action" && cArgs.Count >= 2) {
                         string func = cArgs[0].AsString();
                         string verb = cArgs[1].AsString();
-                        this.Actions[verb] = func;
-                        Console.WriteLine($"🔥 [DEBUG add_action] Registered verb='{verb}' -> func='{func}' in Object Hash={this.GetHashCode()}, Total Actions={this.Actions.Count}");
+                        // 【關鍵修復】必須註冊到根 Scope，否則會在 localScope 銷毀時丟失！
+                        Scope root = GetRootScope();
+                        root.Actions[verb] = func;
+                        Console.WriteLine($"🔥 [DEBUG add_action] Registered verb='{verb}' -> func='{func}' in Root Scope Hash={root.GetHashCode()}, Total Actions={root.Actions.Count}");
                         return LpcValue.Create(1);
                     }
 
                     // 【Phase 61: FluffOS 靈魂】command: 觸發指令路由
+                    // 【Phase 72: 鏈式指令路由】command: 觸發指令路由 (當前物件根 Scope -> 環境物件根 Scope)
                     if (c.Name == "command" && cArgs.Count >= 1) {
                         string input = cArgs[0].AsString().Trim();
                         string[] parts = input.Split(new char[] { ' ' }, 2);
                         string verb = parts[0];
-                        string args = parts.Length > 1 ? parts[1] : "";
-                        Console.WriteLine($"🔥 [DEBUG command] Searching verb='{verb}' in Object Hash={this.GetHashCode()}, Total Actions={this.Actions.Count}");
-                        if (this.Actions.TryGetValue(verb, out string funcName)) {
-                            Console.WriteLine($"✅ [DEBUG command] MATCH FOUND! verb='{verb}' -> func='{funcName}'");
+                        string cmdArgs = parts.Length > 1 ? parts[1] : "";
+                        
+                        Scope rootScope = GetRootScope();
+                        Console.WriteLine($"🔍 [DEBUG command] Searching verb='{verb}' in Root Scope Hash={rootScope.GetHashCode()}, Actions Count={rootScope.Actions.Count}");
+                        
+                        // 1. 優先查找當前物件根 Scope 的 Actions
+                        if (rootScope.Actions.TryGetValue(verb, out string funcName)) {
+                            Console.WriteLine($"✅ [DEBUG command] MATCH FOUND in current object! verb='{verb}' -> func='{funcName}'");
                             try {
-                                // 呼叫註冊的函數，並將剩餘參數傳入
-                                return CallFunction(funcName, new System.Collections.Generic.List<LpcValue> { LpcValue.Create(args) });
+                                return CallFunction(funcName, new System.Collections.Generic.List<LpcValue> { LpcValue.Create(cmdArgs) });
                             } catch (Exception ex) {
                                 Console.WriteLine($"[command] Error executing {funcName}: {ex.Message}");
                                 return LpcValue.Create(0);
                             }
                         }
+                        
+                        // 2. 鏈式查找：如果當前物件沒有，查找環境物件 (房間)
+                        if (!string.IsNullOrEmpty(rootScope.Environment)) {
+                            var envScope = _objMgr.GetScope(rootScope.Environment);
+                            if (envScope != null) {
+                                // 環境物件也需要獲取其根 Scope
+                                Scope envRoot = envScope;
+                                while (envRoot.Parent != null) envRoot = envRoot.Parent;
+                                
+                                if (envRoot.Actions.TryGetValue(verb, out string envFuncName)) {
+                                    Console.WriteLine($"✅ [DEBUG command] MATCH FOUND in environment! verb='{verb}' -> func='{envFuncName}'");
+                                    try {
+                                        return _objMgr.CallFunction(rootScope.Environment, envFuncName, new LpcValue[] { LpcValue.Create(cmdArgs) });
+                                    } catch (Exception ex) {
+                                        Console.WriteLine($"[command] Error executing env {envFuncName}: {ex.Message}");
+                                        return LpcValue.Create(0);
+                                    }
+                                }
+                            }
+                        }
+                        
                         Console.WriteLine($"❌ [DEBUG command] NO MATCH for verb='{verb}'!");
-                        return LpcValue.Create(0); // 指令未找到
+                        return LpcValue.Create(0);
                     }
                     if (c.Name == "send_to_user" && cArgs.Count >= 1) { string target = this.ObjectName; // 【FluffOS 語意】嚴格發給當前執行的物件 (this_object)
                         Task.Run(() => SessionManager.SendAsync(target, cArgs[0].AsString())); return LpcValue.Create(1); }
