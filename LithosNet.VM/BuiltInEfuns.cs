@@ -122,11 +122,6 @@ namespace LithosNet.VM {
             return LpcValue.Create(1);
         }
 
-        // [Efun("this_object")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
-        public static LpcValue ThisObject(EfunContext ctx, LpcValue[] args) {
-            return LpcValue.Create(ctx.CurrentObject ?? "unknown");
-        }
-
         // [Efun("clone_object")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
         public static LpcValue CloneObject(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 1) {
@@ -235,12 +230,6 @@ namespace LithosNet.VM {
             return LpcValue.Create(0);
         }
 
-        // [Efun("tell_object")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
-        public static LpcValue TellObject(EfunContext ctx, LpcValue[] args) {
-            if (args.Length >= 2) SessionManager.SendAsync(args[0].AsString(), args[1].AsString()).GetAwaiter().GetResult();
-            return LpcValue.Create(1);
-        }
-
         [Efun("shout")]
         public static LpcValue Shout(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 1) {
@@ -321,6 +310,44 @@ namespace LithosNet.VM {
             
             return LpcValue.Create(string.Join(delimiter, arr.Select(v => v.AsString())));
         }
+        [Efun("this_object")]
+        public static LpcValue ThisObject(EfunContext ctx, LpcValue[] args) {
+            return LpcValue.Create(ctx.CurrentObject ?? "unknown");
+        }
+
+        [Efun("write")]
+        public static LpcValue Write(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1 && ctx.CurrentObject != null) {
+                SessionManager.SendAsync(ctx.CurrentObject, args[0].AsString()).GetAwaiter().GetResult();
+            }
+            return LpcValue.Create(1);
+        }
+
+        [Efun("tell_object")]
+        public static LpcValue TellObject(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2) {
+                SessionManager.SendAsync(args[0].AsString(), args[1].AsString()).GetAwaiter().GetResult();
+            }
+            return LpcValue.Create(1);
+        }
+
+        [Efun("input_to")]
+        public static LpcValue InputTo(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1 && ctx.CurrentObject != null) {
+                SessionManager.SetInputTrap(ctx.CurrentObject, args[0].AsString());
+            }
+            return LpcValue.Create(1);
+        }
+
+        [Efun("objectp")]
+        public static LpcValue Objectp(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                var scope = ctx.ObjMgr.GetScope(args[0].AsString());
+                return LpcValue.Create((scope != null && !scope.IsDestructed) ? 1 : 0);
+            }
+            return LpcValue.Create(0);
+        }
+
 
         [Efun("get_tick")]
         public static LpcValue GetTick(EfunContext ctx, LpcValue[] args) { return LpcValue.Create(Environment.TickCount); }

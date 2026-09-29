@@ -99,15 +99,6 @@ namespace LithosNet.VM {
 
                 // 【Phase 63: 終極修復】在拋出異常前處理所有核心 efun
                 switch (name) {
-                    case "tell_object":
-                        if (args.Count >= 2) _ = SessionManager.SendAsync(args[0].AsString(), args[1].AsString());
-                        return LpcValue.Create(1);
-                    case "write":
-                        if (args.Count >= 1) _ = SessionManager.SendAsync(this.ObjectName, args[0].AsString());
-                        return LpcValue.Create(1);
-                    case "input_to":
-                        if (args.Count >= 1) SessionManager.SetInputTrap(this.ObjectName, args[0].AsString());
-                        return LpcValue.Create(1);
                     case "exec":
                         if (args.Count >= 2) {
                             SessionManager.Exec(args[0].AsString(), args[1].AsString());
@@ -207,14 +198,6 @@ namespace LithosNet.VM {
                             return LpcValue.Create(objName.Contains("#") ? 1 : 0);
                         }
                         return LpcValue.Create(this.ObjectName.Contains("#") ? 1 : 0);
-
-                    case "objectp":
-                        if (args.Count >= 1) {
-                            string objName = args[0].AsString();
-                            var scope = _objMgr.GetScope(objName);
-                            return LpcValue.Create((scope != null && !scope.IsDestructed) ? 1 : 0);
-                        }
-                        return LpcValue.Create(0);
 
                     case "destruct":
                         if (args.Count >= 1) {
