@@ -123,7 +123,7 @@ namespace LithosNet.VM {
         }
 
         // [Efun("clone_object")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
-        public static LpcValue CloneObject(EfunContext ctx, LpcValue[] args) {
+        public static LpcValue OldCloneObject(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 1) {
                 string blueprint = args[0].AsString();
                 string cloneName = blueprint + "#" + Guid.NewGuid().ToString().Substring(0, 4);
@@ -134,7 +134,7 @@ namespace LithosNet.VM {
         }
 
         // [Efun("exec")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
-        public static LpcValue Exec(EfunContext ctx, LpcValue[] args) {
+        public static LpcValue OldExec(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 2) {
                 SessionManager.Exec(args[0].AsString(), args[1].AsString());
             }
@@ -142,7 +142,7 @@ namespace LithosNet.VM {
         }
 
         // [Efun("destruct")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
-        public static LpcValue Destruct(EfunContext ctx, LpcValue[] args) {
+        public static LpcValue OldDestruct(EfunContext ctx, LpcValue[] args) {
             return LpcValue.Create(1);
         }
 
@@ -347,6 +347,98 @@ namespace LithosNet.VM {
             }
             return LpcValue.Create(0);
         }
+        [Efun("clone_object")]
+        public static LpcValue CloneObject(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) return LpcValue.Create(ctx.ObjMgr.Clone(args[0].AsString()));
+            return LpcValue.Create(0);
+        }
+
+        [Efun("exec")]
+        public static LpcValue Exec(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2) {
+                SessionManager.Exec(args[0].AsString(), args[1].AsString());
+                try { ctx.ObjMgr.CallFunction(args[1].AsString(), "logon"); } catch {}
+            }
+            return LpcValue.Create(1);
+        }
+
+        [Efun("destruct")]
+        public static LpcValue Destruct(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                string objName = args[0].AsString();
+                var scope = ctx.ObjMgr.GetScope(objName);
+                if (scope != null && !scope.IsDestructed) {
+                    ctx.ObjMgr.DestructObject(objName);
+                    return LpcValue.Create(1);
+                }
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("call_other")]
+        public static LpcValue CallOther(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2) {
+                var callArgs = args.Length > 2 ? args[2..] : new LpcValue[0];
+                try { return ctx.ObjMgr.CallFunction(args[0].AsString(), args[1].AsString(), callArgs); } 
+                catch { return LpcValue.Create(0); }
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("set_environment")]
+        public static LpcValue SetEnvironment(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1 && ctx.CurrentScope != null) {
+                ctx.CurrentScope.Environment = args[0].AsString();
+                return LpcValue.Create(1);
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("environment")]
+        public static LpcValue GetEnvironment(EfunContext ctx, LpcValue[] args) { // 改名避免與 System.Environment 衝突
+            return LpcValue.Create(ctx.CurrentScope?.Environment ?? "");
+        }
+
+        [Efun("throw")]
+        public static LpcValue ThrowEfun(EfunContext ctx, LpcValue[] args) { // 改名避免與 C# throw 關鍵字衝突
+            throw new LpcThrowException(args.Length >= 1 ? args[0] : LpcValue.Create(0));
+        }
+
+        [Efun("save_object")]
+        public static LpcValue SaveObject(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1 && ctx.CurrentScope != null) {
+                string path = System.IO.Path.Combine("/home/tiny/LithosNet/mudlib/save", args[0].AsString() + ".json");
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+                var dict = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, object>>();
+                foreach (var kvp in ctx.CurrentScope.GetAllVariablesDeep()) {
+                    var val = kvp.Value;
+                    dict[kvp.Key] = new System.Collections.Generic.Dictionary<string, object> {
+                        { "type", val.Type.ToString() },
+                        { "value", val.Type == LpcType.String ? val.AsString() : (object)val.AsInt() }
+                    };
+                }
+                System.IO.File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(dict));
+                return LpcValue.Create(1);
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("restore_object")]
+        public static LpcValue RestoreObject(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1 && ctx.CurrentScope != null) {
+                string path = System.IO.Path.Combine("/home/tiny/LithosNet/mudlib/save", args[0].AsString() + ".json");
+                if (!System.IO.File.Exists(path)) return LpcValue.Create(0);
+                var dict = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement>>(System.IO.File.ReadAllText(path));
+                foreach (var kvp in dict) {
+                    string typeStr = kvp.Value.GetProperty("type").GetString();
+                    if (typeStr == "String") ctx.CurrentScope.Set(kvp.Key, LpcValue.Create(kvp.Value.GetProperty("value").GetString()));
+                    else if (typeStr == "Int") ctx.CurrentScope.Set(kvp.Key, LpcValue.Create(kvp.Value.GetProperty("value").GetInt32()));
+                }
+                return LpcValue.Create(1);
+            }
+            return LpcValue.Create(0);
+        }
+
 
 
         [Efun("get_tick")]
