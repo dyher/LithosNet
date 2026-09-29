@@ -61,18 +61,6 @@ namespace LithosNet.VM {
             }
 
             Console.WriteLine($"🔍 [CallFunc Entry] Calling: '{name}'");
-            var compiled = _scope.GetCompiled(name);
-            Console.WriteLine($"🔍 [CallFunc Entry] '{name}' JIT Status: {(compiled != null ? "HIT (Bypassing Interpreter!)" : "MISS")}");
-
-            // 🔥【極致效能】優先呼叫 JIT 編譯後的 Delegate (納秒級跳轉)
-            // var compiled (Duplicate removed) = _scope.GetCompiled(name);
-            if (compiled != null) {
-                int arg1 = args.Count > 0 ? args[0].AsInt() : 0;
-                int arg2 = args.Count > 1 ? args[1].AsInt() : 0;
-                int result = ((Func<int, int, int>)compiled).Invoke(arg1, arg2);
-                return LpcValue.Create(result);
-            }
-
             
             if (_scope.HasFunction(name)) {
                 var func = _scope.GetFunction(name);
@@ -662,16 +650,6 @@ namespace LithosNet.VM {
                     }
                     if (c.Name == "objectp" && cArgs.Count >= 1) return LpcValue.Create(_objMgr.ObjectExists(cArgs[0].AsString()) ? 1 : 0);
                     
-                    // 🔥 觸發 JIT 編譯
-                    if (c.Name == "compile_function" && cArgs.Count >= 1) {
-                        string fName = cArgs[0].AsString();
-                        var funcNode = _scope.GetFunction(fName);
-                        var del = JitCompiler.Compile(funcNode);
-                        _scope.SetCompiled(fName, del);
-                        Console.WriteLine($"⚡ [JIT] 函數 {fName} 已編譯為原生 IL 機器碼！");
-                        return LpcValue.Create(1);
-                    }
-
                     // 【Phase 60: 純淨版】call_out
                     if (c.Name == "call_out" && cArgs.Count >= 2) {
                         string func = cArgs[0].AsString();

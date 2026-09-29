@@ -15,7 +15,6 @@ namespace LithosNet.VM {
         public readonly System.Collections.Generic.List<string> Inventory = new(); // 內部包含的物件名稱列表
         public Scope Parent { get; set; }
         private readonly Dictionary<string, FunctionDeclarationNode> _functions = new();
-        private readonly Dictionary<string, Delegate> _compiledFunctions = new(); // 【JIT】原生 Delegate 快取
 
         public void Set(string name, LpcValue value) {
             if (_variables.ContainsKey(name)) {
@@ -41,8 +40,6 @@ namespace LithosNet.VM {
         public bool Has(string name) => _variables.ContainsKey(name) || (Parent?.Has(name) ?? false);
 
         // 【JIT】存取編譯後的 Delegate
-        public void SetCompiled(string name, Delegate del) => _compiledFunctions[name] = del;
-        public Delegate GetCompiled(string name) => _compiledFunctions.TryGetValue(name, out var d) ? d : null;
 
         public void InheritFrom(Scope parent) {
             this.Parent = parent; // 【Phase 64】建立原型鏈，支援 :: 查找
