@@ -711,6 +711,94 @@ namespace LithosNet.VM {
             return LpcValue.Create(args.Length >= 1 && args[0].Type == LpcType.Array ? 1 : 0);
         }
 
+        
+        // ==========================================
+        // 【Phase 81.2: 4 大高頻核心 Efun 補齊】
+        // ==========================================
+        [Efun("allocate")]
+        public static LpcValue Allocate(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1 && args[0].Type == LpcType.Int) {
+                int size = args[0].AsInt();
+                var arr = new System.Collections.Generic.List<LpcValue>();
+                LpcValue def = args.Length >= 2 ? args[1] : LpcValue.Create(0);
+                for (int i = 0; i < size; i++) arr.Add(def);
+                return LpcValue.Create(arr);
+            }
+            return LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
+        }
+
+        [Efun("get_dir")]
+        public static LpcValue GetDir(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                string path = args[0].AsString();
+                string dir = System.IO.Path.GetDirectoryName(path) ?? ".";
+                string pattern = System.IO.Path.GetFileName(path) ?? "*";
+                if (string.IsNullOrEmpty(dir)) dir = ".";
+                
+                var result = new System.Collections.Generic.List<LpcValue>();
+                try {
+                    foreach (var f in System.IO.Directory.GetFiles(dir, pattern)) {
+                        result.Add(LpcValue.Create(System.IO.Path.GetFileName(f)));
+                    }
+                    foreach (var d in System.IO.Directory.GetDirectories(dir, pattern)) {
+                        result.Add(LpcValue.Create(System.IO.Path.GetFileName(d) + "/"));
+                    }
+                } catch {}
+                return LpcValue.Create(result);
+            }
+            return LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
+        }
+
+        [Efun("map_array")]
+        public static LpcValue MapArray(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2 && args[0].Type == LpcType.Array && args[1].Type == LpcType.String) {
+                var arr = args[0].AsArray();
+                string func = args[1].AsString();
+                var result = new System.Collections.Generic.List<LpcValue>();
+                foreach (var item in arr) {
+                    try {
+                        var res = ctx.ObjMgr.CallFunction(ctx.CurrentObject, func, new LpcValue[] { item });
+                        result.Add(res);
+                    } catch {
+                        result.Add(item);
+                    }
+                }
+                return LpcValue.Create(result);
+            }
+            return args.Length >= 1 ? args[0] : LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
+        }
+
+        [Efun("sscanf")]
+        public static LpcValue Sscanf(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2) {
+                string str = args[0].AsString();
+                string fmt = args[1].AsString();
+                
+                string regexPattern = "^" + System.Text.RegularExpressions.Regex.Escape(fmt)
+                    .Replace("%s", "(.*?)")
+                    .Replace("%d", "(\\d+)")
+                    .Replace("%O", "(.*?)")
+                    .Replace("%f", "([\\d\\.]+)") + "$";
+                
+                var match = System.Text.RegularExpressions.Regex.Match(str, regexPattern);
+                if (match.Success) {
+                    int matchCount = match.Groups.Count - 1;
+                    for (int i = 0; i < System.Math.Min(matchCount, args.Length - 2); i++) {
+                        string valStr = match.Groups[i + 1].Value;
+                        LpcValue assignVal;
+                        if (int.TryParse(valStr, out int intVal) && fmt.Contains("%d")) {
+                            assignVal = LpcValue.Create(intVal);
+                        } else {
+                            assignVal = LpcValue.Create(valStr);
+                        }
+                        string varName = args[i + 2].AsString();
+                        ctx.CurrentScope.Set(varName, assignVal);
+                    }
+                    return LpcValue.Create(matchCount);
+                }
+            }
+            return LpcValue.Create(0);
+        }
         [Efun("get_tick")]
         public static LpcValue GetTick(EfunContext ctx, LpcValue[] args) { return LpcValue.Create(Environment.TickCount); }
     

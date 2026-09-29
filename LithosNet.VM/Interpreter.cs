@@ -349,13 +349,20 @@ namespace LithosNet.VM {
 
                 case FunctionCallNode c:
 
-                    // 【特殊形式】catch 必須延遲求值，否則 throw 會在參數準備階段就崩潰！
-                                        if (c.Name == "catch") {
-                        try { if (c.Arguments != null && c.Arguments.Count > 0) Eval(c.Arguments[0]); return LpcValue.Create(0); }
-                        catch (LpcThrowException tex) { return tex.Value; }
-                        catch (LpcRuntimeException ex) { return LpcValue.Create(ex.Message); }
-                        catch (Exception ex) {
-                            if (ex.GetType().Name.Contains("Return") || ex.GetType().Name.Contains("Signal") || ex.GetType().Name.Contains("Break")) throw; 
+                    // 【特殊形式】catch 必須特殊處理，以捕獲 LPC 的 throw 異常
+                    if (c.Name == "catch" && c.Arguments != null && c.Arguments.Count > 0) {
+                        try {
+                            // 直接 Eval 參數表達式 (例如: catch( func() ) 會執行 func 並捕獲其 throw)
+                            Eval(c.Arguments[0]);
+                            return LpcValue.Create(0); // 沒有異常，返回 0
+                        } catch (LpcThrowException tex) {
+                            // 捕獲 throw，返回錯誤資訊 (確保是字串)
+                            return tex.Value.Type == LpcType.String ? tex.Value : LpcValue.Create(tex.Value.ToString());
+                        } catch (LpcRuntimeException ex) {
+                            return LpcValue.Create(ex.Message);
+                        } catch (System.Exception ex) {
+                            // 放行控制流異常 (Return, Break 等)
+                            if (ex.GetType().Name.Contains("Return") || ex.GetType().Name.Contains("Signal") || ex.GetType().Name.Contains("Break")) throw;
                             return LpcValue.Create("Runtime Error: " + ex.Message);
                         }
                     }
