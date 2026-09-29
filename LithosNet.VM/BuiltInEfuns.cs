@@ -574,6 +574,100 @@ namespace LithosNet.VM {
             return LpcValue.Create(0);
         }
 
+        
+        // ==========================================
+        // 【Phase 80.2: 檔案系統核心 Efun】
+        // ==========================================
+        [Efun("file_size")]
+        public static LpcValue FileSize(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                string path = args[0].AsString();
+                if (System.IO.File.Exists(path)) {
+                    return LpcValue.Create((int)new System.IO.FileInfo(path).Length);
+                }
+                if (System.IO.Directory.Exists(path)) {
+                    return LpcValue.Create(-2); // FluffOS 標準：目錄回傳 -2
+                }
+                return LpcValue.Create(-1); // FluffOS 標準：不存在回傳 -1
+            }
+            return LpcValue.Create(-1);
+        }
+
+        [Efun("read_file")]
+        public static LpcValue ReadFile(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                string path = args[0].AsString();
+                try {
+                    if (System.IO.File.Exists(path)) {
+                        return LpcValue.Create(System.IO.File.ReadAllText(path));
+                    }
+                } catch {
+                    // 讀取失敗回傳 0
+                }
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("write_file")]
+        public static LpcValue WriteFile(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2) {
+                string path = args[0].AsString();
+                string text = args[1].AsString();
+                int append = args.Length >= 3 ? args[2].AsInt() : 0;
+                
+                try {
+                    // 確保目錄存在
+                    string dir = System.IO.Path.GetDirectoryName(path);
+                    if (!string.IsNullOrEmpty(dir)) {
+                        System.IO.Directory.CreateDirectory(dir);
+                    }
+                    
+                    if (append != 0) {
+                        System.IO.File.AppendAllText(path, text);
+                    } else {
+                        System.IO.File.WriteAllText(path, text);
+                    }
+                    return LpcValue.Create(1);
+                } catch {
+                    return LpcValue.Create(0);
+                }
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("mkdir")]
+        public static LpcValue Mkdir(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                string path = args[0].AsString();
+                try {
+                    System.IO.Directory.CreateDirectory(path);
+                    return LpcValue.Create(1);
+                } catch {
+                    return LpcValue.Create(0);
+                }
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("rm")]
+        public static LpcValue Rm(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                string path = args[0].AsString();
+                try {
+                    if (System.IO.File.Exists(path)) {
+                        System.IO.File.Delete(path);
+                        return LpcValue.Create(1);
+                    }
+                    if (System.IO.Directory.Exists(path)) {
+                        System.IO.Directory.Delete(path, true); // true = recursive
+                        return LpcValue.Create(1);
+                    }
+                } catch {
+                    return LpcValue.Create(0);
+                }
+            }
+            return LpcValue.Create(0);
+        }
         [Efun("get_tick")]
         public static LpcValue GetTick(EfunContext ctx, LpcValue[] args) { return LpcValue.Create(Environment.TickCount); }
     
