@@ -457,7 +457,89 @@ namespace LithosNet.VM {
 
 
 
+        
+        // ==========================================
+        // 【Phase 77: 補齊核心基礎 Efun】
+        // ==========================================
+        [Efun("to_string")]
+        public static LpcValue ToString(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) return LpcValue.Create(args[0].ToString());
+            return LpcValue.Create("");
+        }
+
+        [Efun("member_array")]
+        public static LpcValue MemberArray(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2 && args[1].Type == LpcType.Array) {
+                var target = args[0];
+                var arr = args[1].AsArray();
+                for (int i = 0; i < arr.Count; i++) {
+                    if (arr[i].Equals(target)) return LpcValue.Create(i);
+                }
+            }
+            return LpcValue.Create(-1);
+        }
+
+        [Efun("clonep")]
+        public static LpcValue Clonep(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                string objName = args[0].AsString();
+                var scope = ctx.ObjMgr.GetScope(objName);
+                return LpcValue.Create(scope != null && objName.Contains("#") ? 1 : 0);
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("call_out")]
+        public static LpcValue CallOut(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2 && ctx.CurrentObject != null) {
+                string funcName = args[0].AsString();
+                int delay = args[1].AsInt();
+                var callArgs = args.Length > 2 ? new System.Collections.Generic.List<LpcValue>(args[2..]) : new System.Collections.Generic.List<LpcValue>();
+                ctx.ObjMgr.ScheduleCallOut(ctx.CurrentObject, funcName, delay, callArgs);
+                return LpcValue.Create(1); // 返回 1 表示成功調度
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("remove_call_out")]
+        public static LpcValue RemoveCallOut(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1 && ctx.CurrentObject != null) {
+                string funcNameOrHandle = args[0].AsString();
+                bool removed = ctx.ObjMgr.RemoveCallOut(ctx.CurrentObject, funcNameOrHandle);
+                return LpcValue.Create(removed ? 1 : 0);
+            }
+            return LpcValue.Create(0);
+        }
+
         [Efun("get_tick")]
         public static LpcValue GetTick(EfunContext ctx, LpcValue[] args) { return LpcValue.Create(Environment.TickCount); }
+    
+        // ==========================================
+        // 【Phase 79: C# 原生 FFI Efun】
+        // 利用 P/Invoke 直接穿透虛擬機，呼叫作業系統底層 C API (libc)
+        // ==========================================
+
+        [DllImport("libc", EntryPoint = "getpid", SetLastError = true)]
+        private static extern int native_getpid();
+
+        [DllImport("libc", EntryPoint = "gethostname", CharSet = CharSet.Ansi, SetLastError = true)]
+        private static extern int native_gethostname(byte[] name, int len);
+
+        [Efun("native_getpid")]
+        public static LpcValue NativeGetPid(EfunContext ctx, LpcValue[] args) {
+            return LpcValue.Create(native_getpid());
+        }
+
+        [Efun("native_gethostname")]
+        public static LpcValue NativeGetHostName(EfunContext ctx, LpcValue[] args) {
+            byte[] buffer = new byte[256];
+            int result = native_gethostname(buffer, buffer.Length);
+            if (result == 0) {
+                string hostname = System.Text.Encoding.ASCII.GetString(buffer).TrimEnd('\0');
+                return LpcValue.Create(hostname);
+            }
+            return LpcValue.Create("unknown");
+        }
+
     }
 }
