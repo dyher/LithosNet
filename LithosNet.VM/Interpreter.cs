@@ -127,14 +127,6 @@ namespace LithosNet.VM {
                         if (args.Count >= 1) return LpcValue.Create(args[0].AsString());
                         return LpcValue.Create(0);
                     
-                    case "sizeof":
-                        if (args.Count >= 1) {
-                            var v = args[0];
-                            if (v.Type == LpcType.String) return LpcValue.Create(v.AsString().Length);
-                            if (v.Type == LpcType.Array) return LpcValue.Create(v.AsArray().Count);
-                            if (v.Type == LpcType.Mapping) return LpcValue.Create(v.AsMapping().Count);
-                        }
-                        return LpcValue.Create(0);
 
                                         case "set_environment":
                         if (args.Count >= 1) {

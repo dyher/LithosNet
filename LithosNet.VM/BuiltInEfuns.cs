@@ -291,8 +291,8 @@ namespace LithosNet.VM {
         public static LpcValue DebugInt(EfunContext ctx, LpcValue[] args) { if (args.Length > 0 && args[0].Type == LpcType.Int) Console.WriteLine($"🔢 [LPC]: {args[0].AsInt()}"); return LpcValue.Create(0); }
         // [Efun("calculate_damage")] // DEFUSED: Depends on missing libcombat.so
         public static LpcValue CalculateDamage(EfunContext ctx, LpcValue[] args) { return LpcValue.Create(calc_damage(args[0].AsInt(), args[1].AsInt())); }
-        // [Efun("sizeof")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
-        public static LpcValue Sizeof(EfunContext ctx, LpcValue[] args) { if (args.Length > 0) { if (args[0].Type == LpcType.String) return LpcValue.Create(args[0].AsString().Length); if (args[0].Type == LpcType.Array) return LpcValue.Create(args[0].AsArray().Count); } return LpcValue.Create(0); }
+        [Efun("sizeof")]
+        public static LpcValue Sizeof(EfunContext ctx, LpcValue[] args) { if (args.Length > 0) { if (args[0].Type == LpcType.String) return LpcValue.Create(args[0].AsString().Length); if (args[0].Type == LpcType.Array) return LpcValue.Create(args[0].AsArray().Count); if (args[0].Type == LpcType.Mapping) return LpcValue.Create(args[0].AsMapping().Count); } return LpcValue.Create(0); }
         [Efun("users")]
         public static LpcValue Users(EfunContext ctx, LpcValue[] args) { var list = new List<LpcValue>(); foreach (var u in SessionManager.GetAllSessions()) list.Add(LpcValue.Create(u)); return LpcValue.Create(list); }
         // [Efun("explode")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
