@@ -55,6 +55,8 @@ namespace LithosNet.VM {
         public static async Task SendAsync(string objName, string message) {
             Console.WriteLine($"🔍 [X-Ray] SendAsync 目標: '{objName}', 訊息: '{message}'");
             if (_sessions.TryGetValue(objName, out var writer)) {
+                // 【Phase 74: Telnet 標準】確保以 \r\n 結尾
+                if (!message.EndsWith("\r\n") && !message.EndsWith("\n")) message += "\r\n";
                 byte[] bytes = Encoding.UTF8.GetBytes(message);
                 await writer.WriteAsync(bytes);
                 await writer.FlushAsync();

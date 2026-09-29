@@ -113,6 +113,13 @@ namespace LithosNet.VM {
 
         private string ResolvePath(string pathOrName) {
             if (File.Exists(pathOrName)) return pathOrName;
+            
+            // 【Phase 74: LPC 絕對路徑支援】處理以 / 開頭的虛擬路徑
+            if (pathOrName.StartsWith("/")) {
+                string absolutePath = _mudlibBase + pathOrName.TrimStart('/') + ".c";
+                if (File.Exists(absolutePath)) return absolutePath;
+            }
+
             string[] searchDirs = { "obj/", "room/", "" };
             foreach (var dir in searchDirs) {
                 string p = _mudlibBase + dir + pathOrName + ".c";
