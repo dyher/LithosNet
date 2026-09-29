@@ -427,6 +427,21 @@ namespace LithosNet.VM {
             }
             return LpcValue.Create(0);
         }
+        [Efun("move")]
+        public static LpcValue Move(EfunContext ctx, LpcValue[] args) {
+            // FluffOS 標準: move(mixed dest, object ob) 
+            // 如果只給一個參數，預設移動 this_object()
+            string destName = args.Length >= 1 ? args[0].AsString() : "";
+            string objName = args.Length >= 2 ? args[1].AsString() : ctx.CurrentObject;
+            
+            if (string.IsNullOrEmpty(destName) || string.IsNullOrEmpty(objName)) {
+                return LpcValue.Create(0);
+            }
+            
+            int result = ctx.ObjMgr.MoveObject(objName, destName);
+            return LpcValue.Create(result);
+        }
+
 
 
 

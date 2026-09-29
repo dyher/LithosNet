@@ -199,12 +199,47 @@ namespace LithosNet.VM {
             return cloneId;
         }
 
-        public void MoveObject(string objName, string destName) {
-            foreach(var inv in _inventories.Values) inv.Remove(objName);
-            if(!_inventories.ContainsKey(destName)) _inventories[destName] = new List<string>();
+                // 【Phase 76.2: move 與 init 機制】移動物件並觸發環境互動
+        public int MoveObject(string objName, string destName) {
+            if (!_objects.ContainsKey(objName)) return 0;
+            
+            var scope = _objects[objName].scope;
+            string oldEnv = scope.Environment;
+            
+            // 1. 從舊環境的 inventory 中移除
+            if (!string.IsNullOrEmpty(oldEnv) && _inventories.ContainsKey(oldEnv)) {
+                _inventories[oldEnv].Remove(objName);
+            }
+            
+            // 2. 更新物件的 environment 屬性
+            scope.Environment = destName;
+            
+            // 3. 加入新環境的 inventory
+            if (!_inventories.ContainsKey(destName)) {
+                _inventories[destName] = new List<string>();
+            }
             _inventories[destName].Add(objName);
-            if(_objects.ContainsKey(objName)) _objects[objName].scope.Set("environment", LpcValue.Create(destName));
-            try { CallFunction(destName, "init", LpcValue.Create(objName)); } catch {}
+            
+            // 4. 觸發 init Apply 機制
+            try {
+                // 4a. 呼叫被移動物件自身的 init()
+                CallFunction(objName, "init", Array.Empty<LpcValue>());
+                
+                // 4b. 呼叫新環境中所有其他物件的 init(被移動物件)
+                foreach (var otherObj in _inventories[destName]) {
+                    if (otherObj != objName) {
+                        try {
+                            CallFunction(otherObj, "init", new LpcValue[] { LpcValue.Create(objName) });
+                        } catch {
+                            // 忽略其他物件沒有定義 init 或 init 執行失敗的情況
+                        }
+                    }
+                }
+            } catch {
+                // 忽略被移動物件沒有定義 init 的情況
+            }
+            
+            return 1;
         }
 
         public List<string> GetInventory(string objName) => _inventories.ContainsKey(objName) ? _inventories[objName] : new List<string>();
