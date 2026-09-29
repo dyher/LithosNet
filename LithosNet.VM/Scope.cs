@@ -57,6 +57,20 @@ namespace LithosNet.VM {
         public bool HasParentFunction(string name) => Parent?.HasFunction(name) ?? false;
         
         public Dictionary<string, LpcValue> GetAllVariables() => _variables;
+
+        // 【Phase 73-C】強制遍歷完整 Scope 鏈，合併所有變數
+        public Dictionary<string, LpcValue> GetAllVariablesDeep() {
+            var result = new Dictionary<string, LpcValue>();
+            Scope current = this;
+            while (current != null) {
+                foreach (var kvp in current._variables) {
+                    if (!result.ContainsKey(kvp.Key)) result[kvp.Key] = kvp.Value;
+                }
+                current = current.Parent;
+            }
+            return result;
+        }
+
         public Dictionary<string, FunctionDeclarationNode> GetFunctions() => _functions;
     }
 }

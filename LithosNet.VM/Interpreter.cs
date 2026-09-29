@@ -202,6 +202,53 @@ namespace LithosNet.VM {
                         if (args.Count >= 1) throw new LpcThrowException(args[0]);
                         throw new LpcThrowException(LpcValue.Create(0));
 
+                    case "save_object":
+                        if (args.Count >= 1) {
+                            string path = System.IO.Path.Combine("/home/tiny/LithosNet/mudlib/save", args[0].AsString() + ".json");
+                            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+                            var dict = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, object>>();
+                            foreach (var kvp in GetRootScope().GetAllVariablesDeep()) {
+                                var val = kvp.Value;
+                                var entry = new System.Collections.Generic.Dictionary<string, object> { {"type", val.Type.ToString()} };
+                                if (val.Type == LpcType.Int) entry["value"] = val.AsInt();
+                                else if (val.Type == LpcType.String) entry["value"] = val.AsString();
+                                else if (val.Type == LpcType.Array) {
+                                    var arrList = new System.Collections.Generic.List<object>();
+                                    foreach(var item in val.AsArray()) {
+                                        if (item.Type == LpcType.Int) arrList.Add(item.AsInt());
+                                        else if (item.Type == LpcType.String) arrList.Add(item.AsString());
+                                    }
+                                    entry["value"] = arrList;
+                                }
+                                dict[kvp.Key] = entry;
+                            }
+                            System.IO.File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(dict, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+                            return LpcValue.Create(1);
+                        }
+                        return LpcValue.Create(0);
+
+                    case "restore_object":
+                        if (args.Count >= 1) {
+                            string path = System.IO.Path.Combine("/home/tiny/LithosNet/mudlib/save", args[0].AsString() + ".json");
+                            if (!System.IO.File.Exists(path)) return LpcValue.Create(0);
+                            var dict = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement>>(System.IO.File.ReadAllText(path));
+                            foreach (var kvp in dict) {
+                                string typeStr = kvp.Value.GetProperty("type").GetString();
+                                if (typeStr == "Int") _scope.Set(kvp.Key, LpcValue.Create(kvp.Value.GetProperty("value").GetInt32()));
+                                else if (typeStr == "String") _scope.Set(kvp.Key, LpcValue.Create(kvp.Value.GetProperty("value").GetString()));
+                                else if (typeStr == "Array") {
+                                    var arr = new System.Collections.Generic.List<LpcValue>();
+                                    foreach (var item in kvp.Value.GetProperty("value").EnumerateArray()) {
+                                        if (item.ValueKind == System.Text.Json.JsonValueKind.Number) arr.Add(LpcValue.Create(item.GetInt32()));
+                                        else if (item.ValueKind == System.Text.Json.JsonValueKind.String) arr.Add(LpcValue.Create(item.GetString()));
+                                    }
+                                    _scope.Set(kvp.Key, LpcValue.Create(arr));
+                                }
+                            }
+                            return LpcValue.Create(1);
+                        }
+                        return LpcValue.Create(0);
+
                     case "clonep":
                         if (args.Count >= 1) {
                             string objName = args[0].AsString();
@@ -369,20 +416,11 @@ namespace LithosNet.VM {
 
                     // 【特殊形式】catch 必須延遲求值，否則 throw 會在參數準備階段就崩潰！
                                         if (c.Name == "catch") {
-                        try {
-                            if (c.Arguments != null && c.Arguments.Count > 0) {
-                                Eval(c.Arguments[0]);
-                            }
-                            return LpcValue.Create(0);
-                        } catch (LpcThrowException tex) {
-                            return tex.Value; // 【Phase 73-B】捕獲 LPC throw
-                        } catch (LpcRuntimeException ex) {
-                            return LpcValue.Create(ex.Message);
-                        } catch (Exception ex) {
-                            // 【關鍵防禦】放行內部的 return/break 信號
-                            if (ex.GetType().Name.Contains("Return") || ex.GetType().Name.Contains("Signal") || ex.GetType().Name.Contains("Break")) {
-                                throw; 
-                            }
+                        try { if (c.Arguments != null && c.Arguments.Count > 0) Eval(c.Arguments[0]); return LpcValue.Create(0); }
+                        catch (LpcThrowException tex) { return tex.Value; }
+                        catch (LpcRuntimeException ex) { return LpcValue.Create(ex.Message); }
+                        catch (Exception ex) {
+                            if (ex.GetType().Name.Contains("Return") || ex.GetType().Name.Contains("Signal") || ex.GetType().Name.Contains("Break")) throw; 
                             return LpcValue.Create("Runtime Error: " + ex.Message);
                         }
                     }
@@ -713,8 +751,6 @@ namespace LithosNet.VM {
                     }
                     if (c.Name == "send_to_user" && cArgs.Count >= 1) { string target = this.ObjectName; // 【FluffOS 語意】嚴格發給當前執行的物件 (this_object)
                         Task.Run(() => SessionManager.SendAsync(target, cArgs[0].AsString())); return LpcValue.Create(1); }
-                    if (c.Name == "save_object" && cArgs.Count >= 1) { SaveScope(cArgs[0].AsString()); return LpcValue.Create(1); }
-                    if (c.Name == "restore_object" && cArgs.Count >= 1) return LpcValue.Create(RestoreScope(cArgs[0].AsString()) ? 1 : 0);
                     if (c.Name == "update_object" && cArgs.Count >= 1) {
                         string target = cArgs[0].AsString();
                         string path = "/home/tiny/LithosNet/mudlib/obj/" + target + ".c";
