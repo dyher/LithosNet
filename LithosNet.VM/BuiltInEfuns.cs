@@ -668,6 +668,49 @@ namespace LithosNet.VM {
             }
             return LpcValue.Create(0);
         }
+        
+        // ==========================================
+        // 【Phase 80.3: 字串處理與類型檢查核心 Efun (缺失部分)】
+        // ==========================================
+        [Efun("replace")]
+        public static LpcValue Replace(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 3) return LpcValue.Create(args[0].AsString().Replace(args[1].AsString(), args[2].AsString()));
+            return LpcValue.Create(args.Length >= 1 ? args[0].AsString() : "");
+        }
+
+        [Efun("lower_case")]
+        public static LpcValue LowerCase(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) return LpcValue.Create(args[0].AsString().ToLower());
+            return LpcValue.Create("");
+        }
+
+        [Efun("upper_case")]
+        public static LpcValue UpperCase(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) return LpcValue.Create(args[0].AsString().ToUpper());
+            return LpcValue.Create("");
+        }
+
+        [Efun("strlen")]
+        public static LpcValue Strlen(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) return LpcValue.Create(args[0].AsString().Length);
+            return LpcValue.Create(0);
+        }
+
+        [Efun("stringp")]
+        public static LpcValue Stringp(EfunContext ctx, LpcValue[] args) {
+            return LpcValue.Create(args.Length >= 1 && args[0].Type == LpcType.String ? 1 : 0);
+        }
+
+        [Efun("intp")]
+        public static LpcValue Intp(EfunContext ctx, LpcValue[] args) {
+            return LpcValue.Create(args.Length >= 1 && args[0].Type == LpcType.Int ? 1 : 0);
+        }
+
+        [Efun("arrayp")]
+        public static LpcValue Arrayp(EfunContext ctx, LpcValue[] args) {
+            return LpcValue.Create(args.Length >= 1 && args[0].Type == LpcType.Array ? 1 : 0);
+        }
+
         [Efun("get_tick")]
         public static LpcValue GetTick(EfunContext ctx, LpcValue[] args) { return LpcValue.Create(Environment.TickCount); }
     
