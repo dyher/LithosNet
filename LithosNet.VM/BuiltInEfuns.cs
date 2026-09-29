@@ -441,6 +441,17 @@ namespace LithosNet.VM {
             int result = ctx.ObjMgr.MoveObject(objName, destName);
             return LpcValue.Create(result);
         }
+        [Efun("set_reset")]
+        public static LpcValue SetReset(EfunContext ctx, LpcValue[] args) {
+            // FluffOS 標準：set_reset(int flag)，預設作用於 this_object()
+            if (args.Length >= 1 && ctx.CurrentObject != null) {
+                bool enable = args[0].AsInt() != 0;
+                ctx.ObjMgr.SetReset(ctx.CurrentObject, enable);
+                return LpcValue.Create(1);
+            }
+            return LpcValue.Create(0);
+        }
+
 
 
 

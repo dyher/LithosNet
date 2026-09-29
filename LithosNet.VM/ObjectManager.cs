@@ -74,6 +74,13 @@ namespace LithosNet.VM {
             _heartBeatTimer.Elapsed += OnHeartBeatTick;
             _heartBeatTimer.AutoReset = true;
             _heartBeatTimer.Start();
+            
+            // 【Phase 76.3: Reset 機制】每 5 秒觸發一次全局 reset
+            _resetTimer = new System.Timers.Timer(5000);
+            _resetTimer.Elapsed += OnResetTick;
+            _resetTimer.AutoReset = true;
+            _resetTimer.Start();
+            
             _workerThread = new System.Threading.Thread(EventLoop);
             _workerThread.IsBackground = true;
             _workerThread.Start();
@@ -88,7 +95,9 @@ namespace LithosNet.VM {
         private readonly Dictionary<string, (Scope scope, Interpreter interp)> _objects = new();
         // 【Phase 52: Heartbeat 管理器】
         private readonly HashSet<string> _heartBeatObjects = new HashSet<string>();
+        private readonly HashSet<string> _resetObjects = new HashSet<string>();
         private readonly System.Timers.Timer _heartBeatTimer;
+        private readonly System.Timers.Timer _resetTimer;
 
         private int _cloneCounter = 0;
         private readonly Dictionary<string, List<string>> _inventories = new();
@@ -253,6 +262,48 @@ namespace LithosNet.VM {
             AssertThreadAffinity("CallFunction");
             return _objects[objName].interp.CallFunction(funcName, new List<LpcValue>(args));
         }
+        // 【Phase 76.3: Reset 機制】開啟/關閉某個物件的全局 reset
+        public void SetReset(string objName, bool enable) {
+            if (enable) {
+                _resetObjects.Add(objName);
+                Console.WriteLine($"🔄 [Reset] 註冊全局 reset: {objName}");
+            } else {
+                _resetObjects.Remove(objName);
+                Console.WriteLine($"🛑 [Reset] 取消全局 reset: {objName}");
+            }
+        }
+
+        // 【Phase 76.3: Reset 機制】定時觸發所有註冊物件的 reset() Apply (執行緒安全版)
+        private void OnResetTick(object sender, System.Timers.ElapsedEventArgs e) {
+            // 1. 在背景執行緒中複製清單並過濾出有效的物件
+            var validObjectsToReset = new List<string>();
+            foreach (var objName in _resetObjects.ToList()) {
+                if (_objects.ContainsKey(objName)) {
+                    var scope = _objects[objName].scope;
+                    if (scope != null && !scope.IsDestructed) {
+                        validObjectsToReset.Add(objName);
+                    } else {
+                        _resetObjects.Remove(objName); // 自動清理
+                    }
+                } else {
+                    _resetObjects.Remove(objName); // 自動清理
+                }
+            }
+
+            // 2. 將重置任務排隊到正確的 LPC 執行緒中執行
+            if (validObjectsToReset.Count > 0) {
+                _eventQueue.Add(() => {
+                    foreach (var objName in validObjectsToReset) {
+                        try {
+                            CallFunction(objName, "reset", Array.Empty<LpcValue>());
+                        } catch (System.Exception ex) {
+                            Console.WriteLine($"⚠ [Reset] {objName} reset 錯誤: {ex.Message}");
+                        }
+                    }
+                });
+            }
+        }
+
         
         public bool ObjectExists(string objName) => _objects.ContainsKey(objName);
         public void Preload(string fullPath) { LoadObject(fullPath); }
@@ -291,6 +342,7 @@ namespace LithosNet.VM {
                 _callOutTasks.RemoveAll(t => t.ObjName == objName);
             }
             _heartBeatObjects.Remove(objName);
+            _resetObjects.Remove(objName);
             Console.WriteLine($"💥 [Lifecycle] Object '{objName}' has been destructed and GC-ready.");
         }
         // 【Phase 57: 架構優化】標準 FluffOS clone_object 邏輯
@@ -366,6 +418,7 @@ namespace LithosNet.VM {
         public void SetHeartBeat(string objName, bool enable) {
                 if (enable) _heartBeatObjects.Add(objName);
                 else _heartBeatObjects.Remove(objName);
+            _resetObjects.Remove(objName);
             }
 
             private void OnHeartBeatTick(object sender, System.Timers.ElapsedEventArgs e) {
