@@ -37,8 +37,8 @@ namespace LithosNet.VM {
             // 利用 C# 原生的 Task.Delay 實現非阻塞掛起
             System.Threading.Tasks.Task.Run(async () => {
                 await System.Threading.Tasks.Task.Delay(ms);
-                if (ObjectManager.Instance.ObjectExists(targetObj)) {
-                    ObjectManager.Instance.CallFunction(targetObj, callback);
+                if (ctx.ObjMgr.ObjectExists(targetObj)) {
+                    ctx.ObjMgr.CallFunction(targetObj, callback);
                 }
             });
             return LpcValue.Create(1);
@@ -63,7 +63,7 @@ namespace LithosNet.VM {
         // 【MMORPG Efun】移動實體
         [Efun("map_move")]
         public static LpcValue MapMove(EfunContext ctx, LpcValue[] args) {
-            if (args.Length >= 3) GridMapManager.MoveWithAOI(ObjectManager.Instance, args[0].AsString(), args[1].AsInt(), args[2].AsInt());
+            if (args.Length >= 3) GridMapManager.MoveWithAOI(ctx.ObjMgr, args[0].AsString(), args[1].AsInt(), args[2].AsInt());
             return LpcValue.Create(1);
         }
 
@@ -122,29 +122,8 @@ namespace LithosNet.VM {
             return LpcValue.Create(1);
         }
 
-        // [Efun("clone_object")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
-        public static LpcValue OldCloneObject(EfunContext ctx, LpcValue[] args) {
-            if (args.Length >= 1) {
-                string blueprint = args[0].AsString();
-                string cloneName = blueprint + "#" + Guid.NewGuid().ToString().Substring(0, 4);
-                try { ctx.ObjMgr.LoadObject(blueprint); } catch {}
-                return LpcValue.Create(cloneName);
-            }
-            return LpcValue.Create(0);
-        }
 
-        // [Efun("exec")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
-        public static LpcValue OldExec(EfunContext ctx, LpcValue[] args) {
-            if (args.Length >= 2) {
-                SessionManager.Exec(args[0].AsString(), args[1].AsString());
-            }
-            return LpcValue.Create(1);
-        }
 
-        // [Efun("destruct")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
-        public static LpcValue OldDestruct(EfunContext ctx, LpcValue[] args) {
-            return LpcValue.Create(1);
-        }
 
         
         // ==========================================
@@ -407,7 +386,7 @@ namespace LithosNet.VM {
         [Efun("save_object")]
         public static LpcValue SaveObject(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 1 && ctx.CurrentScope != null) {
-                string path = System.IO.Path.Combine("/home/tiny/LithosNet/mudlib/save", args[0].AsString() + ".json");
+                string path = System.IO.Path.Combine("save", args[0].AsString() + ".json");
                 System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
                 var dict = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.Dictionary<string, object>>();
                 foreach (var kvp in ctx.CurrentScope.GetAllVariablesDeep()) {
@@ -426,7 +405,7 @@ namespace LithosNet.VM {
         [Efun("restore_object")]
         public static LpcValue RestoreObject(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 1 && ctx.CurrentScope != null) {
-                string path = System.IO.Path.Combine("/home/tiny/LithosNet/mudlib/save", args[0].AsString() + ".json");
+                string path = System.IO.Path.Combine("save", args[0].AsString() + ".json");
                 if (!System.IO.File.Exists(path)) return LpcValue.Create(0);
                 var dict = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, System.Text.Json.JsonElement>>(System.IO.File.ReadAllText(path));
                 foreach (var kvp in dict) {
