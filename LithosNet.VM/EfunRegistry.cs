@@ -5,7 +5,7 @@ using LithosNet.Core;
 
 namespace LithosNet.VM {
     // 定義 Efun 的統一簽名：接收 LpcValue 陣列，返回 LpcValue
-    public delegate LpcValue EfunDelegate(LpcValue[] args);
+    public delegate LpcValue EfunDelegate(EfunContext ctx, LpcValue[] args);
 
     public static class EfunRegistry {
         private static readonly Dictionary<string, EfunDelegate> _efuns = new();

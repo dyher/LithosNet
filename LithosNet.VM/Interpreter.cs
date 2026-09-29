@@ -88,7 +88,10 @@ namespace LithosNet.VM {
                 }
                 return LpcValue.Create(0);
             }
-            if (EfunRegistry.TryGet(name, out var efun)) return efun(args.ToArray());
+            if (EfunRegistry.TryGet(name, out var efun)) {
+                var ctx = new EfunContext(_objMgr, this.ObjectName, _scope);
+                return efun(ctx, args.ToArray());
+            }
             // 【FluffOS 核心機制】如果當前 Scope 和 Efun 都找不到，嘗試呼叫 simul_efun
             if (_objMgr.CallSimulEfunSafe(name, args, out var sefunResult)) {
                 return sefunResult;

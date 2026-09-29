@@ -6,11 +6,10 @@ using LithosNet.Core;
 
 namespace LithosNet.VM {
     public static class BuiltInEfuns {
-        public static ObjectManager ObjMgr;
 
         // 【MMORPG 通訊】json_decode (將 JSON 字串轉為 Mapping)
         [Efun("json_decode")]
-        public static LpcValue JsonDecode(LpcValue[] args) {
+        public static LpcValue JsonDecode(EfunContext ctx, LpcValue[] args) {
             if (args.Length < 1) return LpcValue.Create(new Dictionary<string, LpcValue>());
             try {
                 var doc = System.Text.Json.JsonDocument.Parse(args[0].AsString());
@@ -29,11 +28,11 @@ namespace LithosNet.VM {
 
         // 【MMORPG Fiber】非阻塞式異步延遲 (不卡死主線程)
         [Efun("task_sleep")]
-        public static LpcValue TaskSleep(LpcValue[] args) {
+        public static LpcValue TaskSleep(EfunContext ctx, LpcValue[] args) {
             if (args.Length < 2) return LpcValue.Create(0);
             int ms = args[0].AsInt();
             string callback = args[1].AsString();
-            string targetObj = SessionManager.CurrentPlayer.Value ?? "";
+            string targetObj = ctx.CurrentObject ?? "";
             
             // 利用 C# 原生的 Task.Delay 實現非阻塞掛起
             System.Threading.Tasks.Task.Run(async () => {
@@ -47,7 +46,7 @@ namespace LithosNet.VM {
 
         // 【Mudlib 基礎】to_int 字串轉整數
         [Efun("to_int")]
-        public static LpcValue ToInt(LpcValue[] args) {
+        public static LpcValue ToInt(EfunContext ctx, LpcValue[] args) {
             if (args.Length > 0 && args[0].Type == LpcType.String) {
                 if (int.TryParse(args[0].AsString(), out int res)) return LpcValue.Create(res);
             } else if (args.Length > 0 && args[0].Type == LpcType.Int) return args[0];
@@ -56,21 +55,21 @@ namespace LithosNet.VM {
 
         // 【MMORPG Efun】註冊實體到空間網格
         [Efun("map_register")]
-        public static LpcValue MapRegister(LpcValue[] args) {
+        public static LpcValue MapRegister(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 3) GridMapManager.Register(args[0].AsString(), args[1].AsInt(), args[2].AsInt());
             return LpcValue.Create(1);
         }
 
         // 【MMORPG Efun】移動實體
         [Efun("map_move")]
-        public static LpcValue MapMove(LpcValue[] args) {
+        public static LpcValue MapMove(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 3) GridMapManager.MoveWithAOI(ObjectManager.Instance, args[0].AsString(), args[1].AsInt(), args[2].AsInt());
             return LpcValue.Create(1);
         }
 
         // 【MMORPG Efun】AOE 範圍查詢 (效能碾壓 rAthena 的核心)
         [Efun("get_objects_in_radius")]
-        public static LpcValue GetObjectsInRadius(LpcValue[] args) {
+        public static LpcValue GetObjectsInRadius(EfunContext ctx, LpcValue[] args) {
             if (args.Length < 3) return LpcValue.Create(new List<LpcValue>());
             var list = GridMapManager.GetObjectsInRadius(args[0].AsInt(), args[1].AsInt(), args[2].AsInt());
             var lpcList = new List<LpcValue>();
@@ -87,7 +86,7 @@ namespace LithosNet.VM {
 
         // 【Mudlib 靈魂】sprintf 格式化輸出
         [Efun("sprintf")]
-        public static LpcValue Sprintf(LpcValue[] args) {
+        public static LpcValue Sprintf(EfunContext ctx, LpcValue[] args) {
             if (args.Length < 1) return LpcValue.Create("");
             string fmt = args[0].AsString();
             int argIdx = 1;
@@ -109,9 +108,9 @@ namespace LithosNet.VM {
         // 【Mudlib 通訊】tell_object 與 shout (使用 GetAwaiter 確保同步執行)
         
         [Efun("send_to_user")]
-        public static LpcValue SendToUser(LpcValue[] args) {
+        public static LpcValue SendToUser(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 1) {
-                string obj = SessionManager.CurrentPlayer.Value ?? "";
+                string obj = ctx.CurrentObject ?? "";
                 if (string.IsNullOrEmpty(obj)) {
                     var all = SessionManager.GetAllSessions();
                     if (all.Count > 0) obj = all[0];
@@ -123,32 +122,32 @@ namespace LithosNet.VM {
             return LpcValue.Create(1);
         }
 
-        [Efun("this_object")]
-        public static LpcValue ThisObject(LpcValue[] args) {
-            return LpcValue.Create(SessionManager.CurrentPlayer.Value ?? "unknown");
+        // [Efun("this_object")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
+        public static LpcValue ThisObject(EfunContext ctx, LpcValue[] args) {
+            return LpcValue.Create(ctx.CurrentObject ?? "unknown");
         }
 
-        [Efun("clone_object")]
-        public static LpcValue CloneObject(LpcValue[] args) {
+        // [Efun("clone_object")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
+        public static LpcValue CloneObject(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 1) {
                 string blueprint = args[0].AsString();
                 string cloneName = blueprint + "#" + Guid.NewGuid().ToString().Substring(0, 4);
-                try { ObjMgr.LoadObject(blueprint); } catch {}
+                try { ctx.ObjMgr.LoadObject(blueprint); } catch {}
                 return LpcValue.Create(cloneName);
             }
             return LpcValue.Create(0);
         }
 
-        [Efun("exec")]
-        public static LpcValue Exec(LpcValue[] args) {
+        // [Efun("exec")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
+        public static LpcValue Exec(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 2) {
                 SessionManager.Exec(args[0].AsString(), args[1].AsString());
             }
             return LpcValue.Create(1);
         }
 
-        [Efun("destruct")]
-        public static LpcValue Destruct(LpcValue[] args) {
+        // [Efun("destruct")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
+        public static LpcValue Destruct(EfunContext ctx, LpcValue[] args) {
             return LpcValue.Create(1);
         }
 
@@ -159,14 +158,14 @@ namespace LithosNet.VM {
         private static readonly System.Random _rng = new System.Random();
         
         [Efun("random")]
-        public static LpcValue RandomEfun(LpcValue[] args) {
+        public static LpcValue RandomEfun(EfunContext ctx, LpcValue[] args) {
             if (args.Length < 1) return LpcValue.Create(0);
             int max = args[0].AsInt();
             return LpcValue.Create(max > 0 ? _rng.Next(max) : 0);
         }
 
         [Efun("abs")]
-        public static LpcValue AbsEfun(LpcValue[] args) {
+        public static LpcValue AbsEfun(EfunContext ctx, LpcValue[] args) {
             if (args.Length < 1) return LpcValue.Create(0);
             return LpcValue.Create(System.Math.Abs(args[0].AsInt()));
         }
@@ -175,7 +174,7 @@ namespace LithosNet.VM {
         // 🔪 【MMORPG 核心】字串處理
         // ==========================================
         [Efun("replace_string")]
-        public static LpcValue ReplaceString(LpcValue[] args) {
+        public static LpcValue ReplaceString(EfunContext ctx, LpcValue[] args) {
             if (args.Length < 3) return LpcValue.Create("");
             return LpcValue.Create(args[0].AsString().Replace(args[1].AsString(), args[2].AsString()));
         }
@@ -184,7 +183,7 @@ namespace LithosNet.VM {
         // ⏱️ 【MMORPG 核心】時間矩陣
         // ==========================================
         [Efun("time")]
-        public static LpcValue TimeEfun(LpcValue[] args) {
+        public static LpcValue TimeEfun(EfunContext ctx, LpcValue[] args) {
             return LpcValue.Create((int)(System.DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
         }
 
@@ -193,7 +192,7 @@ namespace LithosNet.VM {
         // 🎒 【MMORPG 核心】Mapping (字典) 操作矩陣
         // ==========================================
         [Efun("keys")]
-        public static LpcValue Keys(LpcValue[] args) {
+        public static LpcValue Keys(EfunContext ctx, LpcValue[] args) {
             Console.WriteLine($"🔍 [Efun X-Ray] keys() arg count: {args.Length}, arg0 Type: {(args.Length > 0 ? args[0].Type.ToString() : "NONE")}");
             if (args.Length < 1 || args[0].Type != LpcType.Mapping) return LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
             var dict = args[0].AsMapping();
@@ -203,7 +202,7 @@ namespace LithosNet.VM {
         }
 
         [Efun("values")]
-        public static LpcValue Values(LpcValue[] args) {
+        public static LpcValue Values(EfunContext ctx, LpcValue[] args) {
             if (args.Length < 1 || args[0].Type != LpcType.Mapping) return LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
             var dict = args[0].AsMapping();
             var list = new System.Collections.Generic.List<LpcValue>();
@@ -212,7 +211,7 @@ namespace LithosNet.VM {
         }
 
         [Efun("m_delete")]
-        public static LpcValue MDelete(LpcValue[] args) {
+        public static LpcValue MDelete(EfunContext ctx, LpcValue[] args) {
             if (args.Length < 2 || args[0].Type != LpcType.Mapping) return args[0];
             var dict = args[0].AsMapping();
             dict.Remove(args[1].AsString());
@@ -220,7 +219,7 @@ namespace LithosNet.VM {
         }
 
         [Efun("element_of")]
-        public static LpcValue ElementOf(LpcValue[] args) {
+        public static LpcValue ElementOf(EfunContext ctx, LpcValue[] args) {
             Console.WriteLine($"🔍 [Efun X-Ray] element_of() arg0 Type: {(args.Length > 0 ? args[0].Type.ToString() : "NONE")}");
             if (args.Length < 1) return LpcValue.Create(0);
             if (args[0].Type == LpcType.Array) {
@@ -236,14 +235,14 @@ namespace LithosNet.VM {
             return LpcValue.Create(0);
         }
 
-        [Efun("tell_object")]
-        public static LpcValue TellObject(LpcValue[] args) {
+        // [Efun("tell_object")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
+        public static LpcValue TellObject(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 2) SessionManager.SendAsync(args[0].AsString(), args[1].AsString()).GetAwaiter().GetResult();
             return LpcValue.Create(1);
         }
 
         [Efun("shout")]
-        public static LpcValue Shout(LpcValue[] args) {
+        public static LpcValue Shout(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 1) {
                 foreach(var s in SessionManager.GetAllSessions()) SessionManager.SendAsync(s, args[0].AsString()).GetAwaiter().GetResult();
             }
@@ -251,8 +250,8 @@ namespace LithosNet.VM {
         }
 
         // 【God Mode FFI】LuaJIT 風格的 native_call
-        [Efun("native_call")]
-        public static LpcValue NativeCall(LpcValue[] args) {
+        // [Efun("native_call")] // DEFUSED: Depends on missing libcombat.so
+        public static LpcValue NativeCall(EfunContext ctx, LpcValue[] args) {
             if (args.Length < 2) return LpcValue.Create(0);
             string lib = args[0].AsString();
             string func = args[1].AsString();
@@ -278,8 +277,8 @@ namespace LithosNet.VM {
         [DllImport("libcombat.so", CallingConvention = CallingConvention.Cdecl)]
         private static extern int calc_damage(int atk, int def);
 
-        [Efun("debug_message")]
-        public static LpcValue DebugMessage(LpcValue[] args) {
+        // [Efun("debug_message")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
+        public static LpcValue DebugMessage(EfunContext ctx, LpcValue[] args) {
             if (args.Length > 0) {
                 if (args[0].Type != LpcType.String) {
                     Console.WriteLine($"⚠️ [Efun Warning] debug_message expected String, but got {args[0].Type}. Auto-converting...");
@@ -289,19 +288,19 @@ namespace LithosNet.VM {
             return LpcValue.Create(0);
         }
         [Efun("debug_int")]
-        public static LpcValue DebugInt(LpcValue[] args) { if (args.Length > 0 && args[0].Type == LpcType.Int) Console.WriteLine($"🔢 [LPC]: {args[0].AsInt()}"); return LpcValue.Create(0); }
-        [Efun("calculate_damage")]
-        public static LpcValue CalculateDamage(LpcValue[] args) { return LpcValue.Create(calc_damage(args[0].AsInt(), args[1].AsInt())); }
-        [Efun("sizeof")]
-        public static LpcValue Sizeof(LpcValue[] args) { if (args.Length > 0) { if (args[0].Type == LpcType.String) return LpcValue.Create(args[0].AsString().Length); if (args[0].Type == LpcType.Array) return LpcValue.Create(args[0].AsArray().Count); } return LpcValue.Create(0); }
+        public static LpcValue DebugInt(EfunContext ctx, LpcValue[] args) { if (args.Length > 0 && args[0].Type == LpcType.Int) Console.WriteLine($"🔢 [LPC]: {args[0].AsInt()}"); return LpcValue.Create(0); }
+        // [Efun("calculate_damage")] // DEFUSED: Depends on missing libcombat.so
+        public static LpcValue CalculateDamage(EfunContext ctx, LpcValue[] args) { return LpcValue.Create(calc_damage(args[0].AsInt(), args[1].AsInt())); }
+        // [Efun("sizeof")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
+        public static LpcValue Sizeof(EfunContext ctx, LpcValue[] args) { if (args.Length > 0) { if (args[0].Type == LpcType.String) return LpcValue.Create(args[0].AsString().Length); if (args[0].Type == LpcType.Array) return LpcValue.Create(args[0].AsArray().Count); } return LpcValue.Create(0); }
         [Efun("users")]
-        public static LpcValue Users(LpcValue[] args) { var list = new List<LpcValue>(); foreach (var u in SessionManager.GetAllSessions()) list.Add(LpcValue.Create(u)); return LpcValue.Create(list); }
-        [Efun("explode")]
-        public static LpcValue Explode(LpcValue[] args) { if (args.Length < 2) return LpcValue.Create(new List<LpcValue>()); var parts = args[0].AsString().Split(new[] { args[1].AsString() }, StringSplitOptions.None); var list = new List<LpcValue>(); foreach (var p in parts) list.Add(LpcValue.Create(p)); return LpcValue.Create(list); }
-        [Efun("implode")]
-        public static LpcValue Implode(LpcValue[] args) {
+        public static LpcValue Users(EfunContext ctx, LpcValue[] args) { var list = new List<LpcValue>(); foreach (var u in SessionManager.GetAllSessions()) list.Add(LpcValue.Create(u)); return LpcValue.Create(list); }
+        // [Efun("explode")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
+        public static LpcValue Explode(EfunContext ctx, LpcValue[] args) { if (args.Length < 2) return LpcValue.Create(new List<LpcValue>()); var parts = args[0].AsString().Split(new[] { args[1].AsString() }, StringSplitOptions.None); var list = new List<LpcValue>(); foreach (var p in parts) list.Add(LpcValue.Create(p)); return LpcValue.Create(list); }
+        // [Efun("implode")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
+        public static LpcValue Implode(EfunContext ctx, LpcValue[] args) {
             Console.WriteLine($"🔍 [Efun X-Ray] implode() arg count: {args.Length}, arg0 Type: {(args.Length > 0 ? args[0].Type.ToString() : "NONE")}"); if (args.Length < 2) return LpcValue.Create(""); var arr = args[0].AsArray(); var strings = new List<string>(); foreach (var v in arr) strings.Add(v.Type == LpcType.String ? v.AsString() : v.ToString()); return LpcValue.Create(string.Join(args[1].AsString(), strings)); }
         [Efun("get_tick")]
-        public static LpcValue GetTick(LpcValue[] args) { return LpcValue.Create(Environment.TickCount); }
+        public static LpcValue GetTick(EfunContext ctx, LpcValue[] args) { return LpcValue.Create(Environment.TickCount); }
     }
 }
