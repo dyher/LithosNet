@@ -511,6 +511,69 @@ namespace LithosNet.VM {
             return LpcValue.Create(0);
         }
 
+        
+        // ==========================================
+        // 【Phase 80: 物件遍歷與查找核心 Efun】
+        // ==========================================
+        [Efun("find_object")]
+        public static LpcValue FindObject(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                string fileName = args[0].AsString();
+                var scope = ctx.ObjMgr.GetScope(fileName);
+                if (scope != null && !scope.IsDestructed) {
+                    return LpcValue.Create(fileName);
+                }
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("all_inventory")]
+        public static LpcValue AllInventory(EfunContext ctx, LpcValue[] args) {
+            // FluffOS 標準：若不傳參數，預設為 this_object()
+            string envName = args.Length >= 1 && args[0].Type == LpcType.String ? args[0].AsString() : ctx.CurrentObject;
+            
+            if (string.IsNullOrEmpty(envName)) {
+                return LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
+            }
+            
+            var invList = ctx.ObjMgr.GetInventory(envName);
+            var result = new System.Collections.Generic.List<LpcValue>();
+            
+            foreach (var itemName in invList) {
+                var scope = ctx.ObjMgr.GetScope(itemName);
+                if (scope != null && !scope.IsDestructed) {
+                    result.Add(LpcValue.Create(itemName));
+                }
+            }
+            return LpcValue.Create(result);
+        }
+
+        [Efun("present")]
+        public static LpcValue Present(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                string searchStr = args[0].AsString();
+                string envName = args.Length >= 2 ? args[1].AsString() : ctx.CurrentObject;
+                
+                if (string.IsNullOrEmpty(envName)) return LpcValue.Create(0);
+
+                var invList = ctx.ObjMgr.GetInventory(envName);
+                foreach (var itemName in invList) {
+                    var scope = ctx.ObjMgr.GetScope(itemName);
+                    if (scope != null && !scope.IsDestructed) {
+                        try {
+                            var result = ctx.ObjMgr.CallFunction(itemName, "id", new LpcValue[] { LpcValue.Create(searchStr) });
+                            if (result.Type == LpcType.Int && result.AsInt() != 0) {
+                                return LpcValue.Create(itemName);
+                            }
+                        } catch {
+                            // 如果物件沒有 id 函數，忽略並繼續尋找
+                        }
+                    }
+                }
+            }
+            return LpcValue.Create(0);
+        }
+
         [Efun("get_tick")]
         public static LpcValue GetTick(EfunContext ctx, LpcValue[] args) { return LpcValue.Create(Environment.TickCount); }
     
