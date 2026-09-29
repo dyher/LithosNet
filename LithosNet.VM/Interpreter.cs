@@ -99,9 +99,6 @@ namespace LithosNet.VM {
 
                 // 【Phase 63: 終極修復】在拋出異常前處理所有核心 efun
                 switch (name) {
-                    case "debug_message":
-                        Console.WriteLine($"💬 [LPC]: {(args.Count > 0 ? args[0].AsString() : "")}");
-                        return LpcValue.Create(1);
                     case "tell_object":
                         if (args.Count >= 2) _ = SessionManager.SendAsync(args[0].AsString(), args[1].AsString());
                         return LpcValue.Create(1);
@@ -137,34 +134,6 @@ namespace LithosNet.VM {
 
                     case "environment":
                         return LpcValue.Create(GetRootScope().Environment);
-
-                                        case "explode":
-                        if (args.Count >= 2) {
-                            string str = args[0].AsString();
-                            string delimiter = args[1].AsString();
-                            if (string.IsNullOrEmpty(delimiter)) {
-                                return LpcValue.Create(new System.Collections.Generic.List<LpcValue> { LpcValue.Create(str) });
-                            }
-                            string[] parts = str.Split(new string[] { delimiter }, System.StringSplitOptions.None);
-                            var result = new System.Collections.Generic.List<LpcValue>();
-                            foreach (var p in parts) {
-                                result.Add(LpcValue.Create(p));
-                            }
-                            return LpcValue.Create(result);
-                        }
-                        return LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
-
-                    case "implode":
-                        if (args.Count >= 2) {
-                            var arr = args[0].AsArray();
-                            string delimiter = args[1].AsString();
-                            var strParts = new System.Collections.Generic.List<string>();
-                            foreach (var item in arr) {
-                                strParts.Add(item.AsString());
-                            }
-                            return LpcValue.Create(string.Join(delimiter, strParts));
-                        }
-                        return LpcValue.Create("");
 
                     case "member_array":
                         if (args.Count >= 2) {

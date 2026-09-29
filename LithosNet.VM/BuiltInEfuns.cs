@@ -276,17 +276,16 @@ namespace LithosNet.VM {
 
         [DllImport("libcombat.so", CallingConvention = CallingConvention.Cdecl)]
         private static extern int calc_damage(int atk, int def);
-
-        // [Efun("debug_message")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
+        [Efun("debug_message")]
         public static LpcValue DebugMessage(EfunContext ctx, LpcValue[] args) {
             if (args.Length > 0) {
-                if (args[0].Type != LpcType.String) {
-                    Console.WriteLine($"⚠️ [Efun Warning] debug_message expected String, but got {args[0].Type}. Auto-converting...");
-                }
                 Console.WriteLine($"💬 [LPC]: {args[0].AsString()}");
+            } else {
+                Console.WriteLine($"💬 [LPC]: ");
             }
-            return LpcValue.Create(0);
+            return LpcValue.Create(1);
         }
+
         [Efun("debug_int")]
         public static LpcValue DebugInt(EfunContext ctx, LpcValue[] args) { if (args.Length > 0 && args[0].Type == LpcType.Int) Console.WriteLine($"🔢 [LPC]: {args[0].AsInt()}"); return LpcValue.Create(0); }
         // [Efun("calculate_damage")] // DEFUSED: Depends on missing libcombat.so
@@ -295,11 +294,34 @@ namespace LithosNet.VM {
         public static LpcValue Sizeof(EfunContext ctx, LpcValue[] args) { if (args.Length > 0) { if (args[0].Type == LpcType.String) return LpcValue.Create(args[0].AsString().Length); if (args[0].Type == LpcType.Array) return LpcValue.Create(args[0].AsArray().Count); if (args[0].Type == LpcType.Mapping) return LpcValue.Create(args[0].AsMapping().Count); } return LpcValue.Create(0); }
         [Efun("users")]
         public static LpcValue Users(EfunContext ctx, LpcValue[] args) { var list = new List<LpcValue>(); foreach (var u in SessionManager.GetAllSessions()) list.Add(LpcValue.Create(u)); return LpcValue.Create(list); }
-        // [Efun("explode")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
-        public static LpcValue Explode(EfunContext ctx, LpcValue[] args) { if (args.Length < 2) return LpcValue.Create(new List<LpcValue>()); var parts = args[0].AsString().Split(new[] { args[1].AsString() }, StringSplitOptions.None); var list = new List<LpcValue>(); foreach (var p in parts) list.Add(LpcValue.Create(p)); return LpcValue.Create(list); }
-        // [Efun("implode")] // SHADOW DEFUSED: Potential overlap with Interpreter.cs
+        [Efun("explode")]
+        public static LpcValue Explode(EfunContext ctx, LpcValue[] args) {
+            if (args.Length < 2) return LpcValue.Create(new List<LpcValue>());
+            
+            string str = args[0].AsString();
+            string delimiter = args[1].AsString();
+            
+            string[] parts = string.IsNullOrEmpty(delimiter) 
+                ? new[] { str } 
+                : str.Split(new[] { delimiter }, StringSplitOptions.None);
+            
+            var list = new List<LpcValue>(parts.Length);
+            foreach (var p in parts) {
+                list.Add(LpcValue.Create(p));
+            }
+            return LpcValue.Create(list);
+        }
+        [Efun("implode")]
         public static LpcValue Implode(EfunContext ctx, LpcValue[] args) {
-            Console.WriteLine($"🔍 [Efun X-Ray] implode() arg count: {args.Length}, arg0 Type: {(args.Length > 0 ? args[0].Type.ToString() : "NONE")}"); if (args.Length < 2) return LpcValue.Create(""); var arr = args[0].AsArray(); var strings = new List<string>(); foreach (var v in arr) strings.Add(v.Type == LpcType.String ? v.AsString() : v.ToString()); return LpcValue.Create(string.Join(args[1].AsString(), strings)); }
+            if (args.Length < 2) return LpcValue.Create("");
+            
+            // 優化：利用 LINQ 與 C# 底層高度優化的 string.Join，實現零冗餘的陣列拼接
+            var arr = args[0].AsArray();
+            string delimiter = args[1].AsString();
+            
+            return LpcValue.Create(string.Join(delimiter, arr.Select(v => v.AsString())));
+        }
+
         [Efun("get_tick")]
         public static LpcValue GetTick(EfunContext ctx, LpcValue[] args) { return LpcValue.Create(Environment.TickCount); }
     }
