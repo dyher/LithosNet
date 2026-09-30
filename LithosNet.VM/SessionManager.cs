@@ -58,6 +58,17 @@ namespace LithosNet.VM
                 _lpcSessionsByObject.TryRemove(session.ObjectName, out _);
             }
         }
+
+        public static bool HasSession(string objName) {
+            return _lpcSessionsByObject.ContainsKey(objName);
+        }
+
+        public static void CloseSession(string objName) {
+            if (_lpcSessionsByObject.TryRemove(objName, out var session)) {
+                Console.WriteLine($"[SessionManager] 🛑 Closing socket for destructed interactive object: {objName}");
+                session.Client?.Close();
+            }
+        }
         
         public static async Task StartAsync(int port)
         {

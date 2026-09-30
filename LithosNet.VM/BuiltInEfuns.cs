@@ -391,6 +391,11 @@ namespace LithosNet.VM {
                 string objName = args[0].AsString();
                 var scope = ctx.ObjMgr.GetScope(objName);
                 if (scope != null && !scope.IsDestructed) {
+                    // T2.3 修復：如果該物件綁定了 Session，先關閉連線
+                    if (SessionManager.HasSession(objName)) {
+                        Console.WriteLine($"[Destruct] Closing interactive session for '{objName}'");
+                        SessionManager.CloseSession(objName);
+                    }
                     ctx.ObjMgr.DestructObject(objName);
                     return LpcValue.Create(1);
                 }
