@@ -9,6 +9,13 @@ using LithosNet.Compiler;
 
 namespace LithosNet.VM {
     public class ObjectManager {
+        public ConfigManager Config { get; private set; }
+        public void SetConfig(ConfigManager cfg) { 
+            this.Config = cfg; 
+            // 【Phase 83.2 修復】確保內部路徑解析器使用 Config 中的 Mudlib 目錄
+            this._mudlibBase = cfg.MudlibDirectory.TrimEnd('/', '\\') + "/";
+        }
+
         private int _globalCallDepth = 0;
         private const int MaxCallDepth = 800;
         public Scope GetScope(string objName) {
@@ -101,7 +108,7 @@ namespace LithosNet.VM {
 
         private int _cloneCounter = 0;
         private readonly Dictionary<string, List<string>> _inventories = new();
-        private readonly string _mudlibBase = "/home/tiny/LithosNet/mudlib/";
+        private string _mudlibBase = "/home/tiny/LithosNet/mudlib/";
 
         public Scope LoadObject(string pathOrName) {
             Instance = this;
