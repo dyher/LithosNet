@@ -13,3 +13,6 @@ combat.c
 ## OS
 .DS_Store
 Thumbs.db
+fluffos-reference/
+fix_*.py
+ultimate_*.py
