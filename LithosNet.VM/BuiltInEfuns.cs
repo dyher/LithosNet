@@ -870,5 +870,223 @@ namespace LithosNet.VM {
             return LpcValue.Create("unknown");
         }
 
+
+        // ==========================================
+        // 【Phase 85】高頻 🔥 Efun 批量注入 (正確 API 版)
+        // ==========================================
+
+        // --- 字串處理 ---
+        [Efun("strsrch")]
+        public static LpcValue Strsrch(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2) {
+                string str = args[0].AsString();
+                string substr = args[1].AsString();
+                int flag = args.Length >= 3 ? args[2].AsInt() : 0;
+                
+                if (flag == 0) {
+                    int idx = str.IndexOf(substr, StringComparison.Ordinal);
+                    return LpcValue.Create(idx);
+                } else {
+                    int idx = str.LastIndexOf(substr, StringComparison.Ordinal);
+                    return LpcValue.Create(idx);
+                }
+            }
+            return LpcValue.Create(-1);
+        }
+
+        [Efun("capitalize")]
+        public static LpcValue Capitalize(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                string str = args[0].AsString();
+                if (string.IsNullOrEmpty(str)) return LpcValue.Create("");
+                return LpcValue.Create(char.ToUpper(str[0]) + str.Substring(1));
+            }
+            return LpcValue.Create("");
+        }
+
+        [Efun("trim")]
+        public static LpcValue Trim(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                string str = args[0].AsString();
+                int trimMask = args.Length >= 2 ? args[1].AsInt() : 3;
+                string chrs = args.Length >= 3 ? args[2].AsString() : " \t\n\r";
+                
+                char[] trimChars = chrs.ToCharArray();
+                if (trimMask == 1) return LpcValue.Create(str.TrimStart(trimChars));
+                if (trimMask == 2) return LpcValue.Create(str.TrimEnd(trimChars));
+                return LpcValue.Create(str.Trim(trimChars));
+            }
+            return LpcValue.Create("");
+        }
+
+        // --- 陣列操作 ---
+        [Efun("sort_array")]
+        public static LpcValue SortArray(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1 && args[0].Type == LpcType.Array) {
+                var arr = new System.Collections.Generic.List<LpcValue>(args[0].AsArray());
+                
+                if (args.Length >= 2 && args[1].Type == LpcType.String) {
+                    string funcName = args[1].AsString();
+                    string callerObj = ctx.CurrentObject ?? "";
+                    arr.Sort((a, b) => {
+                        try {
+                            var result = ctx.ObjMgr.CallFunction(callerObj, funcName, new LpcValue[] { a, b });
+                            return result.AsInt();
+                        } catch {
+                            return 0;
+                        }
+                    });
+                } else {
+                    arr.Sort((a, b) => {
+                        if (a.Type == LpcType.Int && b.Type == LpcType.Int) return a.AsInt().CompareTo(b.AsInt());
+                        return a.AsString().CompareTo(b.AsString());
+                    });
+                }
+                // 【關鍵修復】使用 List<LpcValue> 建立陣列
+                return LpcValue.Create(arr);
+            }
+            return LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
+        }
+
+        [Efun("filter_array")]
+        public static LpcValue FilterArray(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2 && args[0].Type == LpcType.Array) {
+                var arr = args[0].AsArray();
+                string funcName = args[1].AsString();
+                string callerObj = ctx.CurrentObject ?? "";
+                var result = new System.Collections.Generic.List<LpcValue>();
+                
+                foreach (var item in arr) {
+                    try {
+                        var keep = ctx.ObjMgr.CallFunction(callerObj, funcName, new LpcValue[] { item });
+                        if (keep.AsInt() != 0) result.Add(item);
+                    } catch {
+                        // 過濾失敗時跳過
+                    }
+                }
+                return LpcValue.Create(result);
+            }
+            return LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
+        }
+
+        [Efun("unique_array")]
+        public static LpcValue UniqueArray(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1 && args[0].Type == LpcType.Array) {
+                var arr = args[0].AsArray();
+                var seen = new System.Collections.Generic.HashSet<string>();
+                var result = new System.Collections.Generic.List<LpcValue>();
+                
+                foreach (var item in arr) {
+                    string key = item.AsString();
+                    if (seen.Add(key)) result.Add(item);
+                }
+                return LpcValue.Create(result);
+            }
+            return LpcValue.Create(new System.Collections.Generic.List<LpcValue>());
+        }
+
+        // --- 數學運算 ---
+        [Efun("max")]
+        public static LpcValue Max(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2) {
+                if (args[0].Type == LpcType.Int && args[1].Type == LpcType.Int) {
+                    return LpcValue.Create(System.Math.Max(args[0].AsInt(), args[1].AsInt()));
+                }
+                double a = Convert.ToDouble(args[0].AsString());
+                double b = Convert.ToDouble(args[1].AsString());
+                return LpcValue.Create((int)System.Math.Max(a, b));
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("min")]
+        public static LpcValue Min(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2) {
+                if (args[0].Type == LpcType.Int && args[1].Type == LpcType.Int) {
+                    return LpcValue.Create(System.Math.Min(args[0].AsInt(), args[1].AsInt()));
+                }
+                double a = Convert.ToDouble(args[0].AsString());
+                double b = Convert.ToDouble(args[1].AsString());
+                return LpcValue.Create((int)System.Math.Min(a, b));
+            }
+            return LpcValue.Create(0);
+        }
+
+        // --- 類型檢查 ---
+        [Efun("mappingp")]
+        public static LpcValue Mappingp(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) return LpcValue.Create(args[0].Type == LpcType.Mapping ? 1 : 0);
+            return LpcValue.Create(0);
+        }
+
+        [Efun("nullp")]
+        public static LpcValue Nullp(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) return LpcValue.Create(args[0].Type == LpcType.Int && args[0].AsInt() == 0 ? 1 : 0);
+            return LpcValue.Create(1);
+        }
+
+        [Efun("floatp")]
+        public static LpcValue Floatp(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) return LpcValue.Create(args[0].Type == LpcType.Float ? 1 : 0);
+            return LpcValue.Create(0);
+        }
+
+        [Efun("functionp")]
+        public static LpcValue Functionp(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) return LpcValue.Create(args[0].Type == LpcType.Function ? 1 : 0);
+            return LpcValue.Create(0);
+        }
+
+        // --- 檔案系統 ---
+        [Efun("file_exists")]
+        public static LpcValue FileExists(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                string path = args[0].AsString();
+                if (path.StartsWith("/") && ctx.ObjMgr.Config != null) {
+                    path = ctx.ObjMgr.Config.ResolveMudlibPath(path);
+                }
+                return LpcValue.Create(System.IO.File.Exists(path) ? 1 : 0);
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("cp")]
+        public static LpcValue Cp(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2) {
+                try {
+                    string src = args[0].AsString();
+                    string dst = args[1].AsString();
+                    if (src.StartsWith("/") && ctx.ObjMgr.Config != null) src = ctx.ObjMgr.Config.ResolveMudlibPath(src);
+                    if (dst.StartsWith("/") && ctx.ObjMgr.Config != null) dst = ctx.ObjMgr.Config.ResolveMudlibPath(dst);
+                    System.IO.File.Copy(src, dst, true);
+                    return LpcValue.Create(1);
+                } catch { return LpcValue.Create(0); }
+            }
+            return LpcValue.Create(0);
+        }
+
+        [Efun("mv")]
+        public static LpcValue Mv(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 2) {
+                try {
+                    string src = args[0].AsString();
+                    string dst = args[1].AsString();
+                    if (src.StartsWith("/") && ctx.ObjMgr.Config != null) src = ctx.ObjMgr.Config.ResolveMudlibPath(src);
+                    if (dst.StartsWith("/") && ctx.ObjMgr.Config != null) dst = ctx.ObjMgr.Config.ResolveMudlibPath(dst);
+                    System.IO.File.Move(src, dst, true);
+                    return LpcValue.Create(1);
+                } catch { return LpcValue.Create(0); }
+            }
+            return LpcValue.Create(0);
+        }
+
+        // --- 時間處理 ---
+        [Efun("ctime")]
+        public static LpcValue Ctime(EfunContext ctx, LpcValue[] args) {
+            long timestamp = args.Length >= 1 ? args[0].AsInt() : (long)(System.DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            var dt = System.DateTimeOffset.FromUnixTimeSeconds(timestamp).LocalDateTime;
+            return LpcValue.Create(dt.ToString("ddd MMM dd HH:mm:ss yyyy"));
+        }
+
     }
 }
