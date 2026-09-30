@@ -352,11 +352,24 @@ namespace LithosNet.VM {
         [Efun("exec")]
         public static LpcValue Exec(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 2) {
-                SessionManager.Exec(args[0].AsString(), args[1].AsString());
-                try { ctx.ObjMgr.CallFunction(args[1].AsString(), "logon"); } catch {}
+                string newObjName = args[0].AsString();
+                string oldObjName = args[1].AsString();
+                
+                Console.WriteLine($"🔌 [Efun:exec] 嘗試將連線從 '{oldObjName}' 轉移至 '{newObjName}'");
+                
+                // 1. 轉移 Session 綁定
+                SessionManager.TransferSession(oldObjName, newObjName);
+                
+                // 2. 更新 ObjectManager 中的 Interpreter Session 綁定
+                if (ctx.Session != null) {
+                    ctx.ObjMgr.BindSessionToObject(newObjName, ctx.Session);
+                }
+                
+                return LpcValue.Create(1);
             }
-            return LpcValue.Create(1);
+            return LpcValue.Create(0);
         }
+
 
         [Efun("destruct")]
         public static LpcValue Destruct(EfunContext ctx, LpcValue[] args) {

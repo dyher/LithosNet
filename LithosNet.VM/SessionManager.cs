@@ -133,5 +133,17 @@ namespace LithosNet.VM
                 _sessions[newObj] = connId;
             }
         }
+
+        // 【Phase 87】TransferSession: 轉移網路連線控制權
+        public static void TransferSession(string oldObjName, string newObjName) {
+            if (_lpcSessionsByObject.TryGetValue(oldObjName, out var session)) {
+                _lpcSessionsByObject.TryRemove(oldObjName, out _);
+                session.ObjectName = newObjName;
+                _lpcSessionsByObject[newObjName] = session;
+                Console.WriteLine($"🔄 [SessionManager] Session 控制權已從 '{oldObjName}' 轉移至 '{newObjName}'");
+            } else {
+                Console.WriteLine($"⚠️ [SessionManager] 找不到舊物件 '{oldObjName}' 的 Session，無法轉移。");
+            }
+        }
     }
 }
