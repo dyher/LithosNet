@@ -98,6 +98,7 @@ namespace LithosNet.Compiler {
             if (context.children != null) {
                 foreach (var child in context.children) {
                     if (child is LPCParser.StatementContext stmtCtx) {
+                        Console.WriteLine($"🔍 [Block Debug] Parsing: {stmtCtx.GetText().Substring(0, System.Math.Min(60, stmtCtx.GetText().Length))}");
                         var astNode = Visit(stmtCtx);
                         Console.WriteLine($"🔍 [Block X-Ray] Child Type: {child.GetType().Name}, AST Node: {(astNode != null ? astNode.GetType().Name : "NULL")}");
                         if (astNode != null) block.Statements.Add(astNode);

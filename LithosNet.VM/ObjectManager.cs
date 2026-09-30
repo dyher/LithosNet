@@ -199,7 +199,7 @@ namespace LithosNet.VM {
             var blueprint = _objects[actualName].scope;
             string cloneId = $"{actualName}#{++_cloneCounter}";
             var newScope = new Scope();
-            newScope.InheritFrom(blueprint); 
+            newScope.CloneFrom(blueprint); 
             var interp = new Interpreter(newScope, this);
             interp.ObjectName = cloneId;
             _objects[cloneId] = (newScope, interp);
@@ -358,7 +358,7 @@ namespace LithosNet.VM {
             
             // 3. 創建新的 Scope 並繼承藍圖變數與函數
             var newScope = new Scope();
-            newScope.InheritFrom(blueprint.scope);
+            newScope.CloneFrom(blueprint.scope);
             // 【Phase 57: 架構優化】為克隆體打上標記，防止 LPC 腳本中的無限遞迴
             newScope.Set("is_clone", LpcValue.Create(1));
             

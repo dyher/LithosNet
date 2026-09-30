@@ -48,7 +48,7 @@ namespace LithosNet.VM {
             foreach (var n in ast) {
                 if (n is InheritNode inh) {
                     Scope parentScope = _objMgr.LoadObject(inh.ParentObjName);
-                    _scope.InheritFrom(parentScope);
+                    _scope.InheritFromClass(parentScope);
                 } else { Visit(n); }
             }
         }
@@ -61,6 +61,7 @@ namespace LithosNet.VM {
             }
 
             Console.WriteLine($"🔍 [CallFunc Entry] Calling: '{name}'");
+            Console.WriteLine($"   [DEBUG] Scope Hash: {_scope.GetHashCode()}, HasFunc: {_scope.HasFunction(name)}, FuncCount: {_scope.GetAllVariables().Count}");
             
             if (_scope.HasFunction(name)) {
                 var func = _scope.GetFunction(name);
