@@ -636,21 +636,37 @@ namespace LithosNet.VM {
         public static LpcValue WriteFile(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 2) {
                 string path = args[0].AsString();
-                string text = args[1].AsString();
-                int append = args.Length >= 3 ? args[2].AsInt() : 0;
+                string data = args[1].AsString();
                 
+                // 【Phase 84.2 安全閘道】呼叫 master->valid_write()
                 try {
+                    var masterResult = ctx.ObjMgr.CallFunction("master", "valid_write", new LpcValue[] {
+                        LpcValue.Create(path),
+                        LpcValue.Create("write_file"),
+                        LpcValue.Create(0)
+                    });
+                    
+                    if (masterResult.Type == LpcType.Int && masterResult.AsInt() == 0) {
+                        return LpcValue.Create(0); // valid_write 拒絕
+                    }
+                } catch {
+                    // 【FluffOS 降級行為】如果 master 沒有 valid_write，預設允許
+                }
+
+                try {
+                    // 將虛擬路徑轉換為物理路徑
+                    string physicalPath = path;
+                    if (path.StartsWith("/") && ctx.ObjMgr.Config != null) {
+                        physicalPath = ctx.ObjMgr.Config.ResolveMudlibPath(path);
+                    }
+                    
                     // 確保目錄存在
-                    string dir = System.IO.Path.GetDirectoryName(path);
-                    if (!string.IsNullOrEmpty(dir)) {
+                    string dir = System.IO.Path.GetDirectoryName(physicalPath);
+                    if (!string.IsNullOrEmpty(dir) && !System.IO.Directory.Exists(dir)) {
                         System.IO.Directory.CreateDirectory(dir);
                     }
                     
-                    if (append != 0) {
-                        System.IO.File.AppendAllText(path, text);
-                    } else {
-                        System.IO.File.WriteAllText(path, text);
-                    }
+                    System.IO.File.AppendAllText(physicalPath, data);
                     return LpcValue.Create(1);
                 } catch {
                     return LpcValue.Create(0);
@@ -658,6 +674,7 @@ namespace LithosNet.VM {
             }
             return LpcValue.Create(0);
         }
+
 
         [Efun("mkdir")]
         public static LpcValue Mkdir(EfunContext ctx, LpcValue[] args) {

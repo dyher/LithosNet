@@ -54,6 +54,18 @@ namespace LithosNet.Host {
                     try {
                         var client = await listener.AcceptTcpClientAsync();
                         Console.WriteLine($"🔌 新連線: {client.Client.RemoteEndPoint}");
+                        // 【Phase 84.2】呼叫 master->connect(port)
+                        try {
+                            ObjMgr!.EnqueueAndAwaitAsync(() => {
+                                var result = ObjMgr.CallFunction("master", "connect", new LpcValue[] {
+                                    LpcValue.Create(Config!.ExternalPort)
+                                });
+                                Console.WriteLine($"✅ master->connect() 返回: {result.Type}");
+                                return result; // 【關鍵修復】返回 lambda 結果
+                            }).Wait();
+                        } catch (Exception ex) {
+                            Console.WriteLine($"⚠ master->connect() 錯誤: {ex.Message}");
+                        }
                         // 【待辦】後續將此 client 交給 SessionManager 處理
                         client.Close(); 
                     } catch {
