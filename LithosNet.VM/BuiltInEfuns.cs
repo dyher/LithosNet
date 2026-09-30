@@ -345,7 +345,16 @@ namespace LithosNet.VM {
         }
         [Efun("clone_object")]
         public static LpcValue CloneObject(EfunContext ctx, LpcValue[] args) {
-            if (args.Length >= 1) return LpcValue.Create(ctx.ObjMgr.Clone(args[0].AsString()));
+            if (args.Length >= 1) {
+                try {
+                    // 提取除了 blueprint 之外的所有參數，傳遞給 create
+                    var createArgs = args.Length > 1 ? args.Skip(1).ToArray() : null;
+                    return LpcValue.Create(ctx.ObjMgr.Clone(args[0].AsString(), createArgs));
+                } catch (System.Exception ex) {
+                    System.Console.WriteLine($"[CloneObject] Failed gracefully: {ex.Message}");
+                    return LpcValue.Create(0);
+                }
+            }
             return LpcValue.Create(0);
         }
 

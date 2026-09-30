@@ -224,7 +224,7 @@ namespace LithosNet.VM {
             return scope;
         }
 
-        public string Clone(string blueprintName) {
+        public string Clone(string blueprintName, LpcValue[] createArgs = null) {
             Console.WriteLine($"🔍 [DEBUG Clone] Blueprint: '{blueprintName}'");
             string fullPath = ResolvePath(blueprintName);
             string actualName = Path.GetFileNameWithoutExtension(fullPath);
@@ -236,7 +236,7 @@ namespace LithosNet.VM {
             var interp = new Interpreter(newScope, this);
             interp.ObjectName = cloneId;
             _objects[cloneId] = (newScope, interp);
-            if (newScope.HasFunction("create")) interp.CallFunction("create", new List<LpcValue>());
+            if (newScope.HasFunction("create")) interp.CallFunction("create", createArgs != null ? createArgs.ToList() : new List<LpcValue>());
             Console.WriteLine($"🔍 [DEBUG Clone] Returning cloneId: '{cloneId}'");
             return cloneId;
         }
