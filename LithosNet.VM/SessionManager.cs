@@ -1,93 +1,136 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO.Pipelines;
 using System.Linq;
-using System.Text;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 
-namespace LithosNet.VM {
-    public static class SessionManager {
-        // 【Phase 62: 登入流程】Session 級別的輸入攔截器 (Input Trap)
-        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> InputTraps = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
-
-        public static void SetInputTrap(string sessionObj, string funcName) {
-            InputTraps[sessionObj] = funcName;
-        }
-
-        public static string GetAndClearInputTrap(string sessionObj) {
-            if (InputTraps.TryRemove(sessionObj, out string func)) {
-                return func;
-            }
-            return null;
-        }
-
-
-        public static List<PipeWriter> GetAllWriters() {
-            return new List<PipeWriter>(_sessions.Values);
-        }
-
-        private static readonly ConcurrentDictionary<string, PipeWriter> _sessions = new();
-        private static readonly ConcurrentDictionary<PipeWriter, string> _writerToObj = new();
+namespace LithosNet.VM
+{
+    public static class SessionManager
+    {
+        // === 原有功能 ===
+        private static readonly ConcurrentDictionary<string, string> _sessions = new();
+        private static readonly ConcurrentDictionary<string, string> _inputTraps = new();
+        private static readonly ConcurrentDictionary<string, string> _bots = new();
         public static readonly AsyncLocal<string> CurrentPlayer = new AsyncLocal<string>();
-
-        public static void Bind(string objName, PipeWriter writer) {
-            _sessions[objName] = writer;
-            _writerToObj[writer] = objName;
-            Console.WriteLine($"🔌 [Session] 綁定連線: {objName}");
-        }
-
         
-        public static void RegisterBot(string objName) {
-            var pipe = new System.IO.Pipelines.Pipe();
-            _sessions[objName] = pipe.Writer;
-            _writerToObj[pipe.Writer] = objName;
-            Console.WriteLine($"🤖 [Session] 虛擬 Bot 註冊成功: {objName} (Memory Pipe)");
+        // === Phase 86 新增：LpcSession 管理 ===
+        private static readonly ConcurrentDictionary<string, LpcSession> _lpcSessionsByObject = new();
+        private static ObjectManager _objMgr;
+        
+        public static void Initialize(ObjectManager objMgr)
+        {
+            _objMgr = objMgr;
         }
-
-        public static void Unbind(string objName) {
-            if (_sessions.TryRemove(objName, out var writer)) {
-                _writerToObj.TryRemove(writer, out _);
-                Console.WriteLine($"❌ [Session] 斷開連線: {objName}");
+        
+        public static LpcSession CreateLpcSession(TcpClient client)
+        {
+            var session = new LpcSession(client, _objMgr);
+            Console.WriteLine($"[SessionManager] 建立 LpcSession");
+            return session;
+        }
+        
+        public static void BindSessionToObject(LpcSession session, string objectName)
+        {
+            session.ObjectName = objectName;
+            _lpcSessionsByObject[objectName] = session;
+            
+            // 【Phase 86 終極修復】先設定 session 屬性，再綁定到 interpreter
+            session.ObjMgr.BindSessionToObject(objectName, session);
+            
+            Console.WriteLine($"[SessionManager] ✅ Session 綁定完成: {objectName}");
+        }
+        
+        public static LpcSession GetSessionByObject(string objectName)
+        {
+            _lpcSessionsByObject.TryGetValue(objectName, out var session);
+            return session;
+        }
+        
+        public static void RemoveSession(LpcSession session) => RemoveLpcSession(session);
+        
+        public static void RemoveLpcSession(LpcSession session)
+        {
+            if (!string.IsNullOrEmpty(session.ObjectName)) {
+                _lpcSessionsByObject.TryRemove(session.ObjectName, out _);
             }
         }
-
-        public static async Task SendAsync(string objName, string message) {
-            Console.WriteLine($"🔍 [X-Ray] SendAsync 目標: '{objName}', 訊息: '{message}'");
-            if (_sessions.TryGetValue(objName, out var writer)) {
-                // 【Phase 74: Telnet 標準】確保以 \r\n 結尾
-                if (!message.EndsWith("\r\n") && !message.EndsWith("\n")) message += "\r\n";
-                byte[] bytes = Encoding.UTF8.GetBytes(message);
-                await writer.WriteAsync(bytes);
-                await writer.FlushAsync();
-                Console.WriteLine($"✅ [X-Ray] FlushAsync 完成！資料已推向 Socket！");
-            } else {
-                Console.WriteLine($"⚠ [X-Ray] _sessions 找不到 '{objName}'！啟動暴力廣播...");
-                foreach(var w in GetAllWriters()) {
-                    byte[] bytes = Encoding.UTF8.GetBytes(message);
-                    await w.WriteAsync(bytes);
-                    await w.FlushAsync();
+        
+        public static async Task StartAsync(int port)
+        {
+            var listener = new TcpListener(IPAddress.Any, port);
+            listener.Start();
+            Console.WriteLine($"🌐 [SessionManager] 監聽端口: {port}");
+            
+            while (true) {
+                try {
+                    var client = await listener.AcceptTcpClientAsync();
+                    Console.WriteLine($"🔌 新連線: {client.Client.RemoteEndPoint}");
+                    
+                    var session = CreateLpcSession(client);
+                    _ = Task.Run(() => session.StartReceiveLoopAsync());
+                    
+                    try {
+                        var result = await _objMgr.EnqueueAndAwaitAsync(() => {
+                            return _objMgr.CallFunction("master", "connect", new Core.LpcValue[] {
+                                Core.LpcValue.Create(port)
+                            });
+                        });
+                        
+                        if (result.Type == Core.LpcType.Object || result.Type == Core.LpcType.String) {
+                            string objName = result.AsString();
+                            BindSessionToObject(session, objName);
+                            Console.WriteLine($"✅ master->connect() 返回: {objName}，已綁定 session");
+                            
+                            try {
+                                await _objMgr.EnqueueAndAwaitAsync(() => {
+                                    return _objMgr.CallFunction(objName, "logon", new Core.LpcValue[0]);
+                                });
+                            } catch (Exception ex) {
+                                Console.WriteLine($"⚠ logon() 錯誤: {ex.Message}");
+                            }
+                        }
+                    } catch (Exception ex) {
+                        Console.WriteLine($"⚠ master->connect() 錯誤: {ex.Message}");
+                        session.Close();
+                    }
+                } catch (Exception ex) {
+                    Console.WriteLine($"[SessionManager] Accept error: {ex.Message}");
+                    break;
                 }
             }
         }
-
+        
+        // === 原有方法 ===
+        public static void SetInputTrap(string sessionObj, string funcName) {
+            _inputTraps[sessionObj] = funcName;
+        }
+        
+        public static void RegisterBot(string objName) {
+            _bots[objName] = objName;
+        }
+        
+        public static async Task SendAsync(string objName, string message) {
+            // Phase 86: 優先使用 LpcSession
+            if (_lpcSessionsByObject.TryGetValue(objName, out var lpcSession)) {
+                lpcSession.Write(message);
+                return;
+            }
+            // 降級到原有邏輯
+            if (_sessions.TryGetValue(objName, out var connId)) {
+                Console.WriteLine($"[SendAsync] {objName}: {message}");
+            }
+            await Task.CompletedTask;
+        }
+        
         public static List<string> GetAllSessions() => _sessions.Keys.ToList();
         
-        
-        public static string GetObjNameByWriter(System.IO.Pipelines.PipeWriter writer) {
-            return _writerToObj.TryGetValue(writer, out var name) ? name : null;
-        }
-
-        public static string GetObjName(PipeWriter writer) {
-            return _writerToObj.TryGetValue(writer, out var name) ? name : "";
-        }
-
         public static void Exec(string newObj, string oldObj) {
-            if (_sessions.TryRemove(oldObj, out var writer)) {
-                _sessions[newObj] = writer;
-                _writerToObj[writer] = newObj;
-                CurrentPlayer.Value = newObj;
-                Console.WriteLine($"🔄 [Session] 連線無縫轉移: {oldObj} -> {newObj}");
+            if (_sessions.TryRemove(oldObj, out var connId)) {
+                _sessions[newObj] = connId;
             }
         }
     }

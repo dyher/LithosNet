@@ -296,11 +296,21 @@ namespace LithosNet.VM {
 
         [Efun("write")]
         public static LpcValue Write(EfunContext ctx, LpcValue[] args) {
-            if (args.Length >= 1 && ctx.CurrentObject != null) {
-                SessionManager.SendAsync(ctx.CurrentObject, args[0].AsString()).GetAwaiter().GetResult();
+            if (args.Length >= 1) {
+                string msg = args[0].AsString();
+                // 【Phase 86】輸出到對應的 TCP session
+                var session = ctx.Session;
+                if (session != null) {
+                    session.Write(msg);
+                } else {
+                    // 降級：輸出到 console (例如 preload 階段)
+                    Console.Write(msg);
+                }
+                return LpcValue.Create(1);
             }
-            return LpcValue.Create(1);
+            return LpcValue.Create(0);
         }
+
 
         [Efun("tell_object")]
         public static LpcValue TellObject(EfunContext ctx, LpcValue[] args) {
@@ -312,11 +322,18 @@ namespace LithosNet.VM {
 
         [Efun("input_to")]
         public static LpcValue InputTo(EfunContext ctx, LpcValue[] args) {
-            if (args.Length >= 1 && ctx.CurrentObject != null) {
-                SessionManager.SetInputTrap(ctx.CurrentObject, args[0].AsString());
+            Console.WriteLine($"[input_to DEBUG] Session is null? {ctx.Session == null}, Obj: {ctx.CurrentObject}");
+            if (args.Length >= 1 && ctx.Session != null) {
+                string funcName = args[0].AsString();
+                ctx.Session.InputToFunc = funcName;
+                ctx.Session.InputToObj = ctx.CurrentObject;
+                Console.WriteLine($"[input_to] OK: {funcName} on {ctx.CurrentObject}");
+                return LpcValue.Create(1);
             }
-            return LpcValue.Create(1);
+            Console.WriteLine($"[input_to] FAIL: Session null or no args");
+            return LpcValue.Create(0);
         }
+
 
         [Efun("objectp")]
         public static LpcValue Objectp(EfunContext ctx, LpcValue[] args) {
@@ -1087,6 +1104,9 @@ namespace LithosNet.VM {
             var dt = System.DateTimeOffset.FromUnixTimeSeconds(timestamp).LocalDateTime;
             return LpcValue.Create(dt.ToString("ddd MMM dd HH:mm:ss yyyy"));
         }
+
+
+        // 【Phase 86】input_to efun：註冊輸入回調
 
     }
 }

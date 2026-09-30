@@ -38,9 +38,11 @@ namespace LithosNet.VM {
         // 【Phase 61: 終極修復】指令路由表屬於 Object (Interpreter)，不屬於詞法 Scope
         
 
+        public void SetSession(LpcSession session) { _session = session; }
         public string ObjectName { get; set; } = ""; // 【Phase 58】唯一且安全的 ObjectName
         // 【Phase 57: 終極防禦】預設空字串
         public Scope _scope;
+        private LpcSession _session;
         private readonly ObjectManager _objMgr;
         public Interpreter(Scope scope, ObjectManager objMgr) { _scope = scope; _objMgr = objMgr; }
 
@@ -91,6 +93,7 @@ namespace LithosNet.VM {
             }
             if (EfunRegistry.TryGet(name, out var efun)) {
                 var ctx = new EfunContext(_objMgr, this.ObjectName, _scope);
+                    ctx.Session = _session;
                 return efun(ctx, args.ToArray());
             }
             // 【FluffOS 核心機制】如果當前 Scope 和 Efun 都找不到，嘗試呼叫 simul_efun
@@ -349,26 +352,27 @@ namespace LithosNet.VM {
                     return LpcValue.Create(0);
 
                 case FunctionCallNode c:
-
                     // 【特殊形式】catch 必須特殊處理，以捕獲 LPC 的 throw 異常
                     if (c.Name == "catch" && c.Arguments != null && c.Arguments.Count > 0) {
                         try {
-                            // 直接 Eval 參數表達式 (例如: catch( func() ) 會執行 func 並捕獲其 throw)
                             Eval(c.Arguments[0]);
-                            return LpcValue.Create(0); // 沒有異常，返回 0
+                            return LpcValue.Create(0);
                         } catch (LpcThrowException tex) {
-                            // 捕獲 throw，返回錯誤資訊 (確保是字串)
                             return tex.Value.Type == LpcType.String ? tex.Value : LpcValue.Create(tex.Value.ToString());
                         } catch (LpcRuntimeException ex) {
                             return LpcValue.Create(ex.Message);
                         } catch (System.Exception ex) {
-                            // 放行控制流異常 (Return, Break 等)
                             if (ex.GetType().Name.Contains("Return") || ex.GetType().Name.Contains("Signal") || ex.GetType().Name.Contains("Break")) throw;
                             return LpcValue.Create("Runtime Error: " + ex.Message);
                         }
                     }
  
                     var cArgs = new List<LpcValue>(); foreach (var a in c.Arguments) cArgs.Add(Eval(a));
+                    
+                    // 【Phase 86 終極修復】統一透過 CallFunction 處理所有 efun，確保 Session 正確傳遞
+                    if (c.Name != "catch") {
+                        return CallFunction(c.Name, cArgs);
+                    }
                     if (c.Name == "tell_object" && cArgs.Count >= 2) {
                         _ = SessionManager.SendAsync(cArgs[0].AsString(), cArgs[1].AsString());
                         return LpcValue.Create(1);

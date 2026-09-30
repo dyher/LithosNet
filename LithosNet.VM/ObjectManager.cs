@@ -10,6 +10,32 @@ using LithosNet.Compiler;
 namespace LithosNet.VM {
     public class ObjectManager {
         public ConfigManager Config { get; private set; }
+        
+        public void BindSessionToObject(string objectName, LpcSession session) {
+            // 【Phase 86 終極修復】處理 clone 物件名稱 (如 login#1)
+            string baseName = objectName.Contains("#") ? objectName.Split('#')[0] : objectName;
+            
+            // 嘗試直接綁定
+            if (_objects.TryGetValue(objectName, out var entry)) {
+                entry.interp.SetSession(session);
+                Console.WriteLine($"[ObjectManager] ✅ 直接綁定成功: {objectName}");
+            } 
+            // 如果找不到精確匹配，嘗試查找所有以 baseName 開頭的物件並綁定
+            else {
+                bool found = false;
+                foreach (var kvp in _objects) {
+                    if (kvp.Key.StartsWith(baseName)) {
+                        kvp.Value.interp.SetSession(session);
+                        Console.WriteLine($"[ObjectManager] ✅ 模糊綁定成功: {kvp.Key} (基於 {baseName})");
+                        found = true;
+                    }
+                }
+                if (!found) {
+                    Console.WriteLine($"[ObjectManager] ⚠️ 完全找不到物件 '{objectName}' (Base: {baseName})，當前可用: {string.Join(", ", _objects.Keys)}");
+                }
+            }
+        }
+        
         public void SetConfig(ConfigManager cfg) { 
             this.Config = cfg; 
             // 【Phase 83.2 修復】確保內部路徑解析器使用 Config 中的 Mudlib 目錄
