@@ -361,6 +361,11 @@ namespace LithosNet.VM {
         [Efun("exec")]
         public static LpcValue Exec(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 2) {
+                Console.WriteLine($"[EXEC DIAG] args[0].Type={args[0].Type}, AsString={args[0].AsString()}");
+                if (args[0].Type == LpcType.Int && args[0].AsInt() == 0) {
+                    Console.WriteLine("[EXEC] Rejecting 0");
+                    return LpcValue.Create(0);
+                }
                 string newObjName = args[0].AsString();
                 string oldObjName = args[1].AsString();
                 
