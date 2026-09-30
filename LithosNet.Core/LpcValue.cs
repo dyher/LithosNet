@@ -27,6 +27,20 @@ namespace LithosNet.Core {
         public static LpcValue CreateFunction(string objName, string funcName) => 
             new LpcValue(LpcType.Function, 0, new Tuple<string, string>(objName, funcName));
         
+        
+        public bool IsTruthy() {
+            switch (Type) {
+                case LpcType.Int: return AsInt() != 0;
+                case LpcType.Float: return AsString() != "0" && AsString() != "";
+                case LpcType.String: return !string.IsNullOrEmpty(AsString());
+                case LpcType.Array: return AsArray().Count > 0;
+                case LpcType.Mapping: return AsMapping().Count > 0;
+                case LpcType.Object: return AsString() != "0" && AsString() != "";
+                case LpcType.Function: return true;
+                default: return false;
+            }
+        }
+
         public int AsInt() {
             if (Type == LpcType.Int) return (int)_primitiveValue;
             if (Type == LpcType.String && _referenceValue != null && int.TryParse(_referenceValue.ToString(), out int res)) return res;

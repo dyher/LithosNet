@@ -928,7 +928,7 @@ namespace LithosNet.VM {
                 int trimMask = args.Length >= 2 ? args[1].AsInt() : 3;
                 string chrs = args.Length >= 3 ? args[2].AsString() : " \t\n\r";
                 
-                char[] trimChars = chrs.ToCharArray();
+                char[] trimChars = string.IsNullOrEmpty(chrs) ? new char[] { ' ', '\t', '\n', '\r' } : chrs.ToCharArray();
                 if (trimMask == 1) return LpcValue.Create(str.TrimStart(trimChars));
                 if (trimMask == 2) return LpcValue.Create(str.TrimEnd(trimChars));
                 return LpcValue.Create(str.Trim(trimChars));
