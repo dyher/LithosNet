@@ -597,9 +597,32 @@ namespace LithosNet.VM {
         public static LpcValue ReadFile(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 1) {
                 string path = args[0].AsString();
+                
+                // 【Phase 84.1 安全閘道】呼叫 master->valid_read()
                 try {
-                    if (System.IO.File.Exists(path)) {
-                        return LpcValue.Create(System.IO.File.ReadAllText(path));
+                    // 【關鍵修復】caller 參數暫時傳入 0，避免 object 與 string 的型別檢查衝突
+                    var masterResult = ctx.ObjMgr.CallFunction("master", "valid_read", new LpcValue[] {
+                        LpcValue.Create(path),
+                        LpcValue.Create("read_file"),
+                        LpcValue.Create(0) 
+                    });
+                    
+                    if (masterResult.Type == LpcType.Int && masterResult.AsInt() == 0) {
+                        return LpcValue.Create(0); // valid_read 拒絕
+                    }
+                } catch {
+                    // 【FluffOS 降級行為】如果 master 沒有 valid_read 或發生錯誤，預設允許讀取
+                }
+
+                try {
+                    // 將虛擬路徑轉換為物理路徑
+                    string physicalPath = path;
+                    if (path.StartsWith("/") && ctx.ObjMgr.Config != null) {
+                        physicalPath = ctx.ObjMgr.Config.ResolveMudlibPath(path);
+                    }
+                    
+                    if (System.IO.File.Exists(physicalPath)) {
+                        return LpcValue.Create(System.IO.File.ReadAllText(physicalPath));
                     }
                 } catch {
                     // 讀取失敗回傳 0
@@ -607,6 +630,7 @@ namespace LithosNet.VM {
             }
             return LpcValue.Create(0);
         }
+
 
         [Efun("write_file")]
         public static LpcValue WriteFile(EfunContext ctx, LpcValue[] args) {
