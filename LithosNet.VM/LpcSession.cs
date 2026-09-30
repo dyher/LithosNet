@@ -61,18 +61,21 @@ namespace LithosNet.VM
                     Console.WriteLine($"[Session {ObjectName}] 收到輸入: {line}");
                     
                     // 如果有 input_to 註冊，呼叫回調函數
+                    Console.WriteLine($"🔥 [Session {ObjectName}] 收到輸入: '{line}', InputToFunc='{InputToFunc}', InputToObj='{InputToObj}'");
                     if (!string.IsNullOrEmpty(InputToFunc)) {
                         string func = InputToFunc;
                         string targetObj = InputToObj ?? ObjectName;
+                        Console.WriteLine($"🚀 [Session {ObjectName}] 準備呼叫 input_to 回調: {func} on {targetObj}");
                         InputToFunc = null;  // 一次性回調
                         InputToObj = null;
                         
                         try {
-                            await ObjMgr.EnqueueAndAwaitAsync(() => {
+                            var result = await ObjMgr.EnqueueAndAwaitAsync(() => {
                                 return ObjMgr.CallFunction(targetObj, func, new LpcValue[] { LpcValue.Create(line) });
                             });
+                            Console.WriteLine($"✅ [Session {ObjectName}] input_to 回調執行成功，返回: {result.Type}");
                         } catch (Exception ex) {
-                            Console.WriteLine($"[Session] input_to callback error: {ex.Message}");
+                            Console.WriteLine($"❌ [Session {ObjectName}] input_to callback error: {ex.Message}\n{ex.StackTrace}");
                         }
                     } else {
                         // 否則嘗試呼叫 process_input apply
