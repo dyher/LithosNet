@@ -81,6 +81,7 @@ namespace LithosNet.VM
                         // 否則嘗試呼叫 process_input apply
                         try {
                             await ObjMgr.EnqueueAndAwaitAsync(() => {
+                                LithosNet.VM.Interpreter.CommandGiver = ObjectName;
                                 return ObjMgr.CallFunction(ObjectName, "process_input", new LpcValue[] { LpcValue.Create(line) });
                             });
                         } catch (Exception ex) {

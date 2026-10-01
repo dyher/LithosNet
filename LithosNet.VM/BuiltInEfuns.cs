@@ -299,7 +299,8 @@ namespace LithosNet.VM {
             if (args.Length >= 1) {
                 string msg = args[0].AsString();
                 // 【Phase 86】輸出到對應的 TCP session
-                var session = ctx.Session;
+                string target = Interpreter.CommandGiver ?? ctx.CurrentObject;
+                var session = SessionManager.GetSessionByObject(target) ?? ctx.Session;
                 if (session != null) {
                     session.Write(msg);
                 } else {

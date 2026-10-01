@@ -23,6 +23,7 @@ namespace LithosNet.VM {
     public class ReturnSignal : Exception { public LpcValue Value; public ReturnSignal(LpcValue v) { Value = v; } }
 
     public class Interpreter {
+        public static string CommandGiver { get; set; }
         // 【Phase 72: 核心架構】獲取物件的根 Scope，確保狀態修改(如 add_action)不會丟失在 localScope 中
         private Scope GetRootScope() {
             Scope root = _scope;
