@@ -413,6 +413,22 @@ namespace LithosNet.VM {
             return LpcValue.Create(0);
         }
 
+        [Efun("load_object")]
+        public static LpcValue LoadObject(EfunContext ctx, LpcValue[] args) {
+            if (args.Length >= 1) {
+                try {
+                    string actualName = ctx.ObjMgr.LoadObjectAndGetActualName(args[0].AsString());
+                    if (actualName != null) {
+                        return LpcValue.Create(actualName);
+                    }
+                } catch (System.Exception ex) {
+                    Console.WriteLine($"[load_object] Failed: {ex.Message}");
+                }
+            }
+            return LpcValue.Create(0);
+        }
+
+
         [Efun("set_environment")]
         public static LpcValue SetEnvironment(EfunContext ctx, LpcValue[] args) {
             if (args.Length >= 1 && ctx.CurrentScope != null) {

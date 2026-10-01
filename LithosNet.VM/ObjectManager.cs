@@ -170,6 +170,27 @@ namespace LithosNet.VM {
             throw new Exception($"[VM] Cannot resolve LPC object path: {pathOrName}");
         }
 
+        public string LoadObjectAndGetActualName(string pathOrName) {
+            try {
+                string fullPath = ResolvePath(pathOrName);
+                if (string.IsNullOrEmpty(fullPath)) return null;
+                
+                string actualName = System.IO.Path.GetFileNameWithoutExtension(fullPath);
+                if (!_objects.ContainsKey(actualName)) {
+                    LoadObject(fullPath);
+                }
+                
+                // 確認載入成功且 scope 不為 null
+                if (_objects.TryGetValue(actualName, out var objInfo) && objInfo.scope != null) {
+                    return actualName;
+                }
+                return null;
+            } catch {
+                return null;
+            }
+        }
+
+
         public void ReloadObject(string path) {
             // 【地雷 A 修復】徹底非同步化：ThreadPool 讀檔，Worker Thread 解析
             System.Threading.Tasks.Task.Run(async () => {
@@ -227,9 +248,23 @@ namespace LithosNet.VM {
         public string Clone(string blueprintName, LpcValue[] createArgs = null) {
             Console.WriteLine($"🔍 [DEBUG Clone] Blueprint: '{blueprintName}'");
             string fullPath = ResolvePath(blueprintName);
+            
+            if (string.IsNullOrEmpty(fullPath)) {
+                Console.WriteLine($"[Clone] ❌ ResolvePath failed for '{blueprintName}'");
+                throw new Exception($"Blueprint '{blueprintName}' path not found");
+            }
+            
             string actualName = Path.GetFileNameWithoutExtension(fullPath);
-            if (!_objects.ContainsKey(actualName)) LoadObject(fullPath);
-            var blueprint = _objects[actualName].scope;
+            if (!_objects.ContainsKey(actualName)) {
+                LoadObject(fullPath);
+            }
+            
+            if (!_objects.TryGetValue(actualName, out var objInfo) || objInfo.scope == null) {
+                Console.WriteLine($"[Clone] ❌ Failed to load or compile blueprint: {actualName} from {fullPath}");
+                throw new Exception($"Blueprint '{blueprintName}' failed to load or compile. Check compiler logs.");
+            }
+            
+            var blueprint = objInfo.scope;
             string cloneId = $"{actualName}#{++_cloneCounter}";
             var newScope = new Scope();
             newScope.CloneFrom(blueprint); 
