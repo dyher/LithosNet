@@ -47,7 +47,7 @@ public struct RuntimeFunction {
 }
 
 // compiler_function_s L139-L145
-public sealed class CompilerFunction {
+public class CompilerFunction {
     public string Name = "";
     public ushort Type;
     public ushort RuntimeIndex;
@@ -55,7 +55,7 @@ public sealed class CompilerFunction {
 }
 
 // inherit_s L187-L193
-public sealed class Inherit {
+public class Inherit {
     public Program? Prog;
     public ushort FunctionIndexOffset;
     public ushort VariableIndexOffset;
@@ -75,7 +75,7 @@ public sealed class ClassMember {
 }
 
 // program_s L196-L248 - true layout per program.h
-public sealed class Program {
+public class Program {
     public const uint DRIVER_ID = 0x20260602; // LPCBIN_DRIVER_ID from binaries.h true
     public const string MAGIC = "NEOL";
 
@@ -124,8 +124,8 @@ public sealed class Program {
 
 // Compatibility aliases - old _S names used in early V4 code, keep them so old files still build
 // Remove these after full rename
-public sealed class CompilerFunctionS : CompilerFunction {}
-public sealed class InheritS : Inherit {}
+public class CompilerFunctionS : CompilerFunction {}
+public class InheritS : Inherit {}
 public sealed class ProgramS : Program {}
 public struct RuntimeDefinedS { public byte NumArg; public byte NumLocal; public ushort FIndex; }
 public struct RuntimeInheritedS { public ushort Offset; public ushort Index; }
