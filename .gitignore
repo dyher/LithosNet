@@ -1,0 +1,6 @@
+bin/
+obj/
+*.tar.gz
+/tmp/
+neolith_dump/
+LithosNet_V4_*.tar.gz
