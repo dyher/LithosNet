@@ -1,19 +1,21 @@
-# LithosNet_V4 - 1:1 復刻 taedlar/neolith
 
-Source: https://github.com/taedlar/neolith main
+# LithosNet_V4 - 1:1 taedlar/neolith
 
-對齊表:
-- lib/lpc/svalue.h -> src/vm/SValue.cs (lpc::svalue owning + svalue_view)
-- lib/lpc/object.h -> src/vm/Object.cs (object_t + O_DESTRUCTED)
-- lib/lpc/program.h -> src/vm/Program.cs (program_t + function_table)
-- src/interpret.c -> src/vm/Interpreter.cs (eval_instruction)
-- lib/lpc/grammar.y -> src/compiler/Grammar.cs
-- lib/lpc/func_spec.c.in -> src/packages/EfunSpec.cs (600+ efun生成)
-- src/main.c + src/simulate.c -> src/driver/Main.cs (init_stem, epilog)
+Source: https://github.com/taedlar/neolith main commit at 2026
+Headers copied from /tmp/neolith_dump (user upload)
 
-Phase:
-V4-P1: svalue_t int64 + object lifecycle 1:1
-V4-P2: compiler + bytecode VM
-V4-P3: efun 600 + master + simul_efun 跑 ES2 /d/city/center
-V4-P4: DGD atomic + dump_state
-V4-P5: Skynet actor mq + cluster
+## File map 1:1
+- lib/lpc/types.h (24K) -> src/vm/SValue.cs : svalue_u { int64_t number; } T_NUMBER=0x2 etc.
+- lib/lpc/svalue.h (3K) -> src/vm/SValue.cs SValueView owning/borrowing
+- lib/lpc/object.h (4.3K) -> src/vm/Object.cs O_* flags 0x0001..0x8000, sentence_s with args, object_s variables[1] last
+- lib/lpc/program.h (12K) -> src/vm/Program.cs NAME_* flags, TYPE_MOD_ARRAY, program_s 5 blocks, driver_id 0x20260113
+- src/interpret.h (13K) -> src/vm/Interpreter.cs PUSH_STRING/NUMBER/GLOBAL/LOCAL, control_stack_s, FRAME_*, ES_STACK_FULL
+- src/apply.h (2.2K) -> src/vm/Apply.cs APPLY_CACHE_SIZE, MASTER_APPROVED, APPLY_SLOT_CALL
+- lib/lpc/func_spec.c.in (15K) -> src/packages/EfunSpec.cs opcode order = binary compat
+
+## Phase1 Done
+- SValue int64 per int64-design.md F_NUMBER 32bit + F_LONG 64bit
+- Object lifecycle O_DESTRUCTED check after apply per copilot-instructions
+- Program binary layout contiguous per program.h comment
+
+Next Phase2: implement EvalInstruction bytecode loop src/interpret.c + compiler grammar.y
