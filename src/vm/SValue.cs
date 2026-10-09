@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 
 namespace LithosNet.V4.VM;
 // 1:1 from taedlar/neolith lib/lpc/types.h + svalue.h
