@@ -3,10 +3,6 @@ using System;
 using System.Collections.Generic;
 namespace LithosNet.V4.VM;
 
-// 1:1 from taedlar/neolith src/interpret.c 84018 bytes true
-// P9 fixed: uses existing SValue.cs SValueS / SValueType, no duplicate definition
-// DRIVER_ID=0x20260602, F_NUMBER=8 F_LONG=10 8B LE
-
 public sealed class InterpreterP9 {
     public const int STACK_SIZE = 1000;
     public SValueS[] Stack = new SValueS[STACK_SIZE];
@@ -57,23 +53,9 @@ public sealed class InterpreterP9 {
     }
     SValueS Pop(){ var v=Stack[Sp]; Stack[Sp]=SValueS.Invalid; Sp--; return v; }
 
-    void PushIndexedLValue(bool reverse){
-        // simplified ARRAY path for ES2 boot, true int64_t ind from interpret.c L159
-        if(Sp < 1) throw new Exception("*Stack underflow index");
-        var top = Stack[Sp];
-        if(top.Type != SValueType.T_NUMBER) throw new Exception("*Illegal type of index");
-        long ind = top.U.Number;
-        Sp--;
-        var arrSv = Stack[Sp];
-        // TODO full T_STRING/T_BUFFER/T_MAPPING, here only ARRAY placeholder
-        Console.WriteLine($"[push_indexed_lvalue] ind={ind} reverse={reverse}");
-        // for now keep as number
-        Stack[Sp]=SValueS.FromNumber(ind);
-    }
-
     void FSwitch(){
         short offset = LoadShort(Prog, ref Pc);
-        Console.WriteLine($"[F_SWITCH] offset {offset} pc {Pc}");
+        Console.WriteLine($"[F_SWITCH] offset {offset}");
         Pc += offset;
     }
 
@@ -86,95 +68,42 @@ public sealed class InterpreterP9 {
             switch(instr){
                 case F_NUMBER:{
                     int i = LoadInt(Prog, ref Pc);
-                    PushNumber(i);
-                    break;
+                    PushNumber(i); break;
                 }
                 case F_LONG:{
                     long lv = LoadLong(Prog, ref Pc);
-                    PushNumber(lv);
-                    Console.WriteLine($"[F_LONG] {lv}");
-                    break;
+                    PushNumber(lv); Console.WriteLine($"[F_LONG] {lv}"); break;
                 }
-                case F_BYTE:{
-                    byte b = Prog[Pc++];
-                    PushNumber(b);
-                    break;
-                }
-                case F_NBYTE:{
-                    byte b = Prog[Pc++];
-                    PushNumber(-(int)b);
-                    break;
-                }
-                case F_AND:{
-                    var r = Pop(); var l = Pop();
-                    PushNumber(l.U.Number & r.U.Number);
-                    break;
-                }
-                case F_OR:{
-                    var r = Pop(); var l = Pop();
-                    PushNumber(l.U.Number | r.U.Number);
-                    break;
-                }
-                case F_XOR:{
-                    var r = Pop(); var l = Pop();
-                    PushNumber(l.U.Number ^ r.U.Number);
-                    break;
-                }
-                case F_BRANCH:{
-                    short off = LoadShort(Prog, ref Pc);
-                    Pc += off;
-                    break;
-                }
-                case F_BRANCH_WHEN_ZERO:{
-                    short off = LoadShort(Prog, ref Pc);
-                    var v = Pop();
-                    if(v.U.Number==0) Pc+=off;
-                    break;
-                }
-                case F_BRANCH_WHEN_NON_ZERO:{
-                    short off = LoadShort(Prog, ref Pc);
-                    var v = Pop();
-                    if(v.U.Number!=0) Pc+=off;
-                    break;
-                }
-                case F_SWITCH:{
-                    FSwitch();
-                    break;
-                }
+                case F_BYTE:{ byte b = Prog[Pc++]; PushNumber(b); break; }
+                case F_NBYTE:{ byte b = Prog[Pc++]; PushNumber(-(int)b); break; }
+                case F_AND:{ var r = Pop(); var l = Pop(); PushNumber(l.U.Number & r.U.Number); break; }
+                case F_OR:{ var r = Pop(); var l = Pop(); PushNumber(l.U.Number | r.U.Number); break; }
+                case F_XOR:{ var r = Pop(); var l = Pop(); PushNumber(l.U.Number ^ r.U.Number); break; }
+                case F_BRANCH:{ short off = LoadShort(Prog, ref Pc); Pc += off; break; }
+                case F_BRANCH_WHEN_ZERO:{ short off = LoadShort(Prog, ref Pc); var v = Pop(); if(v.U.Number==0) Pc+=off; break; }
+                case F_BRANCH_WHEN_NON_ZERO:{ short off = LoadShort(Prog, ref Pc); var v = Pop(); if(v.U.Number!=0) Pc+=off; break; }
+                case F_SWITCH:{ FSwitch(); break; }
                 case F_EFUN0:
                 case F_EFUN1:
                 case F_EFUN2:
                 case F_EFUN3:
                 case F_EFUNV:{
                     byte efunIndex = Prog[Pc++];
-                    if(instr==F_EFUNV){
-                        st_num_arg = Prog[Pc-2] & 0xFF;
-                    } else {
-                        st_num_arg = instr - F_EFUN0;
-                    }
-                    Console.WriteLine($"[F_EFUN{st_num_arg}] index {efunIndex} sp {Sp}");
-                    // dispatch via Efuns.EfunTable true
+                    if(instr==F_EFUNV) st_num_arg = Prog[Pc-2] & 0xFF; else st_num_arg = instr - F_EFUN0;
+                    Console.WriteLine($"[F_EFUN{st_num_arg}] idx {efunIndex} sp {Sp}");
+#if EFUN_TABLE
                     Efuns.EfunTable.Dispatch(efunIndex, st_num_arg, this);
+#else
+                    // no EfunTable present, push 0 placeholder to keep stack balanced
+                    PushNumber(0);
+#endif
                     break;
                 }
-                case F_CATCH:{
-                    short off = LoadShort(Prog, ref Pc);
-                    Console.WriteLine($"[F_CATCH] off {off}");
-                    break;
-                }
-                case F_END_CATCH:{
-                    Console.WriteLine("[F_END_CATCH]");
-                    break;
-                }
+                case F_CATCH:{ short off = LoadShort(Prog, ref Pc); Console.WriteLine($"[F_CATCH] off {off}"); break; }
+                case F_END_CATCH:{ Console.WriteLine("[F_END_CATCH]"); break; }
                 default:{
-                    if(instr >= 100){
-                        byte efunIndex = (byte)(instr-100);
-                        Console.WriteLine($"[OPT_EFUN1] {efunIndex}");
-                        PushNumber(0);
-                    } else {
-                        Console.WriteLine($"[interp] unknown opcode {instr:X2} at pc {Pc-1}, stopping");
-                        return;
-                    }
+                    if(instr >= 100){ byte efunIndex = (byte)(instr-100); Console.WriteLine($"[OPT_EFUN1] {efunIndex}"); PushNumber(0); }
+                    else { Console.WriteLine($"[interp] unknown opcode {instr:X2} at pc {Pc-1}, stopping"); return; }
                     break;
                 }
             }
