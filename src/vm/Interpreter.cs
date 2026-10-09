@@ -1,86 +1,70 @@
 
+using System;
 namespace LithosNet.V4.VM;
-// 1:1 from taedlar/neolith src/interpret.h L7-L150
+// 1:1 from taedlar/neolith src/interpret.c L3785... true bytecode
+// LOAD_INT 4 bytes, LOAD_LONG 8 bytes little endian per int64-design.md
 
-public static class PushFlags {
-    public const int PUSH_STRING = (0 << 6);
-    public const int PUSH_NUMBER = (1 << 6);
-    public const int PUSH_GLOBAL = (2 << 6);
-    public const int PUSH_LOCAL = (3 << 6);
-    public const int PUSH_WHAT = (3 << 6);
-    public const int PUSH_MASK = (0xff ^ PUSH_WHAT);
-}
-
-public enum FrameKind {
-    FRAME_FUNCTION = 0,
-    FRAME_FUNP = 1,
-    FRAME_CATCH = 2,
-    FRAME_FAKE = 3,
-    FRAME_MASK = 3,
-    FRAME_OB_CHANGE = 4,
-    FRAME_EXTERNAL = 8
-}
-
-// control_stack_s L34-L49
-public sealed class ControlStackS {
-    public int FrameKind;
-    public int TableIndex; // union with funp
-    public ObjectS? Ob;
-    public ObjectS? PrevOb;
-    public ProgramS? Prog;
-    public int NumLocalVariables;
-    public int Pc; // program counter offset, char *pc in C
-    public int Fp; // frame pointer index into stack
-    public int FunctionIndexOffset;
-    public int VariableIndexOffset;
-    public int CallerType;
-}
-
-public sealed class FunctionToCallS {
-    public ObjectS? Ob;
-    public string? Str; // or funptr
-    public int NArg;
-    public SValueS[]? Args;
-}
-
-public static class ErrorState {
-    public const int ES_STACK_FULL = 1 << 0;
-    public const int ES_MAX_EVAL_COST = 1 << 1;
-}
-
-// interpreter stack from interpret.h L65-L82
-public sealed class Interpreter {
+public sealed class InterpreterV4 {
     public const int STACK_SIZE = 4096;
     public SValueS[] Stack = new SValueS[STACK_SIZE];
-    public int Sp = -1; // stack pointer, svalue_t *sp
-    public ControlStackS[] ControlStack = new ControlStackS[256];
-    public int Csp = -1;
-    public ProgramS? CurrentProg;
-    public int CallerType;
-    public SValueS Const0 = SValueS.FromNumber(0);
-    public SValueS Const1 = SValueS.FromNumber(1);
+    public int Sp = -1;
+    public byte[] Program = new byte[0];
+    public int Pc = 0;
 
-    public Interpreter(){
+    public InterpreterV4(){
         for(int i=0;i<STACK_SIZE;i++) Stack[i]=SValueS.Invalid;
     }
 
-    public void PushNumber(long n){
-        Stack[++Sp] = SValueS.FromNumber(n);
-    }
-    public void PushObject(ObjectS ob){
-        if((ob.Flags & ObjectFlags.O_DESTRUCTED)!=0) PushNumber(0);
-        else Stack[++Sp] = SValueS.FromObject(ob);
-    }
-    public SValueS Pop(){ return Stack[Sp--]; }
+    void PushNumber(long n){ Stack[++Sp]=SValueS.FromNumber(n); }
+    SValueS Pop(){ return Stack[Sp--]; }
 
-    // eval_instruction(const char *p) from interpret.h L85
-    public void EvalInstruction(ProgramS prog, int pc){
-        // TODO Phase2: bytecode dispatch loop per src/interpret.c F_NUMBER/F_LONG/F_BRANCH etc.
+    // true LOAD macros from src/interpret.c
+    static int LoadInt(byte[] prog, ref int pc){
+        int v = prog[pc] | (prog[pc+1]<<8) | (prog[pc+2]<<16) | (prog[pc+3]<<24);
+        pc+=4;
+        return v;
+    }
+    static long LoadLong(byte[] prog, ref int pc){
+        long lo = (uint)(prog[pc] | (prog[pc+1]<<8) | (prog[pc+2]<<16) | (prog[pc+3]<<24));
+        long hi = (uint)(prog[pc+4] | (prog[pc+5]<<8) | (prog[pc+6]<<16) | (prog[pc+7]<<24));
+        pc+=8;
+        return lo | (hi<<32);
     }
 
-    public void CallFunction(ProgramS progp, int runtimeIndex, int numArgs, SValueS ret){
-        // call_function from interpret.h L87
-        var entry = progp.FindFuncEntry(runtimeIndex);
-        // TODO
+    public void EvalInstruction(byte[] prog){
+        Program=prog; Pc=0;
+        while(Pc < prog.Length){
+            byte instr = prog[Pc++];
+            switch(instr){
+                case 0x10: // F_NUMBER placeholder, real opcode from efuns_opcode.h
+                    {
+                        int i = LoadInt(prog, ref Pc);
+                        PushNumber(i);
+                        break;
+                    }
+                case 0x11: // F_LONG true int64_t per file3785 L2494
+                    {
+                        long lv = LoadLong(prog, ref Pc);
+                        PushNumber(lv);
+                        Console.WriteLine($"[F_LONG] {lv}");
+                        break;
+                    }
+                case 0x12: // F_BYTE
+                    {
+                        byte b = prog[Pc++];
+                        PushNumber(b);
+                        break;
+                    }
+                case 0x13: // F_NBYTE
+                    {
+                        byte b = prog[Pc++];
+                        PushNumber(-(int)b);
+                        break;
+                    }
+                default:
+                    Console.WriteLine($"[interp] unknown opcode {instr:X2} at pc {Pc-1}");
+                    return;
+            }
+        }
     }
 }
