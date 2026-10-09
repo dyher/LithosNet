@@ -1,6 +1,5 @@
 bin/
 obj/
 *.tar.gz
-/tmp/
-neolith_dump/
-LithosNet_V4_*.tar.gz
+LithosNet_V4_*.csproj
+!LithosNet_V4.csproj
