@@ -64,7 +64,7 @@ public sealed class InheritS {
 
 // program_s L196-L251 - binary layout 5 blocks contiguous per comment
 public sealed class ProgramS {
-    public const uint DRIVER_ID = 0x20260113; // from int64-design.md L211 bumped from 0x20251029
+    public const uint DRIVER_ID = 0x20260602; // from int64-design.md L211 bumped from 0x20251029
     public string Name = "";
     public int Flags;
     public ushort Ref;
