@@ -1,6 +1,6 @@
-
 namespace LithosNet.V4.VM;
-// 1:1 from taedlar/neolith lib/lpc/program.h L62-L251
+// 1:1 from taedlar/neolith lib/lpc/program/program.h + lib/lpc/program/binaries.h
+// DRIVER_ID = 0x20260602 true per binaries.h
 
 public static class NameFlags {
     public const ushort NAME_INHERITED = 0x1;
@@ -28,66 +28,80 @@ public static class TypeMod {
 }
 
 // runtime_defined_s L98-L103
-public struct RuntimeDefinedS {
+public struct RuntimeDefined {
     public byte NumArg;
     public byte NumLocal;
-    public ushort FIndex; // function_number_t
+    public ushort FIndex;
 }
 
 // runtime_inherited_s L105-L109
-public struct RuntimeInheritedS {
-    public ushort Offset; // inherit offset
-    public ushort Index;  // function index in inherited prog
+public struct RuntimeInherited {
+    public ushort Offset;
+    public ushort Index;
 }
 
-public struct RuntimeFunctionU {
-    public RuntimeDefinedS Def;
-    public RuntimeInheritedS Inh;
+public struct RuntimeFunction {
+    public RuntimeDefined Def;
+    public RuntimeInherited Inh;
     public bool IsDefined;
 }
 
 // compiler_function_s L139-L145
-public sealed class CompilerFunctionS {
+public sealed class CompilerFunction {
     public string Name = "";
-    public ushort Type; // lpc_type_t
+    public ushort Type;
     public ushort RuntimeIndex;
-    public ushort Address; // function_address_t opcode offset
+    public ushort Address;
 }
 
 // inherit_s L187-L193
-public sealed class InheritS {
-    public ProgramS? Prog;
+public sealed class Inherit {
+    public Program? Prog;
     public ushort FunctionIndexOffset;
     public ushort VariableIndexOffset;
     public ushort TypeMod;
 }
 
-// program_s L196-L251 - binary layout 5 blocks contiguous per comment
-public sealed class ProgramS {
-    public const uint DRIVER_ID = 0x20260602; // from int64-design.md L211 bumped from 0x20251029
+public sealed class ClassDef {
+    public ushort NameIdx;
+    public ushort Type;
+    public ushort Size;
+    public ushort Index;
+}
+
+public sealed class ClassMember {
+    public ushort NameIdx;
+    public ushort Type;
+}
+
+// program_s L196-L248 - true layout per program.h
+public sealed class Program {
+    public const uint DRIVER_ID = 0x20260602; // LPCBIN_DRIVER_ID from binaries.h true
+    public const string MAGIC = "NEOL";
+
     public string Name = "";
     public int Flags;
     public ushort Ref;
     public ushort FuncRef;
-    public byte[] Program = new byte[0]; // A_PROGRAM
+    public byte[] Code = new byte[0]; // A_PROGRAM 65535 max
     public int IdNumber;
-    public ulong ConfigId; // simul_efun mtime
+    public ulong ConfigId; // simul_efun mtime uint64_t
     public byte[]? LineInfo; // A_LINENUMBERS
-    public ushort[]? FileInfo;
-    public ushort[]? IncludeIndices;
-    public ushort NumIncludes;
-    public CompilerFunctionS[] FunctionTable = new CompilerFunctionS[0]; // A_COMPILER_FUNCTIONS
-    public ushort[] FunctionFlags = new ushort[0]; // A_FUNCTION_FLAGS
-    public RuntimeFunctionU[] FunctionOffsets = new RuntimeFunctionU[0]; // A_RUNTIME_FUNCTIONS
-    public string[] Strings = new string[0]; // A_STRING
+    public ushort[]? FileInfo; // A_FILE_INFO
+    public CompilerFunction[] FunctionTable = new CompilerFunction[0];
+    public ushort[] FunctionFlags = new ushort[0];
+    public RuntimeFunction[] FunctionOffsets = new RuntimeFunction[0];
+    public string[] Strings = new string[0]; // A_STRINGS
     public string[] VariableTable = new string[0]; // A_VAR_NAME
     public ushort[] VariableTypes = new ushort[0];
-    public InheritS[] Inherit = new InheritS[0]; // A_INHERITS
+    public Inherit[] Inherits = new Inherit[0]; // A_INHERITS - renamed from Inherit to Inherits to avoid keyword clash
+    public ClassDef[] Classes = new ClassDef[0];
+    public ClassMember[] ClassMembers = new ClassMember[0];
     public int TotalSize;
-    public int HeartBeat = -1; // -1 means no heart beat
+    public int HeartBeat = -1;
     public ushort[]? ArgumentTypes;
     public ushort[]? TypeStart;
-    public ushort ProgramSize; // must <= 65535 per comment L16-L19
+    public ushort ProgramSize;
     public ushort NumFunctionsTotal;
     public ushort NumFunctionsDefined;
     public ushort NumStrings;
@@ -95,8 +109,24 @@ public sealed class ProgramS {
     public ushort NumVariablesDefined;
     public ushort NumInherited;
 
-    public RuntimeFunctionU? FindFuncEntry(int i) {
+    public RuntimeFunction? FindFuncEntry(int i) {
         if(i < 0 || i >= FunctionOffsets.Length) return null;
         return FunctionOffsets[i];
     }
+
+    public void Reference(string from="") { Ref++; }
+    public void Free(int freeSubStrings=1) {
+        if(Ref>0) Ref--;
+        if(FuncRef>0) return;
+        // deallocation would happen here per program.c deallocate_program()
+    }
 }
+
+// Compatibility aliases - old _S names used in early V4 code, keep them so old files still build
+// Remove these after full rename
+public sealed class CompilerFunctionS : CompilerFunction {}
+public sealed class InheritS : Inherit {}
+public sealed class ProgramS : Program {}
+public struct RuntimeDefinedS { public byte NumArg; public byte NumLocal; public ushort FIndex; }
+public struct RuntimeInheritedS { public ushort Offset; public ushort Index; }
+public struct RuntimeFunctionU { public RuntimeDefined Def; public RuntimeInherited Inh; public bool IsDefined; }

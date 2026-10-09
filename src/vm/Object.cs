@@ -39,7 +39,7 @@ public sealed class ObjectS {
     public long LoadTime;
     public long NextReset;
     public long TimeOfRef;
-    public ProgramS? Prog;
+    public Program? Prog;
     public ObjectS? NextAll;
     public ObjectS? NextInv;
     public ObjectS? Contains;

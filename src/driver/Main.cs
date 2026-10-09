@@ -27,7 +27,7 @@ public sealed class MainDriver {
         // init_stem(3, (unsigned long)-1, config_file) from unit-test SKILL.md L79
         MudStateManager.Set(MudState.MS_CONFIG);
         var configFile = args.Length>0? args[0] : "neolith.conf";
-        Console.WriteLine($"[V4] LithosNet_V4 driver 1:1 taedlar/neolith driver_id=0x{ProgramS.DRIVER_ID:X}");
+        Console.WriteLine($"[V4] LithosNet_V4 driver 1:1 taedlar/neolith driver_id=0x{Program.DRIVER_ID:X}");
         Console.WriteLine($"[V4] config={configFile} svalue_u.number=int64_t T_NUMBER=0x2 O_DESTRUCTED=0x10");
 
         MudStateManager.Set(MudState.MS_RESOURCES);
