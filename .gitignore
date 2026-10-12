@@ -1,4 +1,4 @@
-# LithosNet - 只保留源碼，忽略編譯產物
+# 編譯產物
 *.bin
 *.exe
 *.dll
@@ -7,7 +7,15 @@ bin/
 obj/
 .vs/
 *.user
+*.log
+# mudlib 運行檔
 base.c
+MS_*
+.bak_v4/
+*.b
+*.bak
+code
+es2.conf
+# 測試產物
 src/tests/*.bin
 archive/
-*.log
