@@ -3,3 +3,13 @@ obj/
 *.tar.gz
 LithosNet_V4_*.csproj
 !LithosNet_V4.csproj
+*.bin
+*.b
+test_*.c
+!test_simple.c
+base.c
+.bak_v4/
+MS_*
+LithosNet_V4.csproj.bak
+code
+test.c
