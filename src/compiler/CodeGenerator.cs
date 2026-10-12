@@ -354,82 +354,63 @@ public sealed class CodeGenerator
         _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)switchIdx); _ctx.CodeBlock.InsByte(42);
         var switchLoop = new LoopInfo2 { CondPos = _ctx.CodeBlock.Position };
         _loopStack.Push(switchLoop);
-        List<int> caseBranchPositions = new List<int>();
-        List<int> caseTargetPositions = new List<int>();
-        // first pass: generate comparisons and branches
-        foreach (var caseNode in casesBlock.Children)
+
+        var caseList = new List<ParseNode>();
+        ParseNode defaultNode = null;
+        foreach (var c in casesBlock.Children)
         {
-            if (caseNode.Name == "case" && caseNode.Children.Count >= 1)
-            {
-                var caseVal = caseNode.Children[0];
-                _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)switchIdx);
-                GenerateNode(caseVal, false);
-                _ctx.CodeBlock.InsByte(32); // ==
-                int branchFalse = _ctx.CodeBlock.Position;
-                _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0);
-                caseBranchPositions.Add(branchFalse);
-                caseTargetPositions.Add(-1); // placeholder
-            }
+            if (c.Name == "case") caseList.Add(c);
+            else if (c.Name == "default") defaultNode = c;
         }
-        // default branch
-        bool hasDefault = false;
-        foreach (var c in casesBlock.Children) if (c.Name == "default") hasDefault = true;
-        int defaultBranchPos = -1;
-        if (!hasDefault)
+
+        var branchPositions = new List<int>();
+        // generate comparisons: if temp == caseVal => jump to body
+        foreach (var caseNode in caseList)
         {
-            // if no match, jump to end
-            defaultBranchPos = _ctx.CodeBlock.Position;
+            if (caseNode.Children.Count < 1) continue;
+            var caseVal = caseNode.Children[0];
+            _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)switchIdx);
+            GenerateNode(caseVal, false);
+            _ctx.CodeBlock.InsByte(32); // ==
+            int branchPos = _ctx.CodeBlock.Position;
+            _ctx.CodeBlock.InsByte(17); // BRANCH_IF_TRUE
+            _ctx.CodeBlock.InsShort(0);
+            branchPositions.Add(branchPos);
+        }
+        // after all comparisons, jump to default or end
+        int jumpToDefaultPos = -1;
+        int jumpToEndPos = -1;
+        if (defaultNode != null)
+        {
+            jumpToDefaultPos = _ctx.CodeBlock.Position;
             _ctx.CodeBlock.InsByte(14); _ctx.CodeBlock.InsShort(0);
-        }
-        // second pass: generate case bodies with back-patching
-        int caseIndex = 0;
-        for (int ci = 0; ci < casesBlock.Children.Count; ci++)
-        {
-            var caseNode = casesBlock.Children[ci];
-            if (caseNode.Name == "case")
-            {
-                int target = _ctx.CodeBlock.Position;
-                if (caseIndex < caseBranchPositions.Count)
-                {
-                    PatchShort(caseBranchPositions[caseIndex] + 1, (short)(target - (caseBranchPositions[caseIndex] + 3)));
-                }
-                caseIndex++;
-                if (caseNode.Children.Count >= 2) GenerateNode(caseNode.Children[1], true);
-            }
-            else if (caseNode.Name == "default")
-            {
-                if (caseIndex < caseBranchPositions.Count)
-                {
-                    // default is after all case checks - patch remaining case false to default start
-                    int defStart = _ctx.CodeBlock.Position;
-                    for (int k = caseIndex; k < caseBranchPositions.Count; k++)
-                    {
-                        PatchShort(caseBranchPositions[k] + 1, (short)(defStart - (caseBranchPositions[k] + 3)));
-                    }
-                    caseIndex = caseBranchPositions.Count;
-                }
-                else if (defaultBranchPos != -1)
-                {
-                    // patch the unconditional jump to skip? Actually default is the fallthrough
-                    PatchShort(defaultBranchPos + 1, (short)(_ctx.CodeBlock.Position - (defaultBranchPos + 3)));
-                    defaultBranchPos = -1;
-                }
-                if (caseNode.Children.Count >= 1) GenerateNode(caseNode.Children[0], true);
-            }
-        }
-        int afterSwitch = _ctx.CodeBlock.Position;
-        if (defaultBranchPos != -1)
-        {
-            PatchShort(defaultBranchPos + 1, (short)(afterSwitch - (defaultBranchPos + 3)));
         }
         else
         {
-            // patch any remaining unpatched case branches (no default)
-            for (int k = caseIndex; k < caseBranchPositions.Count; k++)
-            {
-                PatchShort(caseBranchPositions[k] + 1, (short)(afterSwitch - (caseBranchPositions[k] + 3)));
-            }
+            jumpToEndPos = _ctx.CodeBlock.Position;
+            _ctx.CodeBlock.InsByte(14); _ctx.CodeBlock.InsShort(0);
         }
+
+        // generate bodies
+        for (int i = 0; i < caseList.Count; i++)
+        {
+            int bodyStart = _ctx.CodeBlock.Position;
+            PatchShort(branchPositions[i] + 1, (short)(bodyStart - (branchPositions[i] + 3)));
+            var caseNode = caseList[i];
+            if (caseNode.Children.Count >= 2) GenerateNode(caseNode.Children[1], true);
+            // if next case exists and no break, fallthrough to next body (C behavior)
+            // we don't insert jump; break will handle exit
+        }
+
+        if (defaultNode != null)
+        {
+            int defStart = _ctx.CodeBlock.Position;
+            if (jumpToDefaultPos != -1) PatchShort(jumpToDefaultPos + 1, (short)(defStart - (jumpToDefaultPos + 3)));
+            if (defaultNode.Children.Count >= 1) GenerateNode(defaultNode.Children[0], true);
+        }
+
+        int afterSwitch = _ctx.CodeBlock.Position;
+        if (jumpToEndPos != -1) PatchShort(jumpToEndPos + 1, (short)(afterSwitch - (jumpToEndPos + 3)));
         foreach (var bp in switchLoop.BreakPatchPositions) PatchShort(bp + 1, (short)(afterSwitch - (bp + 3)));
         _loopStack.Pop();
     }
