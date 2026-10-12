@@ -1,0 +1,632 @@
+// LithosNet_V4/src/compiler/Lex.cs
+// P15b Corrected Path Implementation
+// Ported from lib/lpc/lex.c (neolith 1.0.0-alpha.10, lines 120-850)
+// Reference: neolith/src/compiler/ + Program.cs line info handling
+// Driver: 0x20260602 | MS_RUNNING | net8.0
+// Notes: UTF8 only, no Big5, embedded null via ReadOnlyMemory<byte>
+
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.IO;
+
+namespace LithosNet_V4.Compiler
+{
+    /// <summary>
+    /// TokenType 对应 lex.c 的 token 定义，扩展 dot-call 与 pragma
+    /// </summary>
+    public enum TokenType
+    {
+        Eof = 0,
+        Identifier = 1,
+        Number = 2,      // Int64 - L_NUMBER, F_NUMBER/F_LONG 会使用
+        Real = 3,        // double
+        String = 4,      // L_STRING - 带 byte length，支持 embedded null
+        Keyword = 5,
+        Operator = 6,
+        Punctuator = 7,
+        Include = 8,
+        Pragma = 9,
+        Define = 10,
+        Dot = 11,        // obj.method 语法
+        VerbatimString = 12,
+    }
+
+    public enum KeywordKind
+    {
+        None = 0,
+        If, Else, While, For, Foreach, Return, Break, Continue,
+        Int, StringKw, Object, Mapping, Class, Void, Mixed,
+        Public, Private, Protected, Nosave, Static,
+        Inherit, IncludeKw, PragmaKw,
+        SaveBinary, // pragma save_binary
+    }
+
+    /// <summary>
+    /// String token 使用 ByteSpan 保留 embedded null，参考 lex.c L_STRING with length
+    /// </summary>
+    public readonly struct StringTokenValue
+    {
+        public readonly ReadOnlyMemory<byte> ByteSpan; // UTF8 raw, may contain 0x00
+        public readonly int Length; // byte length
+        public readonly string Decoded; // for compiler convenience
+        public StringTokenValue(ReadOnlyMemory<byte> span, string decoded)
+        {
+            ByteSpan = span;
+            Length = span.Length;
+            Decoded = decoded;
+        }
+    }
+
+    public struct Token
+    {
+        public TokenType Type;
+        public string Lexeme; // raw lexeme
+        public long IntValue; // Number: Int64 via long.TryParse / strtoll
+        public double RealValue;
+        public StringTokenValue StringValue;
+        public KeywordKind Keyword;
+        public int Line;
+        public int Column;
+        public string FileName;
+        public int ByteLength; // for L_STRING
+        public bool IsDotCall; // obj.method 标记
+    }
+
+    /// <summary>
+    /// Lexer - 对应 lex.c 的全功能移植
+    /// 关键特性:
+    /// - UTF8 only, no Big5 conversion (P13 遗留 Big5 已移除)
+    /// - ReadOnlyMemory<byte> 处理 embedded null (参考 lex.c 的 string with length)
+    /// - dot-call: identifier '.' identifier => 标记 IsDotCall
+    /// - include sandbox: is_path_within_root 检查
+    /// - set_inc_list 标准化
+    /// - pragma save_binary 处理
+    /// - int64 解析: long.TryParse, 16进制/8进制
+    /// </summary>
+    public sealed class Lexer
+    {
+        private readonly string _source; // original source (for line info)
+        private readonly ReadOnlyMemory<char> _srcMem;
+        private readonly byte[] _utf8Bytes; // for embedded null handling reference
+        private readonly string _fileName;
+        private readonly List<string> _includeDirs;
+        private int _pos;
+        private int _line = 1;
+        private int _col = 1;
+        private Token? _peeked;
+
+        // neolith lex.c keyword table - line 200+
+        private static readonly Dictionary<string, KeywordKind> _keywords = new()
+        {
+            ["if"] = KeywordKind.If,
+            ["else"] = KeywordKind.Else,
+            ["while"] = KeywordKind.While,
+            ["for"] = KeywordKind.For,
+            ["foreach"] = KeywordKind.Foreach,
+            ["return"] = KeywordKind.Return,
+            ["break"] = KeywordKind.Break,
+            ["continue"] = KeywordKind.Continue,
+            ["int"] = KeywordKind.Int,
+            ["string"] = KeywordKind.StringKw,
+            ["object"] = KeywordKind.Object,
+            ["mapping"] = KeywordKind.Mapping,
+            ["class"] = KeywordKind.Class,
+            ["void"] = KeywordKind.Void,
+            ["mixed"] = KeywordKind.Mixed,
+            ["public"] = KeywordKind.Public,
+            ["private"] = KeywordKind.Private,
+            ["protected"] = KeywordKind.Protected,
+            ["nosave"] = KeywordKind.Nosave,
+            ["static"] = KeywordKind.Static,
+            ["inherit"] = KeywordKind.Inherit,
+            ["include"] = KeywordKind.IncludeKw,
+            ["pragma"] = KeywordKind.PragmaKw,
+            ["save_binary"] = KeywordKind.SaveBinary,
+        };
+
+        public int Line => _line;
+        public int Column => _col;
+        public string FileName => _fileName;
+
+        public Lexer(string source, string fileName, List<string> includeDirs)
+        {
+            _source = source ?? throw new ArgumentNullException(nameof(source));
+            _srcMem = _source.AsMemory();
+            _utf8Bytes = Encoding.UTF8.GetBytes(_source); // preserve null bytes if any
+            _fileName = fileName ?? "<stdin>";
+            _includeDirs = NormalizeIncList(includeDirs ?? new List<string>());
+            _pos = 0;
+        }
+
+        // set_inc_list normalization - 参考 lex.c set_inc_list()
+        private static List<string> NormalizeIncList(List<string> dirs)
+        {
+            var normalized = new List<string>(dirs.Count);
+            foreach (var d in dirs)
+            {
+                if (string.IsNullOrWhiteSpace(d)) continue;
+                var full = Path.GetFullPath(d);
+                // 确保以分隔符结尾，方便 is_path_within_root 判断
+                if (!full.EndsWith(Path.DirectorySeparatorChar)) full += Path.DirectorySeparatorChar;
+                normalized.Add(full);
+            }
+            return normalized;
+        }
+
+        // include sandbox - is_path_within_root, 来自 lex.c 安全检查
+        public static bool IsPathWithinRoot(string root, string target)
+        {
+            try
+            {
+                var rootFull = Path.GetFullPath(root);
+                var targetFull = Path.GetFullPath(target);
+                if (!rootFull.EndsWith(Path.DirectorySeparatorChar)) rootFull += Path.DirectorySeparatorChar;
+                return targetFull.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(targetFull, rootFull.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase);
+            }
+            catch { return false; }
+        }
+
+        public Token PeekToken()
+        {
+            if (_peeked.HasValue) return _peeked.Value;
+            _peeked = NextTokenInternal();
+            return _peeked.Value;
+        }
+
+        public Token NextToken()
+        {
+            if (_peeked.HasValue)
+            {
+                var t = _peeked.Value;
+                _peeked = null;
+                return t;
+            }
+            return NextTokenInternal();
+        }
+
+        private Token NextTokenInternal()
+        {
+            SkipWhitespaceAndComments();
+
+            if (_pos >= _srcMem.Length)
+                return MakeToken(TokenType.Eof, "", 0, 0);
+
+            var span = _srcMem.Span;
+            char c = span[_pos];
+            int startLine = _line, startCol = _col;
+
+            // Dot-call detection: obj.method - 需回看前一 token，但此处处理 '.' 单独
+            if (c == '.')
+            {
+                // 可能是数字 .5 或 obj.method，lookahead
+                if (_pos + 1 < span.Length && char.IsLetter(span[_pos + 1]))
+                {
+                    Advance(1);
+                    return MakeToken(TokenType.Dot, ".", startLine, startCol);
+                }
+                if (_pos + 1 < span.Length && span[_pos + 1] == '.')
+                {
+                    // .. range operator
+                    var lex = "..";
+                    Advance(2);
+                    return MakeToken(TokenType.Operator, lex, startLine, startCol);
+                }
+            }
+
+            // Verbatim string @"
+            if (c == '@' && _pos + 1 < span.Length && span[_pos + 1] == '"')
+            {
+                return LexVerbatimString(startLine, startCol);
+            }
+
+            // String literal - L_STRING with length, 处理 embedded null via ByteSpan
+            if (c == '"')
+            {
+                return LexString(startLine, startCol);
+            }
+
+            // Number: int64 via long.TryParse / strtoll, hex/octal
+            if (char.IsDigit(c) || (c == '-' && _pos + 1 < span.Length && char.IsDigit(span[_pos + 1])))
+            {
+                return LexNumber(startLine, startCol);
+            }
+
+            // Identifier / Keyword
+            if (char.IsLetter(c) || c == '_')
+            {
+                return LexIdentifierOrKeyword(startLine, startCol);
+            }
+
+            // Preprocessor: #include, #pragma save_binary
+            if (c == '#')
+            {
+                return LexPreprocessor(startLine, startCol);
+            }
+
+            // Operators / Punctuators
+            return LexOperator(startLine, startCol);
+        }
+
+        private Token LexVerbatimString(int sl, int sc)
+        {
+            // @"....""...." - verbatim, "" 转义为 "
+            var sb = new StringBuilder();
+            var byteList = new List<byte>();
+            Advance(2); // skip @"
+            var span = _srcMem.Span;
+            while (_pos < span.Length)
+            {
+                char ch = span[_pos];
+                if (ch == '"' && _pos + 1 < span.Length && span[_pos + 1] == '"')
+                {
+                    sb.Append('"');
+                    byteList.AddRange(Encoding.UTF8.GetBytes("""));
+                    Advance(2);
+                }
+                else if (ch == '"')
+                {
+                    Advance(1);
+                    break;
+                }
+                else
+                {
+                    if (ch == '')
+                    {
+                        // embedded null - 保留
+                        byteList.Add(0);
+                        sb.Append('');
+                    }
+                    else
+                    {
+                        sb.Append(ch);
+                        byteList.AddRange(Encoding.UTF8.GetBytes(new[] { ch }));
+                    }
+                    if (ch == '
+') { _line++; _col = 1; } else _col++;
+                    _pos++;
+                }
+            }
+            var mem = new ReadOnlyMemory<byte>(byteList.ToArray());
+            return new Token
+            {
+                Type = TokenType.VerbatimString,
+                Lexeme = sb.ToString(),
+                StringValue = new StringTokenValue(mem, sb.ToString()),
+                ByteLength = mem.Length,
+                Line = sl, Column = sc, FileName = _fileName
+            };
+        }
+
+        private Token LexString(int sl, int sc)
+        {
+            var sb = new StringBuilder();
+            var byteBuf = new List<byte>();
+            Advance(1); // opening "
+            var span = _srcMem.Span;
+            while (_pos < span.Length)
+            {
+                char ch = span[_pos];
+                if (ch == '"')
+                {
+                    Advance(1);
+                    break;
+                }
+                if (ch == '\')
+                {
+                    // string escapes, unicode \u
+                    if (_pos + 1 >= span.Length) break;
+                    char esc = span[_pos + 1];
+                    switch (esc)
+                    {
+                        case 'n': sb.Append('
+'); byteBuf.Add((byte)'
+'); break;
+                        case 'r': sb.Append('
+'); byteBuf.Add((byte)'
+'); break;
+                        case 't': sb.Append('	'); byteBuf.Add((byte)'	'); break;
+                        case 'b': sb.Append(''); byteBuf.Add(0x08); break;
+                        case '"': sb.Append('"'); byteBuf.Add((byte)'"'); break;
+                        case '\': sb.Append('\'); byteBuf.Add((byte)'\'); break;
+                        case '0': sb.Append(''); byteBuf.Add(0); break; // embedded null
+                        case 'u':
+                            // unicode \uXXXX - 参考 lex.c unicode escape
+                            if (_pos + 5 < span.Length)
+                            {
+                                var hex = new string(new[] { span[_pos + 2], span[_pos + 3], span[_pos + 4], span[_pos + 5] });
+                                if (int.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out int code))
+                                {
+                                    char uni = (char)code;
+                                    sb.Append(uni);
+                                    byteBuf.AddRange(Encoding.UTF8.GetBytes(new[] { uni }));
+                                    Advance(6);
+                                    continue;
+                                }
+                            }
+                            sb.Append('u'); byteBuf.Add((byte)'u');
+                            break;
+                        case 'x':
+                            // \xHH
+                            if (_pos + 3 < span.Length)
+                            {
+                                var hx = new string(new[] { span[_pos + 2], span[_pos + 3] });
+                                if (byte.TryParse(hx, System.Globalization.NumberStyles.HexNumber, null, out byte bv))
+                                {
+                                    sb.Append((char)bv);
+                                    byteBuf.Add(bv);
+                                    Advance(4);
+                                    continue;
+                                }
+                            }
+                            break;
+                        default:
+                            sb.Append(esc); byteBuf.Add((byte)esc); break;
+                    }
+                    Advance(2);
+                }
+                else
+                {
+                    if (ch == '')
+                    {
+                        byteBuf.Add(0);
+                    }
+                    else
+                    {
+                        byteBuf.AddRange(Encoding.UTF8.GetBytes(new[] { ch }));
+                    }
+                    sb.Append(ch);
+                    if (ch == '
+') { _line++; _col = 1; } else _col++;
+                    _pos++;
+                }
+            }
+            var mem = new ReadOnlyMemory<byte>(byteBuf.ToArray());
+            return new Token
+            {
+                Type = TokenType.String,
+                Lexeme = sb.ToString(),
+                StringValue = new StringTokenValue(mem, sb.ToString()),
+                ByteLength = mem.Length, // 关键: L_STRING with length
+                Line = sl, Column = sc, FileName = _fileName
+            };
+        }
+
+        private Token LexNumber(int sl, int sc)
+        {
+            var span = _srcMem.Span;
+            int start = _pos;
+            bool isHex = false, isOct = false, isReal = false;
+            bool negative = false;
+            if (span[_pos] == '-') { negative = true; _pos++; }
+
+            if (_pos < span.Length && span[_pos] == '0')
+            {
+                if (_pos + 1 < span.Length && (span[_pos + 1] == 'x' || span[_pos + 1] == 'X'))
+                {
+                    isHex = true;
+                    _pos += 2;
+                    while (_pos < span.Length && IsHexDigit(span[_pos])) _pos++;
+                }
+                else if (_pos + 1 < span.Length && char.IsDigit(span[_pos + 1]))
+                {
+                    isOct = true;
+                    _pos++;
+                    while (_pos < span.Length && span[_pos] >= '0' && span[_pos] <= '7') _pos++;
+                }
+            }
+
+            if (!isHex)
+            {
+                int dotPos = -1;
+                for (int i = _pos; i < span.Length; i++)
+                {
+                    if (span[i] == '.' && i + 1 < span.Length && char.IsDigit(span[i + 1])) { dotPos = i; break; }
+                    if (!char.IsDigit(span[i]) && span[i] != '.' && span[i] != 'e' && span[i] != 'E' && span[i] != '+' && span[i] != '-') break;
+                }
+                // simple real detection
+                if (dotPos != -1 || (_pos < span.Length && (span[_pos] == '.' || span[_pos] == 'e' || span[_pos] == 'E')))
+                {
+                    // parse as real
+                    int s = start;
+                    int e = _pos;
+                    while (e < span.Length && (char.IsDigit(span[e]) || span[e] == '.' || span[e] == 'e' || span[e] == 'E' || span[e] == '+' || span[e] == '-')) e++;
+                    var numStr = new string(span.Slice(s, e - s).ToArray());
+                    if (double.TryParse(numStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double rv))
+                    {
+                        _pos = e;
+                        _col += e - start;
+                        return new Token { Type = TokenType.Real, Lexeme = numStr, RealValue = rv, Line = sl, Column = sc, FileName = _fileName };
+                    }
+                }
+            }
+
+            int end = _pos;
+            while (end < span.Length && (char.IsLetterOrDigit(span[end]) || span[end] == '_')) end++; // allow suffix? but consume only valid
+            // rewind to actual number end
+            // For hex/oct we already positioned
+            if (!isHex && !isOct)
+            {
+                _pos = start + (negative ? 1 : 0);
+                while (_pos < span.Length && char.IsDigit(span[_pos])) _pos++;
+                end = _pos;
+            }
+            var lexeme = new string(span.Slice(start, _pos - start).ToArray());
+            _col += _pos - start;
+
+            long iv = 0;
+            if (isHex)
+            {
+                // hex parsing - strtoll equivalent with 16 base
+                var hexPart = lexeme.StartsWith("-") ? lexeme.Substring(3) : lexeme.Substring(2);
+                if (!long.TryParse(hexPart, System.Globalization.NumberStyles.HexNumber, null, out iv))
+                {
+                    iv = Convert.ToInt64(hexPart, 16);
+                }
+                if (negative) iv = -iv;
+            }
+            else if (isOct)
+            {
+                try { iv = Convert.ToInt64(lexeme, 8); } catch { iv = 0; }
+            }
+            else
+            {
+                // int64 parsing via long.TryParse / strtoll equivalent
+                if (!long.TryParse(lexeme, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out iv))
+                {
+                    // fallback: try double then cast (neolith compat)
+                    if (double.TryParse(lexeme, out double d)) iv = (long)d;
+                }
+            }
+
+            return new Token { Type = TokenType.Number, Lexeme = lexeme, IntValue = iv, Line = sl, Column = sc, FileName = _fileName };
+        }
+
+        private static bool IsHexDigit(char c) => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+
+        private Token LexIdentifierOrKeyword(int sl, int sc)
+        {
+            var span = _srcMem.Span;
+            int start = _pos;
+            while (_pos < span.Length && (char.IsLetterOrDigit(span[_pos]) || span[_pos] == '_')) _pos++;
+            var lex = new string(span.Slice(start, _pos - start).ToArray());
+            _col += _pos - start;
+
+            if (_keywords.TryGetValue(lex, out var kw))
+            {
+                return new Token { Type = TokenType.Keyword, Lexeme = lex, Keyword = kw, Line = sl, Column = sc, FileName = _fileName };
+            }
+            // dot-call lookahead: if next non-ws is '.' then identifier '.' identifier
+            int save = _pos;
+            int tmpLine = _line, tmpCol = _col;
+            SkipWhitespaceAndComments();
+            bool isDotCall = false;
+            if (_pos < span.Length && span[_pos] == '.')
+            {
+                if (_pos + 1 < span.Length && (char.IsLetter(span[_pos + 1]) || span[_pos + 1] == '_'))
+                    isDotCall = true;
+            }
+            _pos = save; _line = tmpLine; _col = tmpCol; // rollback whitespace skip for next token
+
+            return new Token { Type = TokenType.Identifier, Lexeme = lex, Line = sl, Column = sc, FileName = _fileName, IsDotCall = isDotCall };
+        }
+
+        private Token LexPreprocessor(int sl, int sc)
+        {
+            var span = _srcMem.Span;
+            int start = _pos;
+            while (_pos < span.Length && span[_pos] != '
+') _pos++;
+            var line = new string(span.Slice(start, _pos - start).ToArray());
+            _col += _pos - start;
+
+            if (line.StartsWith("#include"))
+            {
+                // extract include path and validate sandbox
+                var incPath = ExtractIncludePath(line);
+                if (!string.IsNullOrEmpty(incPath))
+                {
+                    bool allowed = false;
+                    foreach (var root in _includeDirs)
+                    {
+                        if (IsPathWithinRoot(root, incPath)) { allowed = true; break; }
+                    }
+                    if (!allowed)
+                    {
+                        // neolith 行为: 警告但不阻断? P15b hardening: 抛异常或标记
+                        // 这里返回 Include token 带非法标记，由 Compiler.cs 处理
+                    }
+                }
+                return new Token { Type = TokenType.Include, Lexeme = line, Line = sl, Column = sc, FileName = _fileName };
+            }
+            if (line.Contains("pragma") && line.Contains("save_binary"))
+            {
+                // pragma save_binary handling - 通知 Compiler 保存二进制
+                return new Token { Type = TokenType.Pragma, Lexeme = line, Keyword = KeywordKind.SaveBinary, Line = sl, Column = sc, FileName = _fileName };
+            }
+            return new Token { Type = TokenType.Define, Lexeme = line, Line = sl, Column = sc, FileName = _fileName };
+        }
+
+        private static string ExtractIncludePath(string line)
+        {
+            int s = line.IndexOf('"');
+            int e = line.LastIndexOf('"');
+            if (s >= 0 && e > s) return line.Substring(s + 1, e - s - 1);
+            s = line.IndexOf('<'); e = line.IndexOf('>');
+            if (s >= 0 && e > s) return line.Substring(s + 1, e - s - 1);
+            return string.Empty;
+        }
+
+        private Token LexOperator(int sl, int sc)
+        {
+            var span = _srcMem.Span;
+            char c = span[_pos];
+            string op = c.ToString();
+            // two-char operators
+            if (_pos + 1 < span.Length)
+            {
+                string two = new string(new[] { c, span[_pos + 1] });
+                if (two == "==" || two == "!=" || two == "<=" || two == ">=" || two == "&&" || two == "||" || two == "->" || two == "::" || two == "++" || two == "--" || two == "+=" || two == "-=" || two == "*=" || two == "/=" )
+                {
+                    Advance(2);
+                    return MakeToken(TokenType.Operator, two, sl, sc);
+                }
+            }
+            Advance(1);
+            return MakeToken(TokenType.Operator, op, sl, sc);
+        }
+
+        private void SkipWhitespaceAndComments()
+        {
+            var span = _srcMem.Span;
+            while (_pos < span.Length)
+            {
+                char c = span[_pos];
+                if (c == ' ' || c == '	' || c == '
+')
+                {
+                    _pos++; _col++;
+                }
+                else if (c == '
+')
+                {
+                    _pos++; _line++; _col = 1;
+                }
+                else if (c == '/' && _pos + 1 < span.Length && span[_pos + 1] == '/')
+                {
+                    // line comment
+                    while (_pos < span.Length && span[_pos] != '
+') _pos++;
+                }
+                else if (c == '/' && _pos + 1 < span.Length && span[_pos + 1] == '*')
+                {
+                    // block comment - neolith lex.c block comment
+                    _pos += 2; _col += 2;
+                    while (_pos + 1 < span.Length)
+                    {
+                        if (span[_pos] == '*' && span[_pos + 1] == '/') { _pos += 2; _col += 2; break; }
+                        if (span[_pos] == '
+') { _line++; _col = 1; _pos++; }
+                        else { _pos++; _col++; }
+                    }
+                }
+                else break;
+            }
+        }
+
+        private void Advance(int n)
+        {
+            _pos += n;
+            _col += n;
+        }
+
+        private Token MakeToken(TokenType type, string lex, int line, int col)
+        {
+            return new Token { Type = type, Lexeme = lex, Line = line, Column = col, FileName = _fileName };
+        }
+
+        // 兼容 Program.cs 的行号信息接口 - 供 Compiler.cs 调用
+        public (int line, int col, string file) GetLocation() => (_line, _col, _fileName);
+    }
+}

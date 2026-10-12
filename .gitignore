@@ -1,15 +1,13 @@
+# LithosNet - 只保留源碼，忽略編譯產物
+*.bin
+*.exe
+*.dll
+*.pdb
 bin/
 obj/
-*.tar.gz
-LithosNet_V4_*.csproj
-!LithosNet_V4.csproj
-*.bin
-*.b
-test_*.c
-!test_simple.c
+.vs/
+*.user
 base.c
-.bak_v4/
-MS_*
-LithosNet_V4.csproj.bak
-code
-test.c
+src/tests/*.bin
+archive/
+*.log
