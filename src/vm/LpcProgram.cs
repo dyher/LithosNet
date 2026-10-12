@@ -1,4 +1,4 @@
-namespace LithosNet.V4.VM;
+namespace LithosNet.VM;
 // 1:1 from taedlar/neolith lib/lpc/program/program.h + lib/lpc/program/binaries.h
 // DRIVER_ID = 0x20260602 true per binaries.h
 

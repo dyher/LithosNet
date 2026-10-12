@@ -1,7 +1,7 @@
 
 using System;
 using System.IO;
-namespace LithosNet.V4.VM.Efuns;
+namespace LithosNet.VM.Efuns;
 
 public static class EfunTable {
     public static readonly string[] EfunSources = new[]{

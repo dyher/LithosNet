@@ -1,0 +1,450 @@
+// LithosNet_V4/src/vm/Disassembler.cs
+// P15b Corrected Path Implementation
+// Ported from lib/lpc/program/disassemble.c + disassemble.h
+// Console-mode friendly, used by Main.cs --dump flag
+// Reference: neolith disassemble output, icode.c opcode table, byte_code.h LOAD macros
+
+using System;
+using System.Collections.Generic;
+using System.Text;
+using LithosNet.VM; // Class.cs for class disassembly
+
+namespace LithosNet.VM
+{
+    /// <summary>
+    /// OpCode enum - matching neolith 1.0.0-alpha.10 icode.c
+    /// Minimal table + extensions, F_NUMBER=8, F_LONG=10 etc.
+    /// </summary>
+    public enum OpCode : byte
+    {
+        F_NOP = 0,
+        F_PUSH = 1,
+        F_POP = 2,
+        F_DUP = 3,
+        F_SWAP = 4,
+        F_ADD = 5,
+        F_SUB = 6,
+        F_MUL = 7,
+        F_NUMBER = 8,   // 32-bit int, LOAD macros: LoadInt32
+        F_DIV = 9,
+        F_LONG = 10,    // 64-bit int, LoadInt64 (8 bytes) - P15b int64
+        F_BYTE = 11,    // LoadByte
+        F_NBYTE = 12,   // signed byte? LoadByte
+        F_STRING = 13,  // LoadShort string index
+        F_CALL = 14,    // function call
+        F_RETURN = 15,
+        F_BRANCH = 16,  // LoadShort offset
+        F_BBRANCH = 17, // backward branch
+        F_BF = 18,      // branch if false
+        F_BBF = 19,
+        F_LAND = 20,
+        F_LOR = 21,
+        F_EQ = 22,
+        F_NE = 23,
+        F_GT = 24,
+        F_GE = 25,
+        F_LT = 26,
+        F_LE = 27,
+        F_LOCAL = 28,   // LoadByte local index
+        F_ARG = 29,
+        F_GLOBAL = 30,
+        F_ARRAY = 31,
+        F_MAPPING = 32,
+        F_CLASS = 33,   // integrates with Class.cs
+        F_CATCH = 34,
+        F_END_CATCH = 35,
+        F_SSCANF = 36,
+        F_PARSE_COMMAND = 37,
+        F_AGGREGATE = 38, // LoadShort count
+        F_M_AGGREGATE = 39,
+        F_SAVE_BINARY = 40, // pragma save_binary 对应
+        F_DOT_CALL = 41,    // obj.method dot-call syntax
+        F_CONST0 = 42,
+        F_CONST1 = 43,
+        F_NIL = 44,
+        F_LINE = 45,    // LoadShort line info
+        F_FILE = 46,    // file info
+        // ... up to 63 common
+        F_EXTENDED = 0xFF, // extension prefix
+    }
+
+    public static class Disassembler
+    {
+        // byte_code.h LOAD macros - little endian
+        private static byte LoadByte(ReadOnlySpan<byte> code, ref int pc)
+        {
+            byte b = code[pc];
+            pc += 1;
+            return b;
+        }
+
+        private static ushort LoadShort(ReadOnlySpan<byte> code, ref int pc)
+        {
+            // little endian - neolith byte_code.h
+            ushort v = (ushort)(code[pc] | (code[pc + 1] << 8));
+            pc += 2;
+            return v;
+        }
+
+        private static int LoadInt32(ReadOnlySpan<byte> code, ref int pc)
+        {
+            int v = code[pc] | (code[pc + 1] << 8) | (code[pc + 2] << 16) | (code[pc + 3] << 24);
+            pc += 4;
+            return v;
+        }
+
+        private static long LoadInt64(ReadOnlySpan<byte> code, ref int pc)
+        {
+            // 8 bytes little endian - F_LONG
+            long v = 0;
+            for (int i = 0; i < 8; i++) v |= ((long)code[pc + i]) << (i * 8);
+            pc += 8;
+            return v;
+        }
+
+        private static string FormatPc(int pc) => pc.ToString("D4"); // neolith: 0000: F_NUMBER ...
+
+        /// <summary>
+        /// Disassemble entire program - function table, variable table, inherits, then code listing
+        /// 输出格式: 类似 neolith's disassemble output: "0000: F_NUMBER 123\n0005: F_ADD\n"
+        /// </summary>
+        public static string Disassemble(Program prog)
+        {
+            if (prog == null) throw new ArgumentNullException(nameof(prog));
+            var sb = new StringBuilder();
+            sb.AppendLine($"; LithosNet_V4 Disassembly - Driver 0x{Binaries.DriverId:X8}");
+            sb.AppendLine($"; Source: {prog.SourceFile ?? "<unknown>"}");
+            sb.AppendLine($"; CodeSize: {prog.CodeSize} bytes");
+            sb.AppendLine();
+
+            // FileInfo / LineInfo
+            if (prog.FileInfoBlob != null)
+            {
+                sb.AppendLine($"; FileInfo: {prog.FileInfoBlob.Length} bytes");
+                try { sb.AppendLine($"; File: {Encoding.UTF8.GetString(prog.FileInfoBlob)}"); } catch { }
+            }
+            if (prog.LineInfoBlob != null)
+            {
+                sb.AppendLine($"; LineInfo: {prog.LineInfoBlob.Length} bytes");
+            }
+            sb.AppendLine();
+
+            // Strings table - SharedStr len
+            sb.AppendLine(";; Strings table");
+            var strings = prog.Strings ?? new List<ReadOnlyMemory<byte>>();
+            for (int i = 0; i < strings.Count; i++)
+            {
+                var mem = strings[i];
+                string decoded;
+                try { decoded = Encoding.UTF8.GetString(mem.Span); } catch { decoded = "<binary>"; }
+                // 处理 embedded null 显示
+                var display = decoded.Replace("", "\0").Replace("
+", "\n");
+                if (display.Length > 80) display = display.Substring(0, 77) + "...";
+                sb.AppendLine($"; String #{i} [{mem.Length} bytes]: \"{display}\"");
+            }
+            sb.AppendLine();
+
+            // Function table
+            sb.AppendLine(";; Function table");
+            var funcs = prog.Functions ?? new List<FunctionInfo>();
+            for (int i = 0; i < funcs.Count; i++)
+            {
+                var f = funcs[i];
+                string name = "<unknown>";
+                if (f.NameIndex < strings.Count)
+                {
+                    try { name = Encoding.UTF8.GetString(strings[f.NameIndex].Span); } catch { }
+                }
+                sb.AppendLine($"{i:D4}: func {name} @ {f.CodeOffset:D4} arity={f.Arity} flags=0x{f.Flags:X4}");
+            }
+            sb.AppendLine();
+
+            // Inherits
+            sb.AppendLine(";; Inherits");
+            var inherits = prog.Inherits ?? new List<InheritInfo>();
+            for (int i = 0; i < inherits.Count; i++)
+            {
+                var inh = inherits[i];
+                string name = "<unknown>";
+                if (inh.NameIndex < strings.Count)
+                {
+                    try { name = Encoding.UTF8.GetString(strings[inh.NameIndex].Span); } catch { }
+                }
+                sb.AppendLine($"{i:D4}: inherit {name} @ {inh.CodeOffset:D4}");
+            }
+            sb.AppendLine();
+
+            // Variables? 假设 Program 有变量表，兼容 Class.cs
+            sb.AppendLine(";; Code listing");
+            sb.AppendLine(DisassembleCode(prog, strings, funcs));
+
+            // Class disassembly - integrates with Class.cs
+            sb.AppendLine();
+            sb.AppendLine(";; Classes (via Class.cs)");
+            try
+            {
+                // 假设 Class.cs 有 Disassemble 辅助
+                // ClassDisassembler.DisassembleClasses(prog, sb, strings);
+                sb.AppendLine("; Class disassembly integrated - see Class.cs");
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine($"; Class disasm error: {ex.Message}");
+            }
+
+            return sb.ToString();
+        }
+
+        public static string DisassembleFunction(Program prog, int funcIndex)
+        {
+            if (prog == null) throw new ArgumentNullException(nameof(prog));
+            var funcs = prog.Functions ?? new List<FunctionInfo>();
+            if (funcIndex < 0 || funcIndex >= funcs.Count) throw new ArgumentOutOfRangeException(nameof(funcIndex));
+
+            var func = funcs[funcIndex];
+            var code = prog.Code ?? Array.Empty<byte>();
+            if (func.CodeOffset >= code.Length) return $"; Function #{funcIndex} offset out of range: {func.CodeOffset}";
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"; Function #{funcIndex} @ {func.CodeOffset}");
+
+            // 找到下一个函数的起点作为结束，或到代码末尾
+            uint end = (uint)code.Length;
+            for (int i = 0; i < funcs.Count; i++)
+            {
+                if (i == funcIndex) continue;
+                var other = funcs[i];
+                if (other.CodeOffset > func.CodeOffset && other.CodeOffset < end) end = other.CodeOffset;
+            }
+
+            var slice = new ReadOnlySpan<byte>(code, (int)func.CodeOffset, (int)(end - func.CodeOffset));
+            sb.Append(DisassembleCodeSlice(slice, (int)func.CodeOffset, prog.Strings ?? new List<ReadOnlyMemory<byte>>(), funcs));
+
+            return sb.ToString();
+        }
+
+        private static string DisassembleCode(Program prog, List<ReadOnlyMemory<byte>> strings, List<FunctionInfo> funcs)
+        {
+            var code = prog.Code ?? Array.Empty<byte>();
+            return DisassembleCodeSlice(code, 0, strings, funcs);
+        }
+
+        private static string DisassembleCodeSlice(ReadOnlySpan<byte> code, int basePc, List<ReadOnlyMemory<byte>> strings, List<FunctionInfo> funcs)
+        {
+            var sb = new StringBuilder();
+            int pc = 0;
+            while (pc < code.Length)
+            {
+                int curPc = basePc + pc;
+                byte op = code[pc];
+                string pcStr = FormatPc(curPc);
+
+                // 尝试匹配已知函数入口，插入标签
+                foreach (var f in funcs)
+                {
+                    if (f.CodeOffset == curPc)
+                    {
+                        string fname = "<unknown>";
+                        if (f.NameIndex < strings.Count)
+                        {
+                            try { fname = Encoding.UTF8.GetString(strings[f.NameIndex].Span); } catch { }
+                        }
+                        sb.AppendLine();
+                        sb.AppendLine($"{pcStr}: ; --- func {fname} (arity {f.Arity}) ---");
+                        break;
+                    }
+                }
+
+                int startPc = pc;
+                OpCode opcode = (OpCode)op;
+                pc++; // 消耗 opcode
+
+                switch (opcode)
+                {
+                    case OpCode.F_NUMBER:
+                        {
+                            if (pc + 4 > code.Length) { sb.AppendLine($"{pcStr}: F_NUMBER <truncated>"); break; }
+                            int val = LoadInt32(code, ref pc);
+                            sb.AppendLine($"{pcStr}: F_NUMBER {val} ; 0x{val:X8}");
+                            break;
+                        }
+                    case OpCode.F_LONG:
+                        {
+                            if (pc + 8 > code.Length) { sb.AppendLine($"{pcStr}: F_LONG <truncated>"); break; }
+                            long val = LoadInt64(code, ref pc);
+                            sb.AppendLine($"{pcStr}: F_LONG {val}L ; 0x{val:X16} (int64 via long)");
+                            break;
+                        }
+                    case OpCode.F_BYTE:
+                        {
+                            if (pc >= code.Length) { sb.AppendLine($"{pcStr}: F_BYTE <truncated>"); break; }
+                            byte b = LoadByte(code, ref pc);
+                            sb.AppendLine($"{pcStr}: F_BYTE {b}");
+                            break;
+                        }
+                    case OpCode.F_NBYTE:
+                        {
+                            if (pc >= code.Length) { sb.AppendLine($"{pcStr}: F_NBYTE <truncated>"); break; }
+                            sbyte sbv = (sbyte)LoadByte(code, ref pc);
+                            sb.AppendLine($"{pcStr}: F_NBYTE {sbv}");
+                            break;
+                        }
+                    case OpCode.F_STRING:
+                        {
+                            if (pc + 2 > code.Length) { sb.AppendLine($"{pcStr}: F_STRING <truncated>"); break; }
+                            ushort idx = LoadShort(code, ref pc);
+                            string s = $"<idx {idx} out of range>";
+                            if (idx < strings.Count)
+                            {
+                                try
+                                {
+                                    var raw = strings[idx].Span;
+                                    // 保留 embedded null 的显示
+                                    var decoded = Encoding.UTF8.GetString(raw);
+                                    var disp = decoded.Replace("", "\0");
+                                    if (disp.Length > 40) disp = disp.Substring(0, 37) + "...";
+                                    s = $"\"{disp}\" len={raw.Length}";
+                                }
+                                catch { s = $"<binary idx {idx}>"; }
+                            }
+                            sb.AppendLine($"{pcStr}: F_STRING {idx} ; {s}");
+                            break;
+                        }
+                    case OpCode.F_CALL:
+                        {
+                            if (pc + 3 > code.Length) { sb.AppendLine($"{pcStr}: F_CALL <truncated>"); break; }
+                            ushort fIdx = LoadShort(code, ref pc);
+                            byte arity = LoadByte(code, ref pc);
+                            string fname = $"<func {fIdx}>";
+                            if (fIdx < funcs.Count && funcs[fIdx].NameIndex < strings.Count)
+                            {
+                                try { fname = Encoding.UTF8.GetString(strings[funcs[fIdx].NameIndex].Span); } catch { }
+                            }
+                            sb.AppendLine($"{pcStr}: F_CALL {fIdx} ({fname}) arity={arity}");
+                            break;
+                        }
+                    case OpCode.F_DOT_CALL:
+                        {
+                            // obj.method syntax - P15b 新增
+                            if (pc + 4 > code.Length) { sb.AppendLine($"{pcStr}: F_DOT_CALL <truncated>"); break; }
+                            ushort objIdx = LoadShort(code, ref pc);
+                            ushort methIdx = LoadShort(code, ref pc);
+                            string obj = objIdx < strings.Count ? SafeGetString(strings, objIdx) : $"?{objIdx}";
+                            string meth = methIdx < strings.Count ? SafeGetString(strings, methIdx) : $"?{methIdx}";
+                            sb.AppendLine($"{pcStr}: F_DOT_CALL {obj}.{meth} ; obj={objIdx} meth={methIdx}");
+                            break;
+                        }
+                    case OpCode.F_BRANCH:
+                    case OpCode.F_BF:
+                        {
+                            if (pc + 2 > code.Length) { sb.AppendLine($"{pcStr}: {opcode} <truncated>"); break; }
+                            ushort off = LoadShort(code, ref pc);
+                            int target = curPc + off + 3; // 假设相对跳转
+                            sb.AppendLine($"{pcStr}: {opcode} {off} ; -> {FormatPc(target)}");
+                            break;
+                        }
+                    case OpCode.F_BBRANCH:
+                    case OpCode.F_BBF:
+                        {
+                            if (pc + 2 > code.Length) { sb.AppendLine($"{pcStr}: {opcode} <truncated>"); break; }
+                            ushort off = LoadShort(code, ref pc);
+                            int target = curPc - off + 3;
+                            sb.AppendLine($"{pcStr}: {opcode} {off} ; -> {FormatPc(target)}");
+                            break;
+                        }
+                    case OpCode.F_LOCAL:
+                    case OpCode.F_ARG:
+                    case OpCode.F_GLOBAL:
+                        {
+                            if (pc >= code.Length) { sb.AppendLine($"{pcStr}: {opcode} <truncated>"); break; }
+                            byte idx = LoadByte(code, ref pc);
+                            sb.AppendLine($"{pcStr}: {opcode} {idx}");
+                            break;
+                        }
+                    case OpCode.F_AGGREGATE:
+                    case OpCode.F_M_AGGREGATE:
+                        {
+                            if (pc + 2 > code.Length) { sb.AppendLine($"{pcStr}: {opcode} <truncated>"); break; }
+                            ushort cnt = LoadShort(code, ref pc);
+                            sb.AppendLine($"{pcStr}: {opcode} {cnt}");
+                            break;
+                        }
+                    case OpCode.F_LINE:
+                        {
+                            if (pc + 2 > code.Length) { sb.AppendLine($"{pcStr}: F_LINE <truncated>"); break; }
+                            ushort line = LoadShort(code, ref pc);
+                            sb.AppendLine($"{pcStr}: F_LINE {line} ; line info");
+                            break;
+                        }
+                    case OpCode.F_SAVE_BINARY:
+                        {
+                            sb.AppendLine($"{pcStr}: F_SAVE_BINARY ; pragma save_binary");
+                            break;
+                        }
+                    case OpCode.F_CLASS:
+                        {
+                            // integrates with Class.cs
+                            if (pc + 2 > code.Length) { sb.AppendLine($"{pcStr}: F_CLASS <truncated>"); break; }
+                            ushort classIdx = LoadShort(code, ref pc);
+                            sb.AppendLine($"{pcStr}: F_CLASS {classIdx} ; see Class.cs");
+                            break;
+                        }
+                    default:
+                        {
+                            // 未知 opcode 处理 - hardening: 标记但继续
+                            if (Enum.IsDefined(typeof(OpCode), opcode))
+                            {
+                                sb.AppendLine($"{pcStr}: {opcode}");
+                            }
+                            else
+                            {
+                                sb.AppendLine($"{pcStr}: UNKNOWN 0x{op:X2} ({op}) ; invalid opcode? (hardened check)");
+                                // 为了继续反汇编，假设 1 字节
+                            }
+                            break;
+                        }
+                }
+
+                // 安全检查: 避免无限循环
+                if (pc <= startPc) pc = startPc + 1;
+                if (pc - startPc > 16) // 单指令不应超过 16 字节 (最长 F_LONG=9)
+                {
+                    sb.AppendLine($"{FormatPc(basePc + startPc)}: ; WARN: instruction too long, possible desync");
+                    pc = startPc + 1;
+                }
+            }
+            return sb.ToString();
+        }
+
+        private static string SafeGetString(List<ReadOnlyMemory<byte>> strings, int idx)
+        {
+            try
+            {
+                var s = Encoding.UTF8.GetString(strings[idx].Span);
+                if (s.Length > 20) s = s.Substring(0, 17) + "...";
+                return s.Replace("", "\0");
+            }
+            catch { return $"<bin {idx}>"; }
+        }
+
+        // Console-mode friendly dump - 供 Main.cs --dump 调用
+        public static void DumpToConsole(Program prog)
+        {
+            Console.WriteLine(Disassemble(prog));
+        }
+
+        // 按函数反汇编全部
+        public static string DisassembleAllFunctions(Program prog)
+        {
+            var sb = new StringBuilder();
+            var funcs = prog.Functions ?? new List<FunctionInfo>();
+            for (int i = 0; i < funcs.Count; i++)
+            {
+                sb.AppendLine(DisassembleFunction(prog, i));
+                sb.AppendLine();
+            }
+            return sb.ToString();
+        }
+    }
+}

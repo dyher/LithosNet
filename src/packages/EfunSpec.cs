@@ -3,7 +3,7 @@
 // Pass1 CMake configure, Pass2 C preprocessor, Pass3 edit_source POST_BUILD -> efuns_*.h
 // WARNING: order changes driver_id per L20-L24
 
-namespace LithosNet.V4.Efun;
+namespace LithosNet.Efun;
 
 public enum Opcode {
     // operators L38-L99 - order defines F_* opcodes

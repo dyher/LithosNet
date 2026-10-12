@@ -1,5 +1,5 @@
 
-namespace LithosNet.V4.VM;
+namespace LithosNet.VM;
 // 1:1 from taedlar/neolith src/apply.h
 
 public static class ApplyCache {

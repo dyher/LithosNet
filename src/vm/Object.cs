@@ -1,5 +1,5 @@
 
-namespace LithosNet.V4.VM;
+namespace LithosNet.VM;
 // 1:1 from taedlar/neolith lib/lpc/object.h L20-L74
 
 public static class ObjectFlags {
