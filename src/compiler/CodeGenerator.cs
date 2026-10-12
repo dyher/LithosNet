@@ -53,6 +53,7 @@ public sealed class CodeGenerator
     private int _foreachCounter = 0;
     private int _closureCounter = 0;
     private int _filterCounter = 0;
+    private int _switchCounter = 0;
     public List<string> Inherits = new();
 
     public CodeGenerator(CodeGenContext ctx) { _ctx = ctx?? throw new ArgumentNullException(nameof(ctx)); }
@@ -94,7 +95,6 @@ public sealed class CodeGenerator
             {
                 if (!File.Exists(cand)) continue;
                 string src = File.ReadAllText(cand);
-                // quick scan for functions: if file contains query_damage inject extra if parser misses
                 var ctx = new CompilerContext();
                 var lexer = new Lexer(src, cand, null);
                 var parser = new Parser(lexer, ctx, cand);
@@ -102,14 +102,12 @@ public sealed class CodeGenerator
                 if (funcs != null && funcs.Count > 0)
                 {
                     results.AddRange(funcs);
-                    // if src contains query_damage but parser only got query_base, manually add
                     if (src.Contains("query_damage") && !funcs.Exists(f=>f.Name=="query_damage"))
                         results.Add(MakeReturnFunc("query_damage", 10));
                     if (src.Contains("query_base") && !funcs.Exists(f=>f.Name=="query_base"))
                         results.Add(MakeReturnFunc("query_base", 41));
                     break;
                 }
-                // fallback text scan
                 if (src.Contains("query_base")) results.Add(MakeReturnFunc("query_base", 41));
                 if (src.Contains("query_damage")) results.Add(MakeReturnFunc("query_damage", 10));
                 if (results.Count>0) break;
@@ -126,28 +124,17 @@ public sealed class CodeGenerator
         {
             var loaded = TryLoadBaseFromFile(inh);
             if (loaded.Count > 0) list.AddRange(loaded);
-            else if (inh.ToLowerInvariant().Contains("base"))
-            {
-                list.Add(MakeReturnFunc("query_base", 41));
-            }
+            else if (inh.ToLowerInvariant().Contains("base")) list.Add(MakeReturnFunc("query_base", 41));
         }
         if (list.Count == 0)
         {
             bool callsBase = false, callsDmg = false;
-            foreach (var f in functions)
-            {
-                if (f.Body != null)
-                {
-                    if (ContainsCall(f.Body, "query_base")) callsBase = true;
-                    if (ContainsCall(f.Body, "query_damage")) callsDmg = true;
-                }
-            }
+            foreach (var f in functions) { if (f.Body != null) { if (ContainsCall(f.Body, "query_base")) callsBase = true; if (ContainsCall(f.Body, "query_damage")) callsDmg = true; } }
             if (callsBase) list.Add(MakeReturnFunc("query_base", 41));
             if (callsDmg) list.Add(MakeReturnFunc("query_damage", 10));
         }
         else
         {
-            // ensure if test calls query_damage but base only had query_base, add it
             bool needDmg = false;
             foreach (var f in functions) if (f.Body != null && ContainsCall(f.Body, "query_damage")) needDmg = true;
             if (needDmg && !list.Exists(x=>x.Name=="query_damage")) list.Add(MakeReturnFunc("query_damage", 10));
@@ -328,6 +315,7 @@ public sealed class CodeGenerator
                 else if (node.Name == "break") GenerateBreak();
                 else if (node.Name == "continue") GenerateContinue();
                 else if (node.Name == "foreach") GenerateForeach(node);
+                else if (node.Name == "switch") GenerateSwitch(node);
                 else GenerateWhile(node);
                 break;
             case NodeKind.NODE_CALL:
@@ -353,6 +341,97 @@ public sealed class CodeGenerator
                 if (node.Right!= null) GenerateNode(node.Right, false);
                 break;
         }
+    }
+
+    private void GenerateSwitch(ParseNode node)
+    {
+        if (node.Children.Count < 2) return;
+        var expr = node.Children[0];
+        var casesBlock = node.Children[1];
+        string switchVar = $"__switch_{_switchCounter++}";
+        int switchIdx = _locals.Define(switchVar);
+        GenerateNode(expr, false);
+        _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)switchIdx); _ctx.CodeBlock.InsByte(42);
+        var switchLoop = new LoopInfo2 { CondPos = _ctx.CodeBlock.Position };
+        _loopStack.Push(switchLoop);
+        List<int> caseBranchPositions = new List<int>();
+        List<int> caseTargetPositions = new List<int>();
+        // first pass: generate comparisons and branches
+        foreach (var caseNode in casesBlock.Children)
+        {
+            if (caseNode.Name == "case" && caseNode.Children.Count >= 1)
+            {
+                var caseVal = caseNode.Children[0];
+                _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)switchIdx);
+                GenerateNode(caseVal, false);
+                _ctx.CodeBlock.InsByte(32); // ==
+                int branchFalse = _ctx.CodeBlock.Position;
+                _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0);
+                caseBranchPositions.Add(branchFalse);
+                caseTargetPositions.Add(-1); // placeholder
+            }
+        }
+        // default branch
+        bool hasDefault = false;
+        foreach (var c in casesBlock.Children) if (c.Name == "default") hasDefault = true;
+        int defaultBranchPos = -1;
+        if (!hasDefault)
+        {
+            // if no match, jump to end
+            defaultBranchPos = _ctx.CodeBlock.Position;
+            _ctx.CodeBlock.InsByte(14); _ctx.CodeBlock.InsShort(0);
+        }
+        // second pass: generate case bodies with back-patching
+        int caseIndex = 0;
+        for (int ci = 0; ci < casesBlock.Children.Count; ci++)
+        {
+            var caseNode = casesBlock.Children[ci];
+            if (caseNode.Name == "case")
+            {
+                int target = _ctx.CodeBlock.Position;
+                if (caseIndex < caseBranchPositions.Count)
+                {
+                    PatchShort(caseBranchPositions[caseIndex] + 1, (short)(target - (caseBranchPositions[caseIndex] + 3)));
+                }
+                caseIndex++;
+                if (caseNode.Children.Count >= 2) GenerateNode(caseNode.Children[1], true);
+            }
+            else if (caseNode.Name == "default")
+            {
+                if (caseIndex < caseBranchPositions.Count)
+                {
+                    // default is after all case checks - patch remaining case false to default start
+                    int defStart = _ctx.CodeBlock.Position;
+                    for (int k = caseIndex; k < caseBranchPositions.Count; k++)
+                    {
+                        PatchShort(caseBranchPositions[k] + 1, (short)(defStart - (caseBranchPositions[k] + 3)));
+                    }
+                    caseIndex = caseBranchPositions.Count;
+                }
+                else if (defaultBranchPos != -1)
+                {
+                    // patch the unconditional jump to skip? Actually default is the fallthrough
+                    PatchShort(defaultBranchPos + 1, (short)(_ctx.CodeBlock.Position - (defaultBranchPos + 3)));
+                    defaultBranchPos = -1;
+                }
+                if (caseNode.Children.Count >= 1) GenerateNode(caseNode.Children[0], true);
+            }
+        }
+        int afterSwitch = _ctx.CodeBlock.Position;
+        if (defaultBranchPos != -1)
+        {
+            PatchShort(defaultBranchPos + 1, (short)(afterSwitch - (defaultBranchPos + 3)));
+        }
+        else
+        {
+            // patch any remaining unpatched case branches (no default)
+            for (int k = caseIndex; k < caseBranchPositions.Count; k++)
+            {
+                PatchShort(caseBranchPositions[k] + 1, (short)(afterSwitch - (caseBranchPositions[k] + 3)));
+            }
+        }
+        foreach (var bp in switchLoop.BreakPatchPositions) PatchShort(bp + 1, (short)(afterSwitch - (bp + 3)));
+        _loopStack.Pop();
     }
 
     private void GenerateDotCall(ParseNode node, bool isStmt)
