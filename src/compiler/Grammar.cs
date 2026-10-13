@@ -159,6 +159,36 @@ public sealed class Parser
     private int GetPrecedence(string op) { switch (op) { case "*": case "/": case "%": return 9; case "+": case "-": return 8; case "<<": case ">>": return 7; case "<": case "<=": case ">": case ">=": return 6; case "==": case "!=": return 5; case "&": return 4; case "^": return 3; case "|": return 2; case "&&": case "||": return 1; case "=": case "+=": case "-=": case "*=": case "/=": case "%=": case "&=": case "|=": case "^=": case "<<=": case ">>=": return 0; default: return -1; } }
     private ParseNode ParsePrimary()
     {
+        if (Match(TokenType.Punct, "::"))
+        {
+            Advance();
+            if (_current.Type == TokenType.Identifier)
+            {
+                string mname = _current.Text;
+                int line = _current.Line;
+                Advance();
+                var args = new List<ParseNode>();
+                if (Match(TokenType.Punct, "("))
+                {
+                    Advance();
+                    while (!Match(TokenType.Punct, ")") && _current.Type != TokenType.Eof)
+                    {
+                        var arg = ParseExpression();
+                        if (arg != null) args.Add(arg);
+                        if (Match(TokenType.Punct, ",")) Advance(); else break;
+                    }
+                    Expect(TokenType.Punct, ")");
+                }
+                var parentCall = new ParseNode { Kind = NodeKind.NODE_CALL, Name = $"__parent_{mname}", Line = line };
+                foreach (var a in args) parentCall.AddChild(a);
+                parentCall.Name = mname;
+                // Mark as parent call via Name prefix
+                var wrapper = new ParseNode { Kind = NodeKind.NODE_CALL, Name = "::" + mname, Line = line };
+                wrapper.AddChild(ParseNode.NewIdentifier(mname, line));
+                foreach (var a in args) wrapper.AddChild(a);
+                return wrapper;
+            }
+        }
         if (Match(TokenType.Punct, "(:")) { return ParseClosure(); }
         if (Match(TokenType.Punct, "("))
         {

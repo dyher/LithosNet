@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using LithosNet.VM;
 namespace LithosNet.Compiler;
 
 public sealed class LocalTable
@@ -149,7 +150,27 @@ public sealed class CodeGenerator
         var existingNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var f in functions) existingNames.Add(f.Name);
         var allFuncs = new List<ParseFunction>();
-        foreach (var bf in baseFuncs) { if (!existingNames.Contains(bf.Name)) { allFuncs.Add(bf); existingNames.Add(bf.Name); } }
+        var parentMap = new Dictionary<string, string>();
+        foreach (var bf in baseFuncs)
+        {
+            if (!existingNames.Contains(bf.Name))
+            {
+                allFuncs.Add(bf);
+                existingNames.Add(bf.Name);
+            }
+            else
+            {
+                // keep parent version under __parent_ prefix for :: calls
+                string parentName = "__parent_" + bf.Name;
+                if (!existingNames.Contains(parentName))
+                {
+                    var parentCopy = new ParseFunction { Name = parentName, Line = bf.Line, Args = bf.Args, Body = bf.Body };
+                    allFuncs.Add(parentCopy);
+                    existingNames.Add(parentName);
+                    parentMap[bf.Name] = parentName;
+                }
+            }
+        }
         allFuncs.AddRange(functions);
 
         foreach (var func in allFuncs)
@@ -329,8 +350,23 @@ public sealed class CodeGenerator
                     if (node.Name == "map" && node.Children.Count==2) { GenerateMap(node, isStmt); break; }
                     if (node.Name == "sort_array" && node.Children.Count==2) { GenerateSortArray(node, isStmt); break; }
                     if (node.Name == "clone_object" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_CLONE_OBJECT); if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
+                    string callName = node.Name;
+                    if (callName.StartsWith("::"))
+                    {
+                        string baseName = callName.Substring(2);
+                        string parentName = "__parent_" + baseName;
+                        ushort pIdx = FindFunction(parentName);
+                        if (pIdx != 0 || (_ctx.Functions.Count>0 && _ctx.Functions[0].Name == parentName))
+                        {
+                            callName = parentName;
+                        }
+                        else
+                        {
+                            callName = baseName;
+                        }
+                    }
                     foreach (var arg in node.Children) GenerateNode(arg, false);
-                    ushort fIdx = FindFunction(node.Name);
+                    ushort fIdx = FindFunction(callName);
                     _ctx.CodeBlock.InsByte(60); _ctx.CodeBlock.InsShort((short)fIdx); _ctx.CodeBlock.InsByte((byte)node.Children.Count);
                     if (isStmt) _ctx.CodeBlock.InsByte(42);
                     break;
@@ -594,7 +630,7 @@ public sealed class CodeGenerator
     private void GenerateFor(ParseNode node) { if (node.Children.Count < 4) return; var init = node.Children[0]; var cond = node.Children[1]; var inc = node.Children[2]; var body = node.Children[3]; if (init != null && !(init.Name != null && init.Name.StartsWith("__empty"))) GenerateNode(init, true); int loopCondPos = _ctx.CodeBlock.Position; bool hasCond = !(cond.Name != null && cond.Name.StartsWith("__empty")); int branchFalsePos = -1; if (hasCond) { GenerateNode(cond, false); branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0); } var loopInfo = new LoopInfo2 { CondPos = loopCondPos }; _loopStack.Push(loopInfo); if (body != null) GenerateNode(body, true); int incStart = _ctx.CodeBlock.Position; foreach (var cp in loopInfo.ContinuePatchPositions) PatchShort(cp + 1, (short)(incStart - (cp + 3))); loopInfo.ContinuePatchPositions.Clear(); bool hasInc = !(inc.Name != null && inc.Name.StartsWith("__empty")); if (hasInc) GenerateNode(inc, true); int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); short backOffset = (short)(loopCondPos - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset); int afterLoop = _ctx.CodeBlock.Position; if (hasCond) PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop(); }
     private void GenerateBreak() { if (_loopStack.Count == 0) return; int pos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); _ctx.CodeBlock.InsShort(0); _loopStack.Peek().BreakPatchPositions.Add(pos); }
     private void GenerateContinue() { if (_loopStack.Count == 0) return; int pos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); _ctx.CodeBlock.InsShort(0); _loopStack.Peek().ContinuePatchPositions.Add(pos); }
-    private void PatchShort(int pos, short val) { var block = _ctx.CodeBlock; var type = block.GetType(); var field = type.GetField("_rented", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); if (field != null) { var rented = (byte[])field.GetValue(block); rented[pos] = (byte)(val & 0xFF); rented[pos + 1] = (byte)((val >> 8) & 0xFF); } }
+    private void PatchShort(int pos, short val) { var block = _ctx.CodeBlock; var type = block.GetType(); var field = type.GetField("_rented", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); if (field == null) field = type.GetField("_buf", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); if (field != null) { var rented = (byte[])field.GetValue(block); rented[pos] = (byte)(val & 0xFF); rented[pos + 1] = (byte)((val >> 8) & 0xFF); } }
     private ushort FindFunction(string name) { for (int i = 0; i < _ctx.Functions.Count; i++) if (_ctx.Functions[i].Name == name) return (ushort)i; return 0; }
     private void EmitNumber(long val) { if (val == 0) _ctx.CodeBlock.InsByte(1); else if (val == 1) _ctx.CodeBlock.InsByte(2); else if (val >= -128 && val <= 127) { _ctx.CodeBlock.InsByte(11); _ctx.CodeBlock.InsByte((byte)(sbyte)val); } else if (val >= int.MinValue && val <= int.MaxValue) { _ctx.CodeBlock.InsByte(8); _ctx.CodeBlock.InsInt((int)val); } else { _ctx.CodeBlock.InsByte(10); _ctx.CodeBlock.InsLong(val); } }
 }

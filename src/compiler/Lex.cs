@@ -85,7 +85,7 @@ public sealed class Lexer
         string three = new string(new char[]{c, Peek(1), Peek(2)});
         if (three == "<<=" || three == ">>=") { Next(); Next(); Next(); return new Token { Type = TokenType.Operator, Text = three, Line = line, Column = col }; }
         string two = new string(new char[]{c, Peek(1)});
-        if (two == "(:" || two == ":)") { Next(); Next(); return new Token { Type = TokenType.Punct, Text = two, Line = line, Column = col }; }
+        if (two == "(:" || two == ":)" || two == "::") { Next(); Next(); return new Token { Type = TokenType.Punct, Text = two, Line = line, Column = col }; }
         if (two == "++" || two == "--" || two == "==" || two == "!=" || two == "<=" || two == ">=" || two == "&&" || two == "||" || two == "<<" || two == ">>" || two == "->" || two == "+=" || two == "-=" || two == "*=" || two == "/=" || two == "%=" || two == "&=" || two == "|=" || two == "^=") { Next(); Next(); TokenType tt = TokenType.Punct; if (two.EndsWith("=") && two != "==" && two != "!=" && two != "<=" && two != ">=") tt = TokenType.Operator; return new Token { Type = tt, Text = two, Line = line, Column = col }; }
         Next(); string txt1 = c.ToString(); TokenType ttype = TokenType.Punct; if ("+-*/%&|^~!<>=".Contains(c)) ttype = TokenType.Operator; return new Token { Type = ttype, Text = txt1, Line = line, Column = col };
     }
