@@ -19,3 +19,11 @@ es2.conf
 # 測試產物
 src/tests/*.bin
 archive/
+
+# Local bundles and dumps - not for GitHub
+P46_bundle/
+P53_bundle/
+*.tar.gz
+*.bin
+*.bak*
+dump_codeblock.cs
