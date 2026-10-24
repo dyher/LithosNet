@@ -1,0 +1,2 @@
+// placeholder
+namespace LithosNet.VM { }

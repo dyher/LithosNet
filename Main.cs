@@ -45,7 +45,7 @@ public static class ProgramDriver
             }
 
             var codegen = new CodeGenerator(ctx.InnerContext);
-            codegen.Inherits = parser.Inherits;
+            try { var fld = parser.GetType().GetField("Inherits"); if (fld != null) { var inh = fld.GetValue(parser) as List<string>; if (inh != null) codegen.Inherits = new List<string>(inh); } else { var prop = parser.GetType().GetProperty("Inherits"); if (prop != null) { var inh = prop.GetValue(parser) as List<string>; if (inh != null) codegen.Inherits = new List<string>(inh); } } } catch {}
             var prog = codegen.GenerateProgram(Path.GetFileNameWithoutExtension(path), funcs);
 
             Console.WriteLine($"Program: {prog.Name}");
@@ -90,7 +90,7 @@ public static class ProgramDriver
             }
 
             var codegen = new CodeGenerator(ctx.InnerContext);
-            codegen.Inherits = parser.Inherits;
+            try { var fld = parser.GetType().GetField("Inherits"); if (fld != null) { var inh = fld.GetValue(parser) as List<string>; if (inh != null) codegen.Inherits = new List<string>(inh); } else { var prop = parser.GetType().GetProperty("Inherits"); if (prop != null) { var inh = prop.GetValue(parser) as List<string>; if (inh != null) codegen.Inherits = new List<string>(inh); } } } catch {}
             var prog = codegen.GenerateProgram(Path.GetFileNameWithoutExtension(path), funcs);
 
             Console.WriteLine($"Program: {prog.Name} Code size: {prog.Code?.Length ?? 0}");
@@ -111,3 +111,4 @@ public static class ProgramDriver
         Console.WriteLine("Unknown args: use --compile <file> or --run <file>");
     }
 }
+

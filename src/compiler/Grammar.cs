@@ -18,7 +18,7 @@ public sealed class Parser
     private bool Match(TokenType type, string text = null) { if (_current.Type != type) return false; if (text != null && _current.Text != text) return false; return true; }
     private bool MatchText(string text) { return _current.Text == text; }
     private bool Expect(TokenType type, string text = null) { if (!Match(type, text)) { _errors.Add($"{_fileName}:{_current.Line}: expected {type} {(text ?? "")} got {_current.Type} '{_current.Text}'"); return false; } Advance(); return true; }
-    private bool IsTypeKeyword(string text) => text == "int" || text == "string" || text == "object" || text == "mapping" || text == "mixed" || text == "void" || text == "function";
+    private bool IsTypeKeyword(string text) => text == "int" || text == "string" || text == "object" || text == "mapping" || text == "mixed" || text == "void" || text == "function" || text == "closure" || text == "float" || text == "status";
     private bool IsEfunKeyword(string text) => text == "sizeof" || text == "keys" || text == "values" || text == "m_delete" || text == "map_delete" || text == "foreach" || text == "evaluate" || text == "filter" || text == "map" || text == "sort_array" || text == "clone_object";
     public List<ParseFunction> ParseFunctions()
     {
@@ -157,7 +157,7 @@ public sealed class Parser
     private ParseNode ParseUnary() { if (Match(TokenType.Operator, "!") || Match(TokenType.Punct, "!")) { int line = _current.Line; string op = "!"; Advance(); var operand = ParseUnary(); if (operand != null) { var node = new ParseNode { Kind = NodeKind.NODE_BINARY_OP, Name = op, Line = line }; node.AddChild(operand); return TryParseIndex(node); } } if (Match(TokenType.Operator, "++") || Match(TokenType.Operator, "--")) { int line = _current.Line; string op = _current.Text; Advance(); var operand = ParseUnary(); if (operand != null) { var node = new ParseNode { Kind = NodeKind.NODE_BINARY_OP, Name = op, Line = line }; node.AddChild(operand); return TryParseIndex(node); } } var primary = ParsePrimary(); if (primary == null) return null; if (primary.Kind == NodeKind.NODE_IDENTIFIER) { if (Match(TokenType.Operator, "++") || Match(TokenType.Operator, "--")) { int line = _current.Line; string op = _current.Text == "++" ? "post++" : "post--"; Advance(); var node = new ParseNode { Kind = NodeKind.NODE_BINARY_OP, Name = op, Line = line }; node.AddChild(primary); node.Left = primary; return node; } } return primary; }
     private bool IsBinaryOp(string op) { switch (op) { case "*": case "/": case "%": case "+": case "-": case "<<": case ">>": case "<": case "<=": case ">": case ">=": case "==": case "!=": case "&": case "^": case "|": case "&&": case "||": case "=": case "+=": case "-=": case "*=": case "/=": case "%=": case "&=": case "|=": case "^=": case "<<=": case ">>=": return true; default: return false; } }
     private int GetPrecedence(string op) { switch (op) { case "*": case "/": case "%": return 9; case "+": case "-": return 8; case "<<": case ">>": return 7; case "<": case "<=": case ">": case ">=": return 6; case "==": case "!=": return 5; case "&": return 4; case "^": return 3; case "|": return 2; case "&&": case "||": return 1; case "=": case "+=": case "-=": case "*=": case "/=": case "%=": case "&=": case "|=": case "^=": case "<<=": case ">>=": return 0; default: return -1; } }
-    private ParseNode ParsePrimary()
+        private ParseNode ParsePrimary()
     {
         if (Match(TokenType.Punct, "::"))
         {
@@ -179,10 +179,6 @@ public sealed class Parser
                     }
                     Expect(TokenType.Punct, ")");
                 }
-                var parentCall = new ParseNode { Kind = NodeKind.NODE_CALL, Name = $"__parent_{mname}", Line = line };
-                foreach (var a in args) parentCall.AddChild(a);
-                parentCall.Name = mname;
-                // Mark as parent call via Name prefix
                 var wrapper = new ParseNode { Kind = NodeKind.NODE_CALL, Name = "::" + mname, Line = line };
                 wrapper.AddChild(ParseNode.NewIdentifier(mname, line));
                 foreach (var a in args) wrapper.AddChild(a);
@@ -229,3 +225,4 @@ public sealed class Parser
         return baseNode;
     }
 }
+

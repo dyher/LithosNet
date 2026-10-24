@@ -17,7 +17,7 @@ public sealed class CallFrame
     }
 }
 
-public sealed class InterpreterP9 {
+public class InterpreterP9 {
     public const int STACK_SIZE = 2000;
     public SValueS[] Stack = new SValueS[STACK_SIZE];
     public int Sp = -1;
@@ -26,50 +26,50 @@ public sealed class InterpreterP9 {
     public string[] Strings = Array.Empty<string>();
     public Program CurrentProgram;
 
-    const byte F_NUMBER = 8;
-    const byte F_LONG = 10;
-    const byte F_BYTE = 11;
-    const byte F_NBYTE = 12;
-    const byte F_BRANCH = 14;
-    const byte F_BRANCH_WHEN_ZERO = 16;
-    const byte F_BRANCH_WHEN_NON_ZERO = 17;
-    const byte F_AND = 22;
-    const byte F_OR = 23;
-    const byte F_XOR = 24;
-    const byte F_ADD = 18;
-    const byte F_SUB = 19;
-    const byte F_MUL = 20;
-    const byte F_DIV = 21;
-    const byte F_MOD = 25;
-    const byte F_SHL = 26;
-    const byte F_SHR = 27;
-    const byte F_LT = 28;
-    const byte F_GT = 29;
-    const byte F_LE = 30;
-    const byte F_GE = 31;
-    const byte F_EQ = 32;
-    const byte F_NE = 33;
-    const byte F_LOCAL = 40;
-    const byte F_STORE_LOCAL = 41;
-    const byte F_CONST0 = 1;
-    const byte F_CONST1 = 2;
-    const byte F_STRING = 6;
-    const byte F_CALL = 60;
-    const byte F_CALL_OTHER = 61;
-    const byte F_CLONE_OBJECT = 86;
-    const byte F_RETURN = 255;
-    const byte F_POP = 42;
-    const byte F_PUSH_MAPPING = 70;
-    const byte F_MAP_ADD = 71;
-    const byte F_INDEX = 72;
-    const byte F_INDEX_ASSIGN = 73;
-    const byte F_PUSH_ARRAY = 74;
-    const byte F_SIZEOF = 75;
-    const byte F_KEYS = 76;
-    const byte F_VALUES = 77;
+    const byte F_NUMBER = 7; // Neolith // Neolith // Neolith
+    const byte F_LONG = 9; // Neolith // Neolith // Neolith
+    const byte F_BYTE = 10; // Neolith // Neolith // Neolith
+    const byte F_NBYTE = 11; // Neolith // Neolith // Neolith
+    const byte F_BRANCH = 20; // Neolith // Neolith // Neolith
+    const byte F_BRANCH_WHEN_ZERO = 18; // Neolith // Neolith // Neolith
+    const byte F_BRANCH_WHEN_NON_ZERO = 19; // Neolith // Neolith // Neolith
+    const byte F_AND = 99; // Neolith // Neolith // Neolith
+    const byte F_OR = 100; // Neolith // Neolith // Neolith
+    const byte F_XOR = 101; // Neolith // Neolith // Neolith
+    const byte F_ADD = 94; // Neolith // Neolith // Neolith
+    const byte F_SUB = 95; // Neolith // Neolith // Neolith
+    const byte F_MUL = 96; // Neolith // Neolith // Neolith
+    const byte F_DIV = 97; // Neolith // Neolith // Neolith
+    const byte F_MOD = 98; // Neolith // Neolith // Neolith
+    const byte F_SHL = 102; // Neolith // Neolith // Neolith
+    const byte F_SHR = 103; // Neolith // Neolith // Neolith
+    const byte F_LT = 50; // Neolith // Neolith // Neolith
+    const byte F_GT = 52; // Neolith // Neolith // Neolith
+    const byte F_LE = 49; // Neolith // Neolith // Neolith
+    const byte F_GE = 51; // Neolith // Neolith // Neolith
+    const byte F_EQ = 47; // Neolith // Neolith // Neolith
+    const byte F_NE = 48; // Neolith // Neolith // Neolith
+    const byte F_LOCAL = 60; // Neolith // Neolith // Neolith
+    const byte F_STORE_LOCAL = 61; // Neolith // Neolith
+    const byte F_CONST0 = 14; // Neolith
+    const byte F_CONST1 = 15; // Neolith
+    const byte F_STRING = 12; // Neolith // Neolith // Neolith
+    const byte F_CALL = 43; // Neolith // Neolith // Neolith
+    const byte F_CALL_OTHER = 114; // Neolith // Neolith // Neolith
+    const byte F_CLONE_OBJECT = 122; // Neolith // Neolith
+    const byte F_RETURN = 45; // Neolith // Neolith // Neolith
+    const byte F_POP = 0; // Neolith // Neolith // Neolith
+    const byte F_PUSH_MAPPING = 17; // Neolith // Neolith
+    const byte F_MAP_ADD = 71; // Neolith
+    const byte F_INDEX = 66; // Neolith // Neolith
+    const byte F_INDEX_ASSIGN = 67; // Neolith // Neolith
+    const byte F_PUSH_ARRAY = 16; // Neolith // Neolith
+    const byte F_SIZEOF = 75; // Neolith
+    const byte F_KEYS = 76; // Neolith
+    const byte F_VALUES = 77; // Neolith
     const byte F_M_DELETE = 78;
-    const byte F_PUSH_CLOSURE = 81;
-    const byte F_EVALUATE = 82;
+    const byte F_PUSH_CLOSURE = 107; // Neolith
+    const byte F_EVALUATE = 115; // Neolith
 
     SValueS[] Locals = new SValueS[64];
     Stack<CallFrame> CallStack = new();
@@ -140,7 +140,31 @@ public sealed class InterpreterP9 {
         CallStack.Clear();
         CurrentObject = new LpcObject("<main>", CurrentProgram);
         int mainAddr = -1;
-        if (FuncAddr.Count >= 1) mainAddr = FuncAddr[FuncAddr.Count-1];
+        if (CurrentProgram?.FunctionTable != null)
+        {
+            for (int i=0;i<CurrentProgram.FunctionTable.Length;i++)
+            {
+                if (CurrentProgram.FunctionTable[i].Name == "main")
+                {
+                    mainAddr = CurrentProgram.FunctionTable[i].Address;
+                    break;
+                }
+            }
+            if (mainAddr <0)
+            {
+                // fallback: last non-closure function
+                for (int i=CurrentProgram.FunctionTable.Length-1;i>=0;i--)
+                {
+                    var name = CurrentProgram.FunctionTable[i].Name;
+                    if (!name.StartsWith("__closure") && !name.StartsWith("__filter") && !name.StartsWith("__map"))
+                    {
+                        mainAddr = CurrentProgram.FunctionTable[i].Address;
+                        break;
+                    }
+                }
+            }
+        }
+        if (mainAddr <0 && FuncAddr.Count >= 1) mainAddr = FuncAddr[FuncAddr.Count-1];
         Pc = mainAddr >=0 ? mainAddr : 0;
         Console.WriteLine($"[VM] start Pc={Pc}");
 
@@ -220,7 +244,7 @@ public sealed class InterpreterP9 {
                     // push args back for callee prologue (STORE_LOCAL)
                     for (int i=0;i<argList.Count;i++) Push(argList[i]);
 
-                    LpcObject ob = objSv.U.Object ?? objSv.Value.Object;
+                    LpcObject ob = objSv.U.Object as LpcObject ?? objSv.Value.Object as LpcObject;
                     int target = -1; int fIdx = -1;
                     if (ob != null && ob.TryFindFunction(methodName, out fIdx, out target)) { }
                     else
@@ -479,9 +503,10 @@ public sealed class InterpreterP27_final {
     public long RunFromMain() => Inner.RunFromMain();
     public void EvalInstruction(byte[] prog) => Inner.EvalInstruction(prog);
 }
-public sealed class InterpreterV4 {
+public class InterpreterV4 {
     public InterpreterP9 Inner = new();
     public void EvalInstruction(byte[] prog) => Inner.EvalInstruction(prog);
     public void SetProgram(Program p) => Inner.SetProgram(p);
     public long RunFromMain() => Inner.RunFromMain();
 }
+

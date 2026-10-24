@@ -33,7 +33,7 @@ public sealed class Lexer
     private static readonly HashSet<string> Keywords = new(StringComparer.Ordinal)
     {
         "if","else","for","foreach","while","do","switch","case","default","break","continue","return",
-        "int","string","object","mapping","mixed","void","inherit","private","protected","public",
+        "int","string","object","mapping","mixed","void","closure","function","inherit","private","protected","public",
         "static","nomask","varargs","class","struct","new","sizeof","typeof","in","keys","values","m_delete","map_delete","evaluate","filter","map","sort_array","clone_object"
     };
     public Lexer(string source, string fileName, List<string> includeDirs = null!)
@@ -71,7 +71,8 @@ public sealed class Lexer
         int line = _line; int col = _col; char c = Peek();
         if (c == '\0') return new Token { Type = TokenType.Eof, Line = line, Column = col };
         if (c == '$' && char.IsDigit(Peek(1))) { int start = _pos; Next(); while (char.IsDigit(Peek())) Next(); string text = _src.Substring(start, _pos - start); return new Token { Type = TokenType.Identifier, Text = text, Line = line, Column = col }; }
-        if (char.IsLetter(c) || c == '_') { int start = _pos; while (char.IsLetterOrDigit(Peek()) || Peek() == '_') Next(); string text = _src.Substring(start, _pos - start); var type = Keywords.Contains(text) ? TokenType.Keyword : TokenType.Identifier; return new Token { Type = type, Text = text, Line = line, Column = col }; }
+        if (c == '$' && _pos + 1 < _src.Length && char.IsDigit(_src[_pos+1])) { int start = _pos; _pos++; while (_pos < _src.Length && char.IsDigit(_src[_pos])) _pos++; string txt = _src.Substring(start, _pos - start); return new Token { Type = TokenType.Identifier, Text = txt, Line = line, Column = col }; }
+            if (char.IsLetter(c) || c == '_') { int start = _pos; while (char.IsLetterOrDigit(Peek()) || Peek() == '_') Next(); string text = _src.Substring(start, _pos - start); var type = Keywords.Contains(text) ? TokenType.Keyword : TokenType.Identifier; return new Token { Type = type, Text = text, Line = line, Column = col }; }
         if (char.IsDigit(c))
         {
             int start = _pos; bool isHex = false; bool isReal = false;
@@ -90,3 +91,4 @@ public sealed class Lexer
         Next(); string txt1 = c.ToString(); TokenType ttype = TokenType.Punct; if ("+-*/%&|^~!<>=".Contains(c)) ttype = TokenType.Operator; return new Token { Type = ttype, Text = txt1, Line = line, Column = col };
     }
 }
+

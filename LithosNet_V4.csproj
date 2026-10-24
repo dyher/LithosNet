@@ -2,8 +2,21 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>LithosNet.V4</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/compiler/Lex.cs" />
+    <Compile Include="src/compiler/Grammar.cs" />
+    <Compile Include="src/compiler/ParseTree.cs" />
+    <Compile Include="src/compiler/CodeGenerator.cs" />
+    <Compile Include="src/compiler/CompilerContext.cs" />
+    <Compile Include="src/compiler/Preprocessor.cs" />
+    <Compile Include="src/vm/Program.cs" />
+    <Compile Include="src/vm/SValue.cs" />
+    <Compile Include="src/vm/Interpreter.cs" />
+    <Compile Include="Main.cs" />
+  </ItemGroup>
 </Project>

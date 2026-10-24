@@ -1,3 +1,4 @@
+
 using System;
 using System.Collections.Generic;
 
@@ -44,36 +45,6 @@ public sealed class SValueComparer : IEqualityComparer<SValue>
     public int GetHashCode(SValue obj) => obj.GetHashCode();
 }
 
-public sealed class LpcObject
-{
-    public string Path;
-    public Program Prog;
-    public Dictionary<string, SValue> Vars = new();
-    public int ObjectId;
-    private static int _nextId = 1;
-    public LpcObject(string path, Program prog)
-    {
-        Path = path;
-        Prog = prog;
-        ObjectId = _nextId++;
-    }
-    public bool TryFindFunction(string name, out int idx, out int addr)
-    {
-        idx = -1; addr = -1;
-        if (Prog?.FunctionTable == null) return false;
-        for (int i=0;i<Prog.FunctionTable.Length;i++)
-        {
-            if (Prog.FunctionTable[i].Name == name)
-            {
-                idx = i;
-                addr = Prog.FunctionTable[i].Address;
-                return true;
-            }
-        }
-        return false;
-    }
-}
-
 public readonly struct SValue : IEquatable<SValue>
 {
     public readonly SValueType Type;
@@ -82,10 +53,10 @@ public readonly struct SValue : IEquatable<SValue>
     public readonly string String;
     public readonly SValueArray Array;
     public readonly SValueMapping Mapping;
-    public readonly LpcObject Object;
+    public readonly object Object;
     public readonly int FunctionIndex;
 
-    private SValue(SValueType type, long number = 0, string str = null, SValueArray arr = null, SValueMapping map = null, LpcObject obj = null, SValueSubType sub = 0, int funcIdx = -1)
+    private SValue(SValueType type, long number = 0, string str = null, SValueArray arr = null, SValueMapping map = null, object obj = null, int funcIdx = 0, SValueSubType sub = 0)
     {
         Type = type;
         SubType = sub;
@@ -101,8 +72,8 @@ public readonly struct SValue : IEquatable<SValue>
     public static SValue NewString(string s, SValueSubType sub = SValueSubType.STRING_MALLOC) => new(SValueType.T_STRING, str: s, sub: sub);
     public static SValue NewArray(SValueArray arr) => new(SValueType.T_ARRAY, arr: arr);
     public static SValue NewMapping(SValueMapping map) => new(SValueType.T_MAPPING, map: map);
+    public static SValue NewObject(object obj) => new(SValueType.T_OBJECT, obj: obj);
     public static SValue NewFunction(int funcIdx) => new(SValueType.T_FUNCTION, number: funcIdx, funcIdx: funcIdx);
-    public static SValue NewObject(LpcObject ob) => new(SValueType.T_OBJECT, obj: ob);
     public static SValue Invalid => new(SValueType.T_INVALID);
 
     public bool IsNumber => Type == SValueType.T_NUMBER;
@@ -117,7 +88,6 @@ public readonly struct SValue : IEquatable<SValue>
             SValueType.T_NUMBER => Number == other.Number,
             SValueType.T_STRING => String == other.String,
             SValueType.T_FUNCTION => FunctionIndex == other.FunctionIndex,
-            SValueType.T_OBJECT => Object?.ObjectId == other.Object?.ObjectId,
             _ => false
         };
     }
@@ -128,17 +98,16 @@ public readonly struct SValue : IEquatable<SValue>
         SValueType.T_NUMBER => Number.GetHashCode(),
         SValueType.T_STRING => String?.GetHashCode() ?? 0,
         SValueType.T_FUNCTION => FunctionIndex.GetHashCode(),
-        SValueType.T_OBJECT => Object?.ObjectId.GetHashCode() ?? 0,
         _ => (int)Type
     };
     public override string ToString() => Type switch
     {
         SValueType.T_NUMBER => Number.ToString(),
-        SValueType.T_STRING => $"\"{String}\"",
+        SValueType.T_STRING => String,
         SValueType.T_ARRAY => $"ARRAY({Array?.Items.Count ?? 0})",
         SValueType.T_MAPPING => $"MAPPING({Mapping?.Map.Count ?? 0})",
         SValueType.T_FUNCTION => $"FUNC({FunctionIndex})",
-        SValueType.T_OBJECT => $"OBJ({Object?.Path}#{Object?.ObjectId})",
+        SValueType.T_OBJECT => $"OBJECT({Object})",
         _ => $"{Type}"
     };
 }
@@ -185,7 +154,7 @@ public sealed class SValueU
     public string String;
     public SValueArray Array;
     public SValueMapping Mapping;
-    public LpcObject Object;
+    public object Object;
 }
 
 public sealed class ArrayS
@@ -199,3 +168,4 @@ public sealed class MappingS
 {
     public SValueMapping Impl { get; } = new SValueMapping();
 }
+

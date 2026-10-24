@@ -38,19 +38,19 @@ public sealed class CodeGenerator
     private readonly CodeGenContext _ctx;
     private readonly LocalTable _locals = new();
     private readonly Stack<LoopInfo2> _loopStack = new();
-    const byte F_PUSH_MAPPING = 70;
-    const byte F_MAP_ADD = 71;
-    const byte F_INDEX = 72;
-    const byte F_INDEX_ASSIGN = 73;
-    const byte F_PUSH_ARRAY = 74;
-    const byte F_SIZEOF = 75;
-    const byte F_KEYS = 76;
-    const byte F_VALUES = 77;
-    const byte F_M_DELETE = 78;
-    const byte F_PUSH_CLOSURE = 81;
-    const byte F_EVALUATE = 82;
-    const byte F_CALL_OTHER = 61;
-    const byte F_CLONE_OBJECT = 86;
+    const byte F_PUSH_MAPPING = 17; // Neolith // Neolith // Neolith
+    const byte F_MAP_ADD = 71; // Neolith // Neolith
+    const byte F_INDEX = 66; // Neolith // Neolith // Neolith
+    const byte F_INDEX_ASSIGN = 67; // Neolith // Neolith // Neolith
+    const byte F_PUSH_ARRAY = 16; // Neolith // Neolith // Neolith
+    const byte F_SIZEOF = 75; // Neolith // Neolith
+    const byte F_KEYS = 76; // Neolith // Neolith
+    const byte F_VALUES = 77; // Neolith // Neolith
+    const byte F_M_DELETE = 78; // Neolith
+    const byte F_PUSH_CLOSURE = 107; // Neolith // Neolith
+    const byte F_EVALUATE = 115; // Neolith // Neolith
+    const byte F_CALL_OTHER = 114; // Neolith // Neolith // Neolith
+    const byte F_CLONE_OBJECT = 122; // Neolith // Neolith
     private int _foreachCounter = 0;
     private int _closureCounter = 0;
     private int _filterCounter = 0;
@@ -181,11 +181,11 @@ public sealed class CodeGenerator
             ushort idx = _ctx.AddFunction(func.Name, addr);
             if (func.Args != null && func.Args.Count > 0)
             {
-                for (int i = func.Args.Count - 1; i >= 0; i--) { _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)i); _ctx.CodeBlock.InsByte(42); }
+                for (int i = func.Args.Count - 1; i >= 0; i--) { _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)i); _ctx.CodeBlock.InsByte(0) /* F_POP */; }
             }
             if (func.Body != null) GenerateNode(func.Body);
             var codeArr = _ctx.CodeBlock.ToArray();
-            if (codeArr.Length == addr || codeArr[codeArr.Length-1] != 0xFF) _ctx.CodeBlock.InsByte(255);
+            if (codeArr.Length == addr || codeArr[codeArr.Length-1] != 0xFF) _ctx.CodeBlock.InsByte(45) /* F_RETURN Neolith */;
             _ctx.PatchFunctionAddress(idx, addr);
         }
         prog.Code = _ctx.CodeBlock.ToArray();
@@ -211,16 +211,16 @@ public sealed class CodeGenerator
                         if (child.Kind != NodeKind.NODE_VAR_DEF) { GenerateNode(child, true); continue; }
                         ParseNode sizeNode = null; ParseNode initNode = null;
                         foreach (var c in child.Children) { if (c.Name=="__array_size") sizeNode=c; else initNode=c; }
-                        if (sizeNode != null) { int sz = (int)sizeNode.NumberValue; if (sz<=0) sz=1; int b = _locals.DefineArray(child.Name, sz, true); EmitNumber(sz); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)b); _ctx.CodeBlock.InsByte(42); }
-                        else { int localIdx = _locals.Define(child.Name); if (initNode != null) { GenerateNode(initNode, false); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)localIdx); _ctx.CodeBlock.InsByte(42); } else { _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)localIdx); _ctx.CodeBlock.InsByte(42); } }
+                        if (sizeNode != null) { int sz = (int)sizeNode.NumberValue; if (sz<=0) sz=1; int b = _locals.DefineArray(child.Name, sz, true); EmitNumber(sz); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)b); _ctx.CodeBlock.InsByte(0) /* F_POP */; }
+                        else { int localIdx = _locals.Define(child.Name); if (initNode != null) { GenerateNode(initNode, false); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)localIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */; } else { _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)localIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */; } }
                     }
                 }
                 else if (!string.IsNullOrEmpty(node.Name) && node.Name!= "int" && node.Name!= "string" && node.Name!= "mixed" && node.Name!= "void" && node.Name!= "object" && node.Name!= "mapping" && node.Name!="__empty_init" && node.Name!="__empty_cond" && node.Name!="__empty_inc")
                 {
                     ParseNode sizeNode2 = null; ParseNode initNode2 = null;
                     foreach (var c in node.Children) { if (c.Name=="__array_size") sizeNode2=c; else initNode2=c; }
-                    if (sizeNode2 != null) { int sz = (int)sizeNode2.NumberValue; if (sz<=0) sz=1; int b = _locals.DefineArray(node.Name, sz, true); EmitNumber(sz); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)b); _ctx.CodeBlock.InsByte(42); }
-                    else { int localIdx = _locals.Define(node.Name); if (initNode2 != null) { GenerateNode(initNode2, false); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)localIdx); _ctx.CodeBlock.InsByte(42); } else { _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)localIdx); _ctx.CodeBlock.InsByte(42); } }
+                    if (sizeNode2 != null) { int sz = (int)sizeNode2.NumberValue; if (sz<=0) sz=1; int b = _locals.DefineArray(node.Name, sz, true); EmitNumber(sz); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)b); _ctx.CodeBlock.InsByte(0) /* F_POP */; }
+                    else { int localIdx = _locals.Define(node.Name); if (initNode2 != null) { GenerateNode(initNode2, false); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)localIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */; } else { _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)localIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */; } }
                 }
                 else
                 {
@@ -230,8 +230,8 @@ public sealed class CodeGenerator
                         {
                             ParseNode sizeNode = null; ParseNode initNode = null;
                             foreach (var c in child.Children) { if (c.Name=="__array_size") sizeNode=c; else initNode=c; }
-                            if (sizeNode != null) { int sz = (int)sizeNode.NumberValue; if (sz<=0) sz=1; int b = _locals.DefineArray(child.Name, sz, true); EmitNumber(sz); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)b); _ctx.CodeBlock.InsByte(42); }
-                            else { int localIdx = _locals.Define(child.Name); if (initNode != null) { GenerateNode(initNode, false); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)localIdx); _ctx.CodeBlock.InsByte(42); } else { _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)localIdx); _ctx.CodeBlock.InsByte(42); } }
+                            if (sizeNode != null) { int sz = (int)sizeNode.NumberValue; if (sz<=0) sz=1; int b = _locals.DefineArray(child.Name, sz, true); EmitNumber(sz); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)b); _ctx.CodeBlock.InsByte(0) /* F_POP */; }
+                            else { int localIdx = _locals.Define(child.Name); if (initNode != null) { GenerateNode(initNode, false); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)localIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */; } else { _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)localIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */; } }
                         } else GenerateNode(child, true);
                     }
                 }
@@ -239,20 +239,20 @@ public sealed class CodeGenerator
             case NodeKind.NODE_NUMBER:
                 if (node.Name != null && node.Name.StartsWith("__empty")) break;
                 EmitNumber(node.NumberValue);
-                if (isStmt) _ctx.CodeBlock.InsByte(42);
+                if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */;
                 break;
             case NodeKind.NODE_STRING:
-                { int strIdx = _ctx.AddString(node.StringValue); _ctx.CodeBlock.InsByte(6); _ctx.CodeBlock.InsShort((short)strIdx); if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
+                { int strIdx = _ctx.AddString(node.StringValue); _ctx.CodeBlock.InsByte(11) /* F_NBYTE */ /* F_STRING */; _ctx.CodeBlock.InsShort((short)strIdx); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
             case NodeKind.NODE_IDENTIFIER:
                 {
-                    if (node.Name.StartsWith("$")) { if (int.TryParse(node.Name.Substring(1), out int n) && n>=1) { int idx = n-1; _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)idx); if (isStmt) _ctx.CodeBlock.InsByte(42); break; } }
-                    if (_locals.TryGetIndex(node.Name, out int localIdx2)) { _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)localIdx2); }
-                    else { int strIdx = _ctx.AddString(node.Name); _ctx.CodeBlock.InsByte(6); _ctx.CodeBlock.InsShort((short)strIdx); }
-                    if (isStmt) _ctx.CodeBlock.InsByte(42);
+                    if (node.Name.StartsWith("$")) { if (int.TryParse(node.Name.Substring(1), out int n) && n>=1) { int idx = n-1; _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)idx); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; } }
+                    if (_locals.TryGetIndex(node.Name, out int localIdx2)) { _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)localIdx2); }
+                    else { int strIdx = _ctx.AddString(node.Name); _ctx.CodeBlock.InsByte(11) /* F_NBYTE */ /* F_STRING */; _ctx.CodeBlock.InsShort((short)strIdx); }
+                    if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */;
                     break;
                 }
             case NodeKind.NODE_MAPPING:
-                { _ctx.CodeBlock.InsByte(F_PUSH_MAPPING); for (int i=0;i<node.Children.Count;i+=2) { var k = node.Children[i]; var v = i+1 < node.Children.Count ? node.Children[i+1] : null; GenerateNode(k, false); if (v != null) GenerateNode(v, false); else _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(F_MAP_ADD); } if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
+                { _ctx.CodeBlock.InsByte(F_PUSH_MAPPING); for (int i=0;i<node.Children.Count;i+=2) { var k = node.Children[i]; var v = i+1 < node.Children.Count ? node.Children[i+1] : null; GenerateNode(k, false); if (v != null) GenerateNode(v, false); else _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(F_MAP_ADD); } if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
             case NodeKind.NODE_CLOSURE: { GenerateClosure(node, isStmt); break; }
             case NodeKind.NODE_DOT_CALL: { GenerateDotCall(node, isStmt); break; }
             case NodeKind.NODE_ARRAY:
@@ -261,21 +261,21 @@ public sealed class CodeGenerator
                     {
                         int n = node.Children.Count; EmitNumber(n); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY);
                         string tmpName = $"__arr_tmp_{_foreachCounter++}"; int tmpIdx = _locals.Define(tmpName);
-                        _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(42);
-                        for (int i=0;i<n;i++) { _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)tmpIdx); EmitNumber(i); GenerateNode(node.Children[i], false); _ctx.CodeBlock.InsByte(F_INDEX_ASSIGN); _ctx.CodeBlock.InsByte(42); }
-                        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)tmpIdx); if (isStmt) _ctx.CodeBlock.InsByte(42); break;
+                        _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+                        for (int i=0;i<n;i++) { _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)tmpIdx); EmitNumber(i); GenerateNode(node.Children[i], false); _ctx.CodeBlock.InsByte(F_INDEX_ASSIGN); _ctx.CodeBlock.InsByte(0) /* F_POP */; }
+                        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)tmpIdx); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break;
                     }
                     else
                     {
-                        var baseId = node.Left; if (baseId != null) { GenerateNode(baseId, false); GenerateNode(node.Right, false); _ctx.CodeBlock.InsByte(F_INDEX); if (isStmt) _ctx.CodeBlock.InsByte(42); } else { _ctx.CodeBlock.InsByte(1); if (isStmt) _ctx.CodeBlock.InsByte(42); } break;
+                        var baseId = node.Left; if (baseId != null) { GenerateNode(baseId, false); GenerateNode(node.Right, false); _ctx.CodeBlock.InsByte(F_INDEX); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; } else { _ctx.CodeBlock.InsByte(1); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; } break;
                     }
                 }
             case NodeKind.NODE_ASSIGN:
                 {
                     var left = node.Left ?? (node.Children.Count>0? node.Children[0]:null); var right = node.Right ?? (node.Children.Count>1? node.Children[1]:null);
-                    if (left != null && left.Kind == NodeKind.NODE_ARRAY) { var baseId = left.Left; GenerateNode(baseId, false); GenerateNode(left.Right, false); if (right != null) GenerateNode(right, false); else _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(F_INDEX_ASSIGN); if (isStmt) _ctx.CodeBlock.InsByte(42); }
-                    else if (left != null && left.Kind == NodeKind.NODE_IDENTIFIER) { if (right != null) GenerateNode(right, false); else if (node.Children.Count > 1) GenerateNode(node.Children[1], false); if (_locals.TryGetIndex(left.Name, out int idx)) { _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)idx); if (isStmt) _ctx.CodeBlock.InsByte(42); } }
-                    else if (node.Children.Count >= 2 && node.Children[0].Kind == NodeKind.NODE_IDENTIFIER) { GenerateNode(node.Children[1], false); if (_locals.TryGetIndex(node.Children[0].Name, out int idx2)) { _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)idx2); if (isStmt) _ctx.CodeBlock.InsByte(42); } }
+                    if (left != null && left.Kind == NodeKind.NODE_ARRAY) { var baseId = left.Left; GenerateNode(baseId, false); GenerateNode(left.Right, false); if (right != null) GenerateNode(right, false); else _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(F_INDEX_ASSIGN); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; }
+                    else if (left != null && left.Kind == NodeKind.NODE_IDENTIFIER) { if (right != null) GenerateNode(right, false); else if (node.Children.Count > 1) GenerateNode(node.Children[1], false); if (_locals.TryGetIndex(left.Name, out int idx)) { _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)idx); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; } }
+                    else if (node.Children.Count >= 2 && node.Children[0].Kind == NodeKind.NODE_IDENTIFIER) { GenerateNode(node.Children[1], false); if (_locals.TryGetIndex(node.Children[0].Name, out int idx2)) { _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)idx2); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; } }
                     break;
                 }
             case NodeKind.NODE_BINARY_OP:
@@ -284,9 +284,9 @@ public sealed class CodeGenerator
                     var operand = node.Children[0];
                     if (operand != null && operand.Kind == NodeKind.NODE_IDENTIFIER && _locals.TryGetIndex(operand.Name, out int pIdx))
                     {
-                        if (node.Name == "++") { _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)pIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(18); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)pIdx); if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
-                        else if (node.Name == "--") { _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)pIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(19); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)pIdx); if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
-                        else if (node.Name == "!") { GenerateNode(operand, false); _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(32); if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
+                        if (node.Name == "++") { _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)pIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(94) /* F_ADD */; _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)pIdx); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
+                        else if (node.Name == "--") { _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)pIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(95) /* F_SUB */; _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)pIdx); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
+                        else if (node.Name == "!") { GenerateNode(operand, false); _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(47) /* F_EQ */; if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
                     }
                 }
                 if (node.Name == "post++" || node.Name == "post--")
@@ -294,39 +294,39 @@ public sealed class CodeGenerator
                     var opd = node.Left ?? (node.Children.Count>0? node.Children[0]:null);
                     if (opd != null && opd.Kind == NodeKind.NODE_IDENTIFIER && _locals.TryGetIndex(opd.Name, out int postIdx))
                     {
-                        if (node.Name == "post++") { if (!isStmt) { _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)postIdx); } _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)postIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(18); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)postIdx); _ctx.CodeBlock.InsByte(42); break; }
-                        else { if (!isStmt) { _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)postIdx); } _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)postIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(19); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)postIdx); _ctx.CodeBlock.InsByte(42); break; }
+                        if (node.Name == "post++") { if (!isStmt) { _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)postIdx); } _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)postIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(94) /* F_ADD */; _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)postIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
+                        else { if (!isStmt) { _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)postIdx); } _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)postIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(95) /* F_SUB */; _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)postIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
                     }
                 }
-                if (node.Name == "&&") { GenerateAnd(node); if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
-                if (node.Name == "||") { GenerateOr(node); if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
+                if (node.Name == "&&") { GenerateAnd(node); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
+                if (node.Name == "||") { GenerateOr(node); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
                 if (node.Left!= null || node.Right!= null) { if (node.Left!= null) GenerateNode(node.Left, false); if (node.Right!= null) GenerateNode(node.Right, false); }
                 else if (node.Children.Count >= 2) { GenerateNode(node.Children[0], false); GenerateNode(node.Children[1], false); }
                 switch (node.Name)
                 {
-                    case "&": _ctx.CodeBlock.InsByte(22); break;
-                    case "|": _ctx.CodeBlock.InsByte(23); break;
-                    case "^": _ctx.CodeBlock.InsByte(24); break;
-                    case "+": _ctx.CodeBlock.InsByte(18); break;
-                    case "-": _ctx.CodeBlock.InsByte(19); break;
-                    case "*": _ctx.CodeBlock.InsByte(20); break;
-                    case "/": _ctx.CodeBlock.InsByte(21); break;
-                    case "%": _ctx.CodeBlock.InsByte(25); break;
-                    case "<<": _ctx.CodeBlock.InsByte(26); break;
-                    case ">>": _ctx.CodeBlock.InsByte(27); break;
-                    case "<": _ctx.CodeBlock.InsByte(28); break;
-                    case ">": _ctx.CodeBlock.InsByte(29); break;
-                    case "<=": _ctx.CodeBlock.InsByte(30); break;
-                    case ">=": _ctx.CodeBlock.InsByte(31); break;
-                    case "==": _ctx.CodeBlock.InsByte(32); break;
-                    case "!=": _ctx.CodeBlock.InsByte(33); break;
+                    case "&": _ctx.CodeBlock.InsByte(99) /* F_AND */; break;
+                    case "|": _ctx.CodeBlock.InsByte(100) /* F_OR */; break;
+                    case "^": _ctx.CodeBlock.InsByte(101) /* F_XOR */; break;
+                    case "+": _ctx.CodeBlock.InsByte(94) /* F_ADD */; break;
+                    case "-": _ctx.CodeBlock.InsByte(95) /* F_SUB */; break;
+                    case "*": _ctx.CodeBlock.InsByte(96) /* F_MUL */; break;
+                    case "/": _ctx.CodeBlock.InsByte(97) /* F_DIV */; break;
+                    case "%": _ctx.CodeBlock.InsByte(98) /* F_MOD */; break;
+                    case "<<": _ctx.CodeBlock.InsByte(102) /* F_SHL */; break;
+                    case ">>": _ctx.CodeBlock.InsByte(103) /* F_SHR */; break;
+                    case "<": _ctx.CodeBlock.InsByte(50) /* F_LT */; break;
+                    case ">": _ctx.CodeBlock.InsByte(52) /* F_GT */; break;
+                    case "<=": _ctx.CodeBlock.InsByte(49) /* F_LE */; break;
+                    case ">=": _ctx.CodeBlock.InsByte(51) /* F_GE */; break;
+                    case "==": _ctx.CodeBlock.InsByte(47) /* F_EQ */; break;
+                    case "!=": _ctx.CodeBlock.InsByte(48) /* F_NE */; break;
                     default: break;
                 }
-                if (isStmt) _ctx.CodeBlock.InsByte(42);
+                if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */;
                 break;
             case NodeKind.NODE_RETURN:
                 if (node.Children.Count > 0) GenerateNode(node.Children[0], false); else if (node.Left!= null) GenerateNode(node.Left, false);
-                _ctx.CodeBlock.InsByte(255); break;
+                _ctx.CodeBlock.InsByte(45) /* F_RETURN Neolith */; break;
             case NodeKind.NODE_FUNCTION_DEF:
                 foreach (var ch in node.Children) GenerateNode(ch, true); break;
             case NodeKind.NODE_IF: GenerateIf(node); break;
@@ -341,15 +341,15 @@ public sealed class CodeGenerator
                 break;
             case NodeKind.NODE_CALL:
                 {
-                    if (node.Name == "sizeof" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_SIZEOF); if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
-                    if (node.Name == "keys" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_KEYS); if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
-                    if (node.Name == "values" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_VALUES); if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
-                    if ((node.Name == "m_delete" || node.Name == "map_delete") && node.Children.Count==2) { GenerateNode(node.Children[0], false); GenerateNode(node.Children[1], false); _ctx.CodeBlock.InsByte(F_M_DELETE); if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
-                    if (node.Name == "evaluate") { foreach (var arg in node.Children) GenerateNode(arg, false); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte((byte)node.Children.Count); if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
+                    if (node.Name == "sizeof" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_SIZEOF); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
+                    if (node.Name == "keys" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_KEYS); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
+                    if (node.Name == "values" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_VALUES); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
+                    if ((node.Name == "m_delete" || node.Name == "map_delete") && node.Children.Count==2) { GenerateNode(node.Children[0], false); GenerateNode(node.Children[1], false); _ctx.CodeBlock.InsByte(F_M_DELETE); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
+                    if (node.Name == "evaluate") { foreach (var arg in node.Children) GenerateNode(arg, false); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte((byte)node.Children.Count); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
                     if (node.Name == "filter" && node.Children.Count==2) { GenerateFilter(node, isStmt); break; }
                     if (node.Name == "map" && node.Children.Count==2) { GenerateMap(node, isStmt); break; }
                     if (node.Name == "sort_array" && node.Children.Count==2) { GenerateSortArray(node, isStmt); break; }
-                    if (node.Name == "clone_object" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_CLONE_OBJECT); if (isStmt) _ctx.CodeBlock.InsByte(42); break; }
+                    if (node.Name == "clone_object" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_CLONE_OBJECT); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */; break; }
                     string callName = node.Name;
                     if (callName.StartsWith("::"))
                     {
@@ -367,8 +367,8 @@ public sealed class CodeGenerator
                     }
                     foreach (var arg in node.Children) GenerateNode(arg, false);
                     ushort fIdx = FindFunction(callName);
-                    _ctx.CodeBlock.InsByte(60); _ctx.CodeBlock.InsShort((short)fIdx); _ctx.CodeBlock.InsByte((byte)node.Children.Count);
-                    if (isStmt) _ctx.CodeBlock.InsByte(42);
+                    _ctx.CodeBlock.InsByte(43) /* F_CALL */; _ctx.CodeBlock.InsShort((short)fIdx); _ctx.CodeBlock.InsByte((byte)node.Children.Count);
+                    if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */;
                     break;
                 }
             default:
@@ -387,7 +387,7 @@ public sealed class CodeGenerator
         string switchVar = $"__switch_{_switchCounter++}";
         int switchIdx = _locals.Define(switchVar);
         GenerateNode(expr, false);
-        _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)switchIdx); _ctx.CodeBlock.InsByte(42);
+        _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)switchIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
         var switchLoop = new LoopInfo2 { CondPos = _ctx.CodeBlock.Position };
         _loopStack.Push(switchLoop);
 
@@ -405,11 +405,11 @@ public sealed class CodeGenerator
         {
             if (caseNode.Children.Count < 1) continue;
             var caseVal = caseNode.Children[0];
-            _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)switchIdx);
+            _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)switchIdx);
             GenerateNode(caseVal, false);
-            _ctx.CodeBlock.InsByte(32); // ==
+            _ctx.CodeBlock.InsByte(47) /* F_EQ */; // ==
             int branchPos = _ctx.CodeBlock.Position;
-            _ctx.CodeBlock.InsByte(17); // BRANCH_IF_TRUE
+            _ctx.CodeBlock.InsByte(95) /* F_SUB */ /* F_BRANCH_WHEN_NON_ZERO */; // BRANCH_IF_TRUE
             _ctx.CodeBlock.InsShort(0);
             branchPositions.Add(branchPos);
         }
@@ -419,12 +419,12 @@ public sealed class CodeGenerator
         if (defaultNode != null)
         {
             jumpToDefaultPos = _ctx.CodeBlock.Position;
-            _ctx.CodeBlock.InsByte(14); _ctx.CodeBlock.InsShort(0);
+            _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; _ctx.CodeBlock.InsShort(0);
         }
         else
         {
             jumpToEndPos = _ctx.CodeBlock.Position;
-            _ctx.CodeBlock.InsByte(14); _ctx.CodeBlock.InsShort(0);
+            _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; _ctx.CodeBlock.InsShort(0);
         }
 
         // generate bodies
@@ -457,12 +457,12 @@ public sealed class CodeGenerator
         var objNode = node.Children[0];
         GenerateNode(objNode, false);
         int strIdx = _ctx.AddString(node.Name);
-        _ctx.CodeBlock.InsByte(6); _ctx.CodeBlock.InsShort((short)strIdx);
+        _ctx.CodeBlock.InsByte(11) /* F_NBYTE */ /* F_STRING */; _ctx.CodeBlock.InsShort((short)strIdx);
         for (int i=1;i<node.Children.Count;i++) GenerateNode(node.Children[i], false);
         byte nargs = (byte)(node.Children.Count - 1);
         _ctx.CodeBlock.InsByte(F_CALL_OTHER);
         _ctx.CodeBlock.InsByte(nargs);
-        if (isStmt) _ctx.CodeBlock.InsByte(42);
+        if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */;
     }
 
     private void GenerateFilter(ParseNode node, bool isStmt)
@@ -471,24 +471,24 @@ public sealed class CodeGenerator
         string id = $"{_filterCounter++}";
         string srcName = $"__filter_src_{id}"; string clName = $"__filter_cl_{id}"; string resName = $"__filter_res_{id}"; string idxName = $"__filter_idx_{id}"; string elemName = $"__filter_elem_{id}";
         int srcIdx = _locals.Define(srcName); int clIdx = _locals.Define(clName); int resIdx = _locals.Define(resName); int idxLocal = _locals.Define(idxName); int elemIdx = _locals.Define(elemName);
-        GenerateNode(arrNode, false); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(42);
-        GenerateNode(clNode, false); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(42);
+        GenerateNode(arrNode, false); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        GenerateNode(clNode, false); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(0) /* F_POP */;
         int loopCondPos = _ctx.CodeBlock.Position; var loopInfo = new LoopInfo2 { CondPos = loopCondPos }; _loopStack.Push(loopInfo);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_SIZEOF); _ctx.CodeBlock.InsByte(28);
-        int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(2);
-        int branchIfFalse = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0);
-        _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); string tmpArr = $"__filter_tmp_{id}"; int tmpIdx = _locals.Define(tmpArr); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_INDEX_ASSIGN); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(18); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(42);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_SIZEOF); _ctx.CodeBlock.InsByte(50) /* F_LT */;
+        int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(94) /* F_ADD */ /* F_BRANCH_WHEN_ZERO */; _ctx.CodeBlock.InsShort(0);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(2);
+        int branchIfFalse = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(94) /* F_ADD */ /* F_BRANCH_WHEN_ZERO */; _ctx.CodeBlock.InsShort(0);
+        _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); string tmpArr = $"__filter_tmp_{id}"; int tmpIdx = _locals.Define(tmpArr); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_INDEX_ASSIGN); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(94) /* F_ADD */; _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
         int afterIf = _ctx.CodeBlock.Position; PatchShort(branchIfFalse+1, (short)(afterIf - (branchIfFalse+3)));
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(18); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(42);
-        int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); short backOffset = (short)(loopCondPos - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(94) /* F_ADD */; _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; short backOffset = (short)(loopCondPos - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset);
         int afterLoop = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop();
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)resIdx); if (isStmt) _ctx.CodeBlock.InsByte(42);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)resIdx); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */;
     }
 
     private void GenerateMap(ParseNode node, bool isStmt)
@@ -497,22 +497,22 @@ public sealed class CodeGenerator
         string id = $"{_filterCounter++}";
         string srcName = $"__map_src_{id}"; string clName = $"__map_cl_{id}"; string resName = $"__map_res_{id}"; string idxName = $"__map_idx_{id}"; string elemName = $"__map_elem_{id}"; string valName = $"__map_val_{id}";
         int srcIdx = _locals.Define(srcName); int clIdx = _locals.Define(clName); int resIdx = _locals.Define(resName); int idxLocal = _locals.Define(idxName); int elemIdx = _locals.Define(elemName); int valIdx = _locals.Define(valName);
-        GenerateNode(arrNode, false); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(42);
-        GenerateNode(clNode, false); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(42);
+        GenerateNode(arrNode, false); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        GenerateNode(clNode, false); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(0) /* F_POP */;
         int loopCondPos = _ctx.CodeBlock.Position; var loopInfo = new LoopInfo2 { CondPos = loopCondPos }; _loopStack.Push(loopInfo);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_SIZEOF); _ctx.CodeBlock.InsByte(28);
-        int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); string tmpArr = $"__map_tmp_{id}"; int tmpIdx = _locals.Define(tmpArr); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(F_INDEX_ASSIGN); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(18); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(18); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(42);
-        int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); short backOffset = (short)(loopCondPos - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_SIZEOF); _ctx.CodeBlock.InsByte(50) /* F_LT */;
+        int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(94) /* F_ADD */ /* F_BRANCH_WHEN_ZERO */; _ctx.CodeBlock.InsShort(0);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); string tmpArr = $"__map_tmp_{id}"; int tmpIdx = _locals.Define(tmpArr); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(F_INDEX_ASSIGN); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(94) /* F_ADD */; _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(94) /* F_ADD */; _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; short backOffset = (short)(loopCondPos - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset);
         int afterLoop = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop();
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)resIdx); if (isStmt) _ctx.CodeBlock.InsByte(42);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)resIdx); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */;
     }
 
     private void GenerateSortArray(ParseNode node, bool isStmt)
@@ -521,44 +521,44 @@ public sealed class CodeGenerator
         string id = $"{_filterCounter++}";
         string srcName = $"__sort_src_{id}"; string clName = $"__sort_cl_{id}"; string iName = $"__sort_i_{id}"; string jName = $"__sort_j_{id}"; string nName = $"__sort_n_{id}"; string aName = $"__sort_a_{id}"; string bName = $"__sort_b_{id}"; string tmpName = $"__sort_tmp_{id}";
         int srcIdx = _locals.Define(srcName); int clIdx = _locals.Define(clName); int iIdx = _locals.Define(iName); int jIdx = _locals.Define(jName); int nIdx = _locals.Define(nName); int aIdx = _locals.Define(aName); int bIdx = _locals.Define(bName); int tmpIdx = _locals.Define(tmpName);
-        GenerateNode(arrNode, false); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(42);
-        GenerateNode(clNode, false); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_SIZEOF); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)nIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)iIdx); _ctx.CodeBlock.InsByte(42);
+        GenerateNode(arrNode, false); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        GenerateNode(clNode, false); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_SIZEOF); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)nIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)iIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
         int outerCondPos = _ctx.CodeBlock.Position;
         var outerLoop = new LoopInfo2 { CondPos = outerCondPos }; _loopStack.Push(outerLoop);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)iIdx); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)nIdx); _ctx.CodeBlock.InsByte(28);
-        int outerBranchFalse = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0);
-        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(42);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)iIdx); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)nIdx); _ctx.CodeBlock.InsByte(50) /* F_LT */;
+        int outerBranchFalse = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(94) /* F_ADD */ /* F_BRANCH_WHEN_ZERO */; _ctx.CodeBlock.InsShort(0);
+        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
         int innerCondPos = _ctx.CodeBlock.Position;
         var innerLoop = new LoopInfo2 { CondPos = innerCondPos }; _loopStack.Push(innerLoop);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)jIdx);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)nIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(19);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)iIdx); _ctx.CodeBlock.InsByte(19);
-        _ctx.CodeBlock.InsByte(28);
-        int innerBranchFalse = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)aIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(18); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)bIdx); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)clIdx);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)aIdx);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)bIdx);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)jIdx);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)nIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(95) /* F_SUB */;
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)iIdx); _ctx.CodeBlock.InsByte(95) /* F_SUB */;
+        _ctx.CodeBlock.InsByte(50) /* F_LT */;
+        int innerBranchFalse = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(94) /* F_ADD */ /* F_BRANCH_WHEN_ZERO */; _ctx.CodeBlock.InsShort(0);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)aIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(94) /* F_ADD */; _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)bIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)clIdx);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)aIdx);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)bIdx);
         _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(3);
-        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(29);
-        int swapBranchFalse = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(18); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)aIdx); _ctx.CodeBlock.InsByte(F_INDEX_ASSIGN); _ctx.CodeBlock.InsByte(42);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)bIdx); _ctx.CodeBlock.InsByte(F_INDEX_ASSIGN); _ctx.CodeBlock.InsByte(42);
+        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(52) /* F_GT */;
+        int swapBranchFalse = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(94) /* F_ADD */ /* F_BRANCH_WHEN_ZERO */; _ctx.CodeBlock.InsShort(0);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(94) /* F_ADD */; _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)aIdx); _ctx.CodeBlock.InsByte(F_INDEX_ASSIGN); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)bIdx); _ctx.CodeBlock.InsByte(F_INDEX_ASSIGN); _ctx.CodeBlock.InsByte(0) /* F_POP */;
         int afterSwap = _ctx.CodeBlock.Position; PatchShort(swapBranchFalse+1, (short)(afterSwap - (swapBranchFalse+3)));
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(18); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(42);
-        int innerBack = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); short innerOff = (short)(innerCondPos - (innerBack + 3)); _ctx.CodeBlock.InsShort(innerOff);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(94) /* F_ADD */; _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)jIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        int innerBack = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; short innerOff = (short)(innerCondPos - (innerBack + 3)); _ctx.CodeBlock.InsShort(innerOff);
         int afterInner = _ctx.CodeBlock.Position; PatchShort(innerBranchFalse+1, (short)(afterInner - (innerBranchFalse+3)));
         foreach (var bp in innerLoop.BreakPatchPositions) PatchShort(bp + 1, (short)(afterInner - (bp + 3)));
         _loopStack.Pop();
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)iIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(18); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)iIdx); _ctx.CodeBlock.InsByte(42);
-        int outerBack = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); short outerOff = (short)(outerCondPos - (outerBack + 3)); _ctx.CodeBlock.InsShort(outerOff);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)iIdx); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(94) /* F_ADD */; _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)iIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        int outerBack = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; short outerOff = (short)(outerCondPos - (outerBack + 3)); _ctx.CodeBlock.InsShort(outerOff);
         int afterOuter = _ctx.CodeBlock.Position; PatchShort(outerBranchFalse+1, (short)(afterOuter - (outerBranchFalse+3)));
         foreach (var bp in outerLoop.BreakPatchPositions) PatchShort(bp + 1, (short)(afterOuter - (bp + 3)));
         _loopStack.Pop();
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)srcIdx); if (isStmt) _ctx.CodeBlock.InsByte(42);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)srcIdx); if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */;
     }
 
     private void GenerateClosure(ParseNode node, bool isStmt)
@@ -567,7 +567,7 @@ public sealed class CodeGenerator
         if (maxArg < 0) maxArg = 0;
         string closureName = $"__closure_{_closureCounter++}";
         int branchPos = _ctx.CodeBlock.Position;
-        _ctx.CodeBlock.InsByte(14);
+        _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */;
         _ctx.CodeBlock.InsShort(0);
         ushort closureAddr = (ushort)_ctx.CodeBlock.Position;
         ushort closureIdx = _ctx.AddFunction(closureName, closureAddr);
@@ -577,17 +577,17 @@ public sealed class CodeGenerator
         foreach (var child in node.Children)
         {
             if (child.Kind == NodeKind.NODE_FUNCTION_DEF) { foreach (var stmt in child.Children) GenerateNode(stmt, true); }
-            else { GenerateNode(child, false); _ctx.CodeBlock.InsByte(255); break; }
+            else { GenerateNode(child, false); _ctx.CodeBlock.InsByte(45) /* F_RETURN Neolith */; break; }
         }
         var codeArr = _ctx.CodeBlock.ToArray();
-        if (codeArr.Length == closureAddr || codeArr[codeArr.Length-1] != 0xFF) _ctx.CodeBlock.InsByte(255);
+        if (codeArr.Length == closureAddr || codeArr[codeArr.Length-1] != 0xFF) _ctx.CodeBlock.InsByte(45) /* F_RETURN Neolith */;
         _ctx.PatchFunctionAddress(closureIdx, closureAddr);
         int afterClosure = _ctx.CodeBlock.Position;
         PatchShort(branchPos+1, (short)(afterClosure - (branchPos+3)));
         _locals.Restore(savedLocals);
         _ctx.CodeBlock.InsByte(F_PUSH_CLOSURE);
         _ctx.CodeBlock.InsShort((short)closureIdx);
-        if (isStmt) _ctx.CodeBlock.InsByte(42);
+        if (isStmt) _ctx.CodeBlock.InsByte(0) /* F_POP */;
     }
 
     private int FindMaxClosureArg(ParseNode node)
@@ -609,28 +609,75 @@ public sealed class CodeGenerator
         if (!string.IsNullOrEmpty(valName)) _locals.Define(valName);
         string idxName = $"__foreach_idx_{_foreachCounter}"; string keysName = $"__foreach_keys_{_foreachCounter}"; _foreachCounter++;
         int idxLocal = _locals.Define(idxName); int keysLocal = _locals.Define(keysName);
-        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(42);
-        GenerateNode(container, false); _ctx.CodeBlock.InsByte(F_KEYS); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)keysLocal); _ctx.CodeBlock.InsByte(42);
+        _ctx.CodeBlock.InsByte(1); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        GenerateNode(container, false); _ctx.CodeBlock.InsByte(F_KEYS); _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)keysLocal); _ctx.CodeBlock.InsByte(0) /* F_POP */;
         int loopCondPos = _ctx.CodeBlock.Position; var loopInfo = new LoopInfo2 { CondPos = loopCondPos }; _loopStack.Push(loopInfo);
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)keysLocal); _ctx.CodeBlock.InsByte(F_SIZEOF); _ctx.CodeBlock.InsByte(28);
-        int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0);
-        if (!string.IsNullOrEmpty(keyName)) { _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)keysLocal); _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_INDEX); if (_locals.TryGetIndex(keyName, out int kIdx)) { _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)kIdx); _ctx.CodeBlock.InsByte(42); } }
-        if (!string.IsNullOrEmpty(valName) && !string.IsNullOrEmpty(keyName)) { GenerateNode(container, false); if (_locals.TryGetIndex(keyName, out int kIdx2)) { _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)kIdx2); } _ctx.CodeBlock.InsByte(F_INDEX); if (_locals.TryGetIndex(valName, out int vIdx)) { _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)vIdx); _ctx.CodeBlock.InsByte(42); } }
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)keysLocal); _ctx.CodeBlock.InsByte(F_SIZEOF); _ctx.CodeBlock.InsByte(50) /* F_LT */;
+        int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(94) /* F_ADD */ /* F_BRANCH_WHEN_ZERO */; _ctx.CodeBlock.InsShort(0);
+        if (!string.IsNullOrEmpty(keyName)) { _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)keysLocal); _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_INDEX); if (_locals.TryGetIndex(keyName, out int kIdx)) { _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)kIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */; } }
+        if (!string.IsNullOrEmpty(valName) && !string.IsNullOrEmpty(keyName)) { GenerateNode(container, false); if (_locals.TryGetIndex(keyName, out int kIdx2)) { _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)kIdx2); } _ctx.CodeBlock.InsByte(F_INDEX); if (_locals.TryGetIndex(valName, out int vIdx)) { _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)vIdx); _ctx.CodeBlock.InsByte(0) /* F_POP */; } }
         if (body != null) GenerateNode(body, true);
         int incStart = _ctx.CodeBlock.Position; foreach (var cp in loopInfo.ContinuePatchPositions) PatchShort(cp + 1, (short)(incStart - (cp + 3))); loopInfo.ContinuePatchPositions.Clear();
-        _ctx.CodeBlock.InsByte(40); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(18); _ctx.CodeBlock.InsByte(41); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(42);
-        int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); short backOffset = (short)(loopCondPos - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset);
+        _ctx.CodeBlock.InsByte(43) /* F_CALL */ /* F_LOCAL Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(94) /* F_ADD */; _ctx.CodeBlock.InsByte(114) /* F_CALL_OTHER */ /* F_LOCAL_LVALUE Neolith */; _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(0) /* F_POP */;
+        int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; short backOffset = (short)(loopCondPos - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset);
         int afterLoop = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop();
     }
 
-    private void GenerateAnd(ParseNode node) { ParseNode left = node.Left ?? (node.Children.Count>0? node.Children[0]:null); ParseNode right = node.Right ?? (node.Children.Count>1? node.Children[1]:null); if (left != null) GenerateNode(left, false); int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0); if (right != null) GenerateNode(right, false); int branchFalse2Pos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0); _ctx.CodeBlock.InsByte(2); int branchEndPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); _ctx.CodeBlock.InsShort(0); int falseLabel = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(1); int endLabel = _ctx.CodeBlock.Position; PatchShort(branchFalsePos+1, (short)(falseLabel - (branchFalsePos+3))); PatchShort(branchFalse2Pos+1, (short)(falseLabel - (branchFalse2Pos+3))); PatchShort(branchEndPos+1, (short)(endLabel - (branchEndPos+3))); }
-    private void GenerateOr(ParseNode node) { ParseNode left = node.Left ?? (node.Children.Count>0? node.Children[0]:null); ParseNode right = node.Right ?? (node.Children.Count>1? node.Children[1]:null); if (left != null) GenerateNode(left, false); int branchTruePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(17); _ctx.CodeBlock.InsShort(0); if (right != null) GenerateNode(right, false); int branchTrue2Pos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(17); _ctx.CodeBlock.InsShort(0); _ctx.CodeBlock.InsByte(1); int branchEndPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); _ctx.CodeBlock.InsShort(0); int trueLabel = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(2); int endLabel = _ctx.CodeBlock.Position; PatchShort(branchTruePos+1, (short)(trueLabel - (branchTruePos+3))); PatchShort(branchTrue2Pos+1, (short)(trueLabel - (branchTrue2Pos+3))); PatchShort(branchEndPos+1, (short)(endLabel - (branchEndPos+3))); }
-    private void GenerateIf(ParseNode node) { if (node.Children.Count == 0) return; var cond = node.Children[0]; var thenStmt = node.Children.Count > 1 ? node.Children[1] : null; var elseStmt = node.Children.Count > 2 ? node.Children[2] : null; GenerateNode(cond, false); int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0); if (thenStmt != null) GenerateNode(thenStmt, true); if (elseStmt != null) { int branchEndPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); _ctx.CodeBlock.InsShort(0); int elseStart = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(elseStart - (branchFalsePos + 3))); GenerateNode(elseStmt, true); int afterElse = _ctx.CodeBlock.Position; PatchShort(branchEndPos + 1, (short)(afterElse - (branchEndPos + 3))); } else { int afterThen = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(afterThen - (branchFalsePos + 3))); } }
-    private void GenerateWhile(ParseNode node) { if (node.Children.Count == 0) return; var cond = node.Children[0]; var body = node.Children.Count > 1 ? node.Children[1] : null; int loopStart = _ctx.CodeBlock.Position; var loopInfo = new LoopInfo2 { CondPos = loopStart }; _loopStack.Push(loopInfo); GenerateNode(cond, false); int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0); if (body != null) GenerateNode(body, true); foreach (var cp in loopInfo.ContinuePatchPositions) PatchShort(cp + 1, (short)(loopStart - (cp + 3))); int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); short backOffset = (short)(loopStart - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset); int afterLoop = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop(); }
-    private void GenerateFor(ParseNode node) { if (node.Children.Count < 4) return; var init = node.Children[0]; var cond = node.Children[1]; var inc = node.Children[2]; var body = node.Children[3]; if (init != null && !(init.Name != null && init.Name.StartsWith("__empty"))) GenerateNode(init, true); int loopCondPos = _ctx.CodeBlock.Position; bool hasCond = !(cond.Name != null && cond.Name.StartsWith("__empty")); int branchFalsePos = -1; if (hasCond) { GenerateNode(cond, false); branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(16); _ctx.CodeBlock.InsShort(0); } var loopInfo = new LoopInfo2 { CondPos = loopCondPos }; _loopStack.Push(loopInfo); if (body != null) GenerateNode(body, true); int incStart = _ctx.CodeBlock.Position; foreach (var cp in loopInfo.ContinuePatchPositions) PatchShort(cp + 1, (short)(incStart - (cp + 3))); loopInfo.ContinuePatchPositions.Clear(); bool hasInc = !(inc.Name != null && inc.Name.StartsWith("__empty")); if (hasInc) GenerateNode(inc, true); int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); short backOffset = (short)(loopCondPos - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset); int afterLoop = _ctx.CodeBlock.Position; if (hasCond) PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop(); }
-    private void GenerateBreak() { if (_loopStack.Count == 0) return; int pos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); _ctx.CodeBlock.InsShort(0); _loopStack.Peek().BreakPatchPositions.Add(pos); }
-    private void GenerateContinue() { if (_loopStack.Count == 0) return; int pos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(14); _ctx.CodeBlock.InsShort(0); _loopStack.Peek().ContinuePatchPositions.Add(pos); }
-    private void PatchShort(int pos, short val) { var block = _ctx.CodeBlock; var type = block.GetType(); var field = type.GetField("_rented", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); if (field == null) field = type.GetField("_buf", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance); if (field != null) { var rented = (byte[])field.GetValue(block); rented[pos] = (byte)(val & 0xFF); rented[pos + 1] = (byte)((val >> 8) & 0xFF); } }
+    private void GenerateAnd(ParseNode node) { ParseNode left = node.Left ?? (node.Children.Count>0? node.Children[0]:null); ParseNode right = node.Right ?? (node.Children.Count>1? node.Children[1]:null); if (left != null) GenerateNode(left, false); int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(94) /* F_ADD */ /* F_BRANCH_WHEN_ZERO */; _ctx.CodeBlock.InsShort(0); if (right != null) GenerateNode(right, false); int branchFalse2Pos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(94) /* F_ADD */ /* F_BRANCH_WHEN_ZERO */; _ctx.CodeBlock.InsShort(0); _ctx.CodeBlock.InsByte(2); int branchEndPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; _ctx.CodeBlock.InsShort(0); int falseLabel = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(1); int endLabel = _ctx.CodeBlock.Position; PatchShort(branchFalsePos+1, (short)(falseLabel - (branchFalsePos+3))); PatchShort(branchFalse2Pos+1, (short)(falseLabel - (branchFalse2Pos+3))); PatchShort(branchEndPos+1, (short)(endLabel - (branchEndPos+3))); }
+    private void GenerateOr(ParseNode node) { ParseNode left = node.Left ?? (node.Children.Count>0? node.Children[0]:null); ParseNode right = node.Right ?? (node.Children.Count>1? node.Children[1]:null); if (left != null) GenerateNode(left, false); int branchTruePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(95) /* F_SUB */ /* F_BRANCH_WHEN_NON_ZERO */; _ctx.CodeBlock.InsShort(0); if (right != null) GenerateNode(right, false); int branchTrue2Pos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(95) /* F_SUB */ /* F_BRANCH_WHEN_NON_ZERO */; _ctx.CodeBlock.InsShort(0); _ctx.CodeBlock.InsByte(1); int branchEndPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; _ctx.CodeBlock.InsShort(0); int trueLabel = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(2); int endLabel = _ctx.CodeBlock.Position; PatchShort(branchTruePos+1, (short)(trueLabel - (branchTruePos+3))); PatchShort(branchTrue2Pos+1, (short)(trueLabel - (branchTrue2Pos+3))); PatchShort(branchEndPos+1, (short)(endLabel - (branchEndPos+3))); }
+    private void GenerateIf(ParseNode node) { if (node.Children.Count == 0) return; var cond = node.Children[0]; var thenStmt = node.Children.Count > 1 ? node.Children[1] : null; var elseStmt = node.Children.Count > 2 ? node.Children[2] : null; GenerateNode(cond, false); int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(94) /* F_ADD */ /* F_BRANCH_WHEN_ZERO */; _ctx.CodeBlock.InsShort(0); if (thenStmt != null) GenerateNode(thenStmt, true); if (elseStmt != null) { int branchEndPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; _ctx.CodeBlock.InsShort(0); int elseStart = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(elseStart - (branchFalsePos + 3))); GenerateNode(elseStmt, true); int afterElse = _ctx.CodeBlock.Position; PatchShort(branchEndPos + 1, (short)(afterElse - (branchEndPos + 3))); } else { int afterThen = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(afterThen - (branchFalsePos + 3))); } }
+    private void GenerateWhile(ParseNode node) { if (node.Children.Count == 0) return; var cond = node.Children[0]; var body = node.Children.Count > 1 ? node.Children[1] : null; int loopStart = _ctx.CodeBlock.Position; var loopInfo = new LoopInfo2 { CondPos = loopStart }; _loopStack.Push(loopInfo); GenerateNode(cond, false); int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(94) /* F_ADD */ /* F_BRANCH_WHEN_ZERO */; _ctx.CodeBlock.InsShort(0); if (body != null) GenerateNode(body, true); foreach (var cp in loopInfo.ContinuePatchPositions) PatchShort(cp + 1, (short)(loopStart - (cp + 3))); int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; short backOffset = (short)(loopStart - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset); int afterLoop = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop(); }
+    private void GenerateFor(ParseNode node) { if (node.Children.Count < 4) return; var init = node.Children[0]; var cond = node.Children[1]; var inc = node.Children[2]; var body = node.Children[3]; if (init != null && !(init.Name != null && init.Name.StartsWith("__empty"))) GenerateNode(init, true); int loopCondPos = _ctx.CodeBlock.Position; bool hasCond = !(cond.Name != null && cond.Name.StartsWith("__empty")); int branchFalsePos = -1; if (hasCond) { GenerateNode(cond, false); branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(94) /* F_ADD */ /* F_BRANCH_WHEN_ZERO */; _ctx.CodeBlock.InsShort(0); } var loopInfo = new LoopInfo2 { CondPos = loopCondPos }; _loopStack.Push(loopInfo); if (body != null) GenerateNode(body, true); int incStart = _ctx.CodeBlock.Position; foreach (var cp in loopInfo.ContinuePatchPositions) PatchShort(cp + 1, (short)(incStart - (cp + 3))); loopInfo.ContinuePatchPositions.Clear(); bool hasInc = !(inc.Name != null && inc.Name.StartsWith("__empty")); if (hasInc) GenerateNode(inc, true); int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; short backOffset = (short)(loopCondPos - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset); int afterLoop = _ctx.CodeBlock.Position; if (hasCond) PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop(); }
+    private void GenerateBreak() { if (_loopStack.Count == 0) return; int pos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; _ctx.CodeBlock.InsShort(0); _loopStack.Peek().BreakPatchPositions.Add(pos); }
+    private void GenerateContinue() { if (_loopStack.Count == 0) return; int pos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(96) /* F_MUL */ /* F_BRANCH Neolith */; _ctx.CodeBlock.InsShort(0); _loopStack.Peek().ContinuePatchPositions.Add(pos); }
+    private void PatchShort(int pos, short val) {
+        var block = _ctx.CodeBlock;
+        var type = block.GetType();
+        // try common field names
+        foreach (var name in new[] { "_rented", "_buf", "_buffer", "buffer", "_data", "_bytes", "_code" })
+        {
+            var field = type.GetField(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (field != null)
+            {
+                var arr = field.GetValue(block) as byte[];
+                if (arr != null && pos+1 < arr.Length)
+                {
+                    arr[pos] = (byte)(val & 0xFF);
+                    arr[pos + 1] = (byte)((val >> 8) & 0xFF);
+                    return;
+                }
+            }
+        }
+        // try property
+        foreach (var name in new[] { "Buffer", "Data", "Bytes", "Code" })
+        {
+            var prop = type.GetProperty(name, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (prop != null)
+            {
+                var arr = prop.GetValue(block) as byte[];
+                if (arr != null && pos+1 < arr.Length)
+                {
+                    arr[pos] = (byte)(val & 0xFF);
+                    arr[pos + 1] = (byte)((val >> 8) & 0xFF);
+                    return;
+                }
+            }
+        }
+        // fallback: try method Patch
+        var m = type.GetMethod("PatchShort", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (m != null)
+        {
+            try { m.Invoke(block, new object[]{ pos, val }); return; } catch {}
+        }
+        var m2 = type.GetMethod("Patch", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        if (m2 != null)
+        {
+            try { m2.Invoke(block, new object[]{ pos, val }); return; } catch {}
+        }
+        // last resort: try to get array via ToArray and reconstruct? We need to at least log
+        System.Console.Error.WriteLine($"[PatchShort] failed to patch at {pos} val {val}, type {type.FullName}");
+    }
     private ushort FindFunction(string name) { for (int i = 0; i < _ctx.Functions.Count; i++) if (_ctx.Functions[i].Name == name) return (ushort)i; return 0; }
-    private void EmitNumber(long val) { if (val == 0) _ctx.CodeBlock.InsByte(1); else if (val == 1) _ctx.CodeBlock.InsByte(2); else if (val >= -128 && val <= 127) { _ctx.CodeBlock.InsByte(11); _ctx.CodeBlock.InsByte((byte)(sbyte)val); } else if (val >= int.MinValue && val <= int.MaxValue) { _ctx.CodeBlock.InsByte(8); _ctx.CodeBlock.InsInt((int)val); } else { _ctx.CodeBlock.InsByte(10); _ctx.CodeBlock.InsLong(val); } }
+    private void EmitNumber(long val) { if (val == 0) _ctx.CodeBlock.InsByte(1); else if (val == 1) _ctx.CodeBlock.InsByte(2); else if (val >= -128 && val <= 127) { _ctx.CodeBlock.InsByte(9) /* F_LONG */ /* F_BYTE */; _ctx.CodeBlock.InsByte((byte)(sbyte)val); } else if (val >= int.MinValue && val <= int.MaxValue) { _ctx.CodeBlock.InsByte(7) /* F_NUMBER Neolith */; _ctx.CodeBlock.InsInt((int)val); } else { _ctx.CodeBlock.InsByte(9) /* F_LONG Neolith */; _ctx.CodeBlock.InsLong(val); } }
 }
+
