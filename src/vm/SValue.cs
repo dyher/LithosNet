@@ -75,6 +75,7 @@ public readonly struct SValue : IEquatable<SValue>
     public static SValue NewObject(object obj) => new(SValueType.T_OBJECT, obj: obj);
     public static SValue NewFunction(int funcIdx) => new(SValueType.T_FUNCTION, number: funcIdx, funcIdx: funcIdx);
     public static SValue Invalid => new(SValueType.T_INVALID);
+    public static SValue NewLValue(LValueDesc lvd=null) => new(SValueType.T_LVALUE, obj: lvd);
 
     public bool IsNumber => Type == SValueType.T_NUMBER;
     public bool IsString => Type == SValueType.T_STRING;
@@ -148,8 +149,13 @@ public sealed class SValueS
     public override string ToString() => Value.ToString();
 }
 
+
+public enum LValueKind : byte { Local=0, Index=1, RIndex=2, Range=3 }
+public sealed class LValueDesc { public LValueKind Kind; public int LocalIdx=-1; public LValueDesc Parent; public SValueS Index; public SValueS Start; public SValueS End; public bool SRev; public bool ERev; public bool EExcl; }
+
 public sealed class SValueU
 {
+    public LValueDesc LValue;
     public long Number;
     public string String;
     public SValueArray Array;

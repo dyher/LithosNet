@@ -26,7 +26,37 @@ public class InterpreterP9 {
     public string[] Strings = Array.Empty<string>();
     public Program CurrentProgram;
 
-    const byte F_NUMBER = 7; // Neolith // Neolith // Neolith
+                                                                                                                            const byte F_SSCANF = 109;
+const byte F_FUNCTION_CONSTRUCTOR = 107;
+const byte F_RSH = 103;
+const byte F_LSH = 102;
+const byte F_DIVIDE = 97;
+const byte F_MULTIPLY = 96;
+const byte F_SUBTRACT = 95;
+const byte F_RE_RANGE = 79;
+const byte F_NE_RANGE = 78;
+const byte F_NR_RANGE_LVALUE = 77;
+const byte F_NR_RANGE = 76;
+const byte F_RR_RANGE_LVALUE = 75;
+const byte F_RR_RANGE = 74;
+const byte F_RN_RANGE_LVALUE = 73;
+const byte F_RN_RANGE = 72;
+const byte F_NN_RANGE_LVALUE = 71;
+const byte F_NN_RANGE = 70;
+const byte F_RINDEX_LVALUE = 69;
+const byte F_RINDEX = 68;
+const byte F_INDEX_LVALUE = 67;
+const byte F_LOCAL_LVALUE = 61;
+const byte F_CALL_FUNCTION_BY_ADDRESS = 43;
+const byte F_AGGREGATE_ASSOC = 17;
+const byte F_AGGREGATE = 16;
+const byte F_EFUNV = 6;
+const byte F_EFUN3 = 5;
+const byte F_EFUN2 = 4;
+const byte F_EFUN1 = 3;
+const byte F_EFUN0 = 2;
+const byte F_PUSH = 1;
+const byte F_NUMBER = 7; // Neolith // Neolith // Neolith
     const byte F_LONG = 9; // Neolith // Neolith // Neolith
     const byte F_BYTE = 10; // Neolith // Neolith // Neolith
     const byte F_NBYTE = 11; // Neolith // Neolith // Neolith
@@ -60,14 +90,15 @@ public class InterpreterP9 {
     const byte F_RETURN = 45; // Neolith // Neolith // Neolith
     const byte F_POP = 0; // Neolith // Neolith // Neolith
     const byte F_PUSH_MAPPING = 17; // Neolith // Neolith
-    const byte F_MAP_ADD = 71; // Neolith
+    const byte F_MAP_ADD = 204; // Neolith
     const byte F_INDEX = 66; // Neolith // Neolith
     const byte F_INDEX_ASSIGN = 67; // Neolith // Neolith
     const byte F_PUSH_ARRAY = 16; // Neolith // Neolith
-    const byte F_SIZEOF = 75; // Neolith
-    const byte F_KEYS = 76; // Neolith
-    const byte F_VALUES = 77; // Neolith
-    const byte F_M_DELETE = 78;
+    const byte F_SIZEOF = 200; // Neolith
+    const byte F_KEYS = 201; // Neolith
+    const byte F_VALUES = 202; // Neolith
+    const byte F_ASSIGN_LVALUE = 80;
+    const byte F_M_DELETE = 203;
     const byte F_PUSH_CLOSURE = 107; // Neolith
     const byte F_EVALUATE = 115; // Neolith
 
@@ -92,7 +123,6 @@ public class InterpreterP9 {
         {
             for (int i = 0; i < prog.FunctionTable.Length; i++) FuncAddr[i] = prog.FunctionTable[i].Address;
         }
-        Console.WriteLine($"[VM] loaded {Prog.Length} bytes, {FuncAddr.Count} funcs");
         foreach (var kv in FuncAddr) Console.WriteLine($"  func idx {kv.Key} @ {kv.Value}");
     }
 
@@ -120,6 +150,94 @@ public class InterpreterP9 {
     void PushArray(SValueArray arr){ var sv = SValue.NewArray(arr); var s = new SValueS(); s.Value = sv; s.U.Array = arr; Push(s); }
     void PushClosure(int funcIdx){ var sv = SValue.NewFunction(funcIdx); var s = new SValueS(); s.Value = sv; s.U.Number = funcIdx; Push(s); }
     void PushObject(LpcObject ob){ var sv = SValue.NewObject(ob); var s = new SValueS(); s.Value = sv; s.U.Object = ob; Push(s); }
+
+    bool IsNil(SValueS sv){ return sv.U.Number==255 || sv.U.Number==-1; }
+    int GetLength(SValueS sv){ if (sv.U.Array!=null) return sv.U.Array.Items.Count; if (sv.Value.Array!=null) return sv.Value.Array.Items.Count; if (sv.U.String!=null) return sv.U.String.Length; if (sv.Value.String!=null) return sv.Value.String.Length; return 0; }
+    int FindLocalIndex(SValueS sv){ for (int i=0;i<Locals.Length;i++){ if (Locals[i].U.Array!=null && sv.U.Array!=null && Locals[i].U.Array==sv.U.Array) return i; if (Locals[i].U.String!=null && sv.U.String!=null && Locals[i].U.String==sv.U.String) return i; } return -1; }
+    void AssignLValueChain(LValueDesc lvd, SValueS val){
+        if (lvd==null) return;
+        var stack = new System.Collections.Generic.List<LValueDesc>(); var cur=lvd; while (cur!=null){ stack.Add(cur); cur=cur.Parent; } stack.Reverse();
+        if (stack.Count==0 || stack[0].Kind!=LValueKind.Local) return;
+        int localIdx = stack[0].LocalIdx;
+        if (localIdx<0 || localIdx>=Locals.Length) return;
+        var rootSv = Locals[localIdx];
+        SValueArray parentArr = null; int parentIdx=-1;
+        var containerSv = rootSv;
+        for (int i=1;i<stack.Count;i++){
+            var d=stack[i];
+            if (d.Kind==LValueKind.Index){
+                int idx = 0;
+                if (d.Index!=null) idx = (int)d.Index.U.Number;
+                if (containerSv.U.Array!=null){
+                    var arr=containerSv.U.Array;
+                    if (idx>=0 && idx<arr.Items.Count){
+                        if (i==stack.Count-1){ arr.Items[idx]=val.Value; return; }
+                        else { var nextVal = arr.Items[idx]; var nextSv = new SValueS(); nextSv.Value=nextVal; if (nextVal.Array!=null) nextSv.U.Array=nextVal.Array; if (nextVal.String!=null) nextSv.U.String=nextVal.String; parentArr=arr; parentIdx=idx; containerSv=nextSv; }
+                    }
+                } else if (containerSv.Value.Array!=null){
+                    var arr=containerSv.Value.Array;
+                    if (idx>=0 && idx<arr.Items.Count){
+                        if (i==stack.Count-1){ arr.Items[idx]=val.Value; var newSv = new SValueS(); newSv.Value=SValue.NewArray(arr); newSv.U.Array=arr; Locals[localIdx]=newSv; return; }
+                        else { var nextVal = arr.Items[idx]; var nextSv = new SValueS(); nextSv.Value=nextVal; if (nextVal.Array!=null) nextSv.U.Array=nextVal.Array; if (nextVal.String!=null) nextSv.U.String=nextVal.String; parentArr=arr; parentIdx=idx; containerSv=nextSv; }
+                    }
+                }
+            } else if (d.Kind==LValueKind.Range){
+                int len=0;
+                if (containerSv.U.Array!=null) len=containerSv.U.Array.Items.Count;
+                else if (containerSv.U.String!=null) len=containerSv.U.String.Length;
+                else if (containerSv.Value.String!=null) len=containerSv.Value.String.Length;
+                bool sNil = d.Start!=null && IsNil(d.Start);
+                bool eNil = d.End!=null && IsNil(d.End);
+                int s = sNil ? 0 : (d.Start!=null ? (int)d.Start.U.Number : 0);
+                int e = eNil ? len-1 : (d.End!=null ? (int)d.End.U.Number : len-1);
+                if (sNil) s=0;
+                if (eNil) e=len-1;
+                if (d.SRev) s = len - s;
+                if (d.ERev) e = len - e;
+                if (d.EExcl) e = e - 1;
+                if (s<0) s=0; if (e>=len) e=len-1;
+                string str = containerSv.U.String ?? containerSv.Value.String ?? "";
+                string newStr = val.U.String ?? val.Value.String ?? "";
+                string before = s>0 ? str.Substring(0,s) : "";
+                string after = e+1 < str.Length ? str.Substring(e+1) : "";
+                string result = before + newStr + after;
+                var newSv = new SValueS(result);
+                if (parentArr!=null && parentIdx>=0){ parentArr.Items[parentIdx]=newSv.Value; }
+                else { Locals[localIdx]=newSv; }
+                return;
+            }
+        }
+        if (stack.Count==1) Locals[localIdx]=val;
+    }
+    void HandleEfun(byte efun, int nargs, SValueS a0=default, SValueS a1=default, SValueS a2=default){
+        switch(efun){
+            case 23:
+                {
+                    string s = a0.U.String ?? a0.Value.String ?? "";
+                    if (s=="" && a0.U.Array!=null) s = FormatArray(a0.U.Array);
+                    else if (s=="" && a0.Value.Array!=null) s = FormatArray(a0.Value.Array);
+                    else if (s=="") s = a0.U.Number.ToString();
+                    Console.Write(s);
+                    PushNumber(0);
+                    break;
+                }
+            default: PushNumber(0); break;
+        }
+    }
+    void HandleEfunV(byte efun, SValueS[] args){ if (args.Length>0) HandleEfun(efun, args.Length, args[0], args.Length>1?args[1]:default, args.Length>2?args[2]:default); else HandleEfun(efun,0); }
+    string FormatArray(SValueArray arr){
+        if (arr==null) return "({})";
+        var parts = new System.Collections.Generic.List<string>();
+        foreach (var it in arr.Items){
+            if (it.Type==SValueType.T_NUMBER) parts.Add(it.Number.ToString());
+            else if (it.Type==SValueType.T_STRING) parts.Add(it.String);
+            else if (it.Array!=null) parts.Add(FormatArray(it.Array));
+            else parts.Add(it.ToString());
+        }
+        return "({"+string.Join(",", parts)+"})";
+    }
+
+
     SValueS Pop(){ if(Sp<0) throw new Exception($"Pop empty at Pc={Pc-1}"); var v=Stack[Sp]; Stack[Sp]=SValueS.Invalid; Sp--; return v; }
 
     SValue ToSValue(SValueS ss)
@@ -166,7 +284,7 @@ public class InterpreterP9 {
         }
         if (mainAddr <0 && FuncAddr.Count >= 1) mainAddr = FuncAddr[FuncAddr.Count-1];
         Pc = mainAddr >=0 ? mainAddr : 0;
-        Console.WriteLine($"[VM] start Pc={Pc}");
+
 
         while (Pc < Prog.Length)
         {
@@ -317,23 +435,7 @@ public class InterpreterP9 {
                     PushNumber(0);
                     break;
                 }
-                case F_INDEX_ASSIGN:{
-                    var valSv = Pop(); var idxSv = Pop(); var contSv = Pop();
-                    SValue val = ToSValue(valSv); SValue idx = ToSValue(idxSv);
-                    var arr = contSv.U.Array ?? contSv.Value.Array;
-                    if (arr != null)
-                    {
-                        int off = (int)idxSv.U.Number;
-                        if (idxSv.Value.Type == SValueType.T_NUMBER) off = (int)idxSv.Value.Number;
-                        if (off>=0 && off < arr.Items.Count) arr.Items[off] = val;
-                        Push(valSv);
-                        break;
-                    }
-                    var map = contSv.U.Mapping ?? contSv.Value.Mapping;
-                    if (map != null) { map.Map[idx] = val; Push(valSv); break; }
-                    Push(valSv);
-                    break;
-                }
+
                 case F_SIZEOF:{
                     var c = Pop();
                     var arr = c.U.Array ?? c.Value.Array;
@@ -428,8 +530,189 @@ public class InterpreterP9 {
                 case F_GE:{ var r = Pop(); var l = Pop(); PushNumber(l.U.Number >= r.U.Number ? 1 : 0); break; }
                 case F_EQ:{ var r = Pop(); var l = Pop(); PushNumber(l.U.Number == r.U.Number ? 1 : 0); break; }
                 case F_NE:{ var r = Pop(); var l = Pop(); PushNumber(l.U.Number != r.U.Number ? 1 : 0); break; }
+                case F_EFUN0:{ byte efun = Prog[Pc++]; HandleEfun(efun, 0); break; }
+                case F_EFUN1:{ byte efun = Prog[Pc++]; var a0 = Pop(); HandleEfun(efun, 1, a0); break; }
+                case F_EFUN2:{ byte efun = Prog[Pc++]; var a1 = Pop(); var a0 = Pop(); HandleEfun(efun, 2, a0, a1); break; }
+                case F_EFUN3:{ byte efun = Prog[Pc++]; var a2 = Pop(); var a1 = Pop(); var a0 = Pop(); HandleEfun(efun, 3, a0, a1, a2); break; }
+                case F_EFUNV:{ byte efun = Prog[Pc++]; byte nargs = Prog[Pc++]; var args = new SValueS[nargs]; for (int i=nargs-1;i>=0;i--) args[i]=Pop(); HandleEfunV(efun, args); break; }
+                case F_RINDEX:{
+                    var idxSv = Pop(); var contSv = Pop();
+                    int idx = (int)idxSv.U.Number;
+                    int len = GetLength(contSv);
+                    int off = len - idx;
+                    if (contSv.U.Array!=null){
+                        var arr=contSv.U.Array;
+                        if (off>=0 && off < arr.Items.Count){
+                            Push(new SValueS{ Value=arr.Items[off] });
+                        } else PushNumber(0);
+                    } else if (contSv.U.String!=null){
+                        var str=contSv.U.String;
+                        if (off>=0 && off < str.Length) PushNumber(str[off]);
+                        else PushNumber(0);
+                    } else PushNumber(0);
+                    break;
+                }
+                case F_NN_RANGE:
+                case F_RN_RANGE:
+                case F_NR_RANGE:
+                case F_RR_RANGE:
+                case F_NE_RANGE:
+                case F_RE_RANGE:{
+                    var endSv = Pop(); var startSv = Pop(); var contSv = Pop();
+                    bool sRev = (instr==F_RN_RANGE || instr==F_RR_RANGE || instr==F_RE_RANGE);
+                    bool eRev = (instr==F_NR_RANGE || instr==F_RR_RANGE || instr==F_NE_RANGE || instr==F_RE_RANGE);
+                    bool eExcl = (instr==F_NE_RANGE || instr==F_RE_RANGE);
+                    int len = GetLength(contSv);
+                    int s = IsNil(startSv) ? 0 : (int)startSv.U.Number;
+                    int e = IsNil(endSv) ? len-1 : (int)endSv.U.Number;
+                    if (sRev) s = len - s;
+                    if (eRev) e = len - e;
+                    if (eExcl) e = e - 1;
+                    if (s<0) s=0; if (e>=len) e=len-1;
+                    if (contSv.U.Array!=null){
+                        var arr=contSv.U.Array;
+                        var res = new SValueArray();
+                        for (int i=s;i<=e && i>=0 && i<arr.Items.Count;i++) res.Items.Add(arr.Items[i]);
+                        var sv = new SValueS(); sv.Value=SValue.NewArray(res); sv.U.Array=res;
+                        Push(sv);
+                    } else if (contSv.U.String!=null){
+                        var str=contSv.U.String;
+                        if (s<0) s=0; if (e>=str.Length) e=str.Length-1;
+                        if (s>e) PushString("");
+                        else PushString(str.Substring(s, e-s+1));
+                    } else PushNumber(0);
+                    break;
+                }
+                case F_NN_RANGE_LVALUE:
+                case F_RN_RANGE_LVALUE:
+                case F_RR_RANGE_LVALUE:
+                case F_NR_RANGE_LVALUE:{
+                    bool isAssign = Pc < Prog.Length && Prog[Pc]==F_POP;
+                    if (isAssign){
+                        var valSv = Pop(); var endSv = Pop(); var startSv = Pop(); var contSv = Pop();
+                        bool sRev = (instr==F_RN_RANGE_LVALUE || instr==F_RR_RANGE_LVALUE);
+                        bool eRev = (instr==F_NR_RANGE_LVALUE || instr==F_RR_RANGE_LVALUE);
+                        int len = GetLength(contSv);
+                        int s = IsNil(startSv) ? 0 : (int)startSv.U.Number;
+                        int e = IsNil(endSv) ? len-1 : (int)endSv.U.Number;
+                        if (sRev) s = len - s;
+                        if (eRev) e = len - e;
+                        if (s<0) s=0; if (e>=len) e=len-1;
+                        if (contSv.U.Array!=null){
+                            var arr=contSv.U.Array;
+                            var newArr = new SValueArray();
+                            for (int i=0;i<s && i<arr.Items.Count;i++) newArr.Items.Add(arr.Items[i]);
+                            if (valSv.U.Array!=null){ foreach (var it in valSv.U.Array.Items) newArr.Items.Add(it); }
+                            else newArr.Items.Add(valSv.Value);
+                            for (int i=e+1;i<arr.Items.Count;i++) newArr.Items.Add(arr.Items[i]);
+                            int localIdx = FindLocalIndex(contSv);
+                            if (localIdx>=0){ var newSv = new SValueS(); newSv.Value=SValue.NewArray(newArr); newSv.U.Array=newArr; Locals[localIdx]=newSv; }
+                            Push(new SValueS());
+                        } else if (contSv.U.String!=null || contSv.Value.String!=null){
+                            string str = contSv.U.String ?? contSv.Value.String ?? "";
+                            string newStr = valSv.U.String ?? valSv.Value.String ?? "";
+                            string before = s>0 ? str.Substring(0, System.Math.Min(s, str.Length)) : "";
+                            string after = e+1 < str.Length ? str.Substring(e+1) : "";
+                            string result = before + newStr + after;
+                            int localIdx = FindLocalIndex(contSv);
+                            if (localIdx>=0){ Locals[localIdx]=new SValueS(result); }
+                            Push(new SValueS(result));
+                        } else Push(valSv);
+                    } else {
+                        var endSv = Pop(); var startSv = Pop(); var parentSv = Pop();
+                        if (parentSv.U.LValue!=null){
+                            bool sRev = (instr==F_RN_RANGE_LVALUE || instr==F_RR_RANGE_LVALUE);
+                            bool eRev = (instr==F_NR_RANGE_LVALUE || instr==F_RR_RANGE_LVALUE);
+                            var lvd = new LValueDesc{ Kind=LValueKind.Range, Parent=parentSv.U.LValue, Start=startSv, End=endSv, SRev=sRev, ERev=eRev, EExcl=false };
+                            var sv = new SValueS(); sv.Value=SValue.NewLValue(lvd); sv.U.LValue=lvd;
+                            Push(sv);
+                        } else Push(parentSv);
+                    }
+                    break;
+                }
+                case F_RINDEX_LVALUE:{
+                    bool isAssign = Pc < Prog.Length && Prog[Pc]==F_POP;
+                    if (isAssign){
+                        var valSv = Pop(); var idxSv = Pop(); var contSv = Pop();
+                        int idx = (int)idxSv.U.Number;
+                        int len = GetLength(contSv);
+                        int off = len - idx;
+                        int localIdx = FindLocalIndex(contSv);
+                        if (localIdx>=0 && Locals[localIdx].U.Array!=null){
+                            var arr=Locals[localIdx].U.Array;
+                            if (off>=0 && off < arr.Items.Count) arr.Items[off]=valSv.Value;
+                            Push(valSv);
+                        } else Push(valSv);
+                    } else {
+                        var idxSv = Pop(); var parentSv = Pop();
+                        if (parentSv.U.LValue!=null){
+                            var lvd = new LValueDesc{ Kind=LValueKind.RIndex, Parent=parentSv.U.LValue, Index=idxSv };
+                            var sv = new SValueS(); sv.Value=SValue.NewLValue(lvd); sv.U.LValue=lvd;
+                            Push(sv);
+                        } else Push(parentSv);
+                    }
+                    break;
+                }
+                case F_INDEX_LVALUE:{
+                    bool isAssign = Pc < Prog.Length && Prog[Pc]==F_POP;
+                    if (isAssign){
+                        var valSv = Pop(); var idxSv = Pop(); var contSv = Pop();
+                        if (contSv.U.Array!=null){
+                            var arr=contSv.U.Array;
+                            int i=(int)idxSv.U.Number;
+                            if (i>=0 && i<arr.Items.Count) arr.Items[i]=valSv.Value;
+                            Push(valSv);
+                        } else Push(valSv);
+                    } else {
+                        var idxSv = Pop(); var parentSv = Pop();
+                        if (parentSv.U.LValue!=null){
+                            var lvd = new LValueDesc{ Kind=LValueKind.Index, Parent=parentSv.U.LValue, Index=idxSv };
+                            var sv = new SValueS(); sv.Value=SValue.NewLValue(lvd); sv.U.LValue=lvd;
+                            Push(sv);
+                        } else Push(parentSv);
+                    }
+                    break;
+                }
+                case F_SSCANF:{
+                    byte total = Prog[Pc++];
+                    var args = new SValueS[total];
+                    for (int i=total-1;i>=0;i--) args[i]=Pop();
+                    string input = args[0].U.String ?? args[0].Value.String ?? "";
+                    int matched=0;
+                    var words = input.Split(new[]{' '}, System.StringSplitOptions.RemoveEmptyEntries);
+                    for (int i=2;i<total;i++){
+                        string valStr;
+                        if (i == total-1){
+                            int startIdx=0;
+                            for (int k=0;k<i-2 && k<words.Length;k++){ int pos=input.IndexOf(words[k], startIdx); if (pos>=0) startIdx=pos+words[k].Length; }
+                            valStr = startIdx < input.Length ? input.Substring(startIdx) : "";
+                            if (valStr.Length>0 && valStr[0]==' ') valStr = " " + valStr.TrimStart(); else valStr = valStr.TrimStart();
+                        } else {
+                            if (i-2 < words.Length) valStr = words[i-2];
+                            else valStr = "";
+                        }
+                        if (i-2 < words.Length) matched++;
+                        var lval = args[i];
+                        if (lval.U.LValue!=null) AssignLValueChain(lval.U.LValue, new SValueS(valStr));
+                    }
+                    PushNumber(matched);
+                    break;
+                }
+                case F_ASSIGN_LVALUE:{
+                    var valSv = Pop();
+                    var lvalSv = Pop();
+                    if (lvalSv.U.LValue!=null) AssignLValueChain(lvalSv.U.LValue, valSv);
+                    Push(valSv);
+                    break;
+                }
                 case F_LOCAL:{ byte idx = Prog[Pc++]; var lv = Locals[idx]; Push(lv); break; }
-                case F_STORE_LOCAL:{ byte idx = Prog[Pc++]; var v = Pop(); Locals[idx]=v; Push(v); break; }
+                case F_STORE_LOCAL:{
+                    byte idx = Prog[Pc++];
+                    bool isAssign = Pc < Prog.Length && Prog[Pc]==F_POP;
+                    if (isAssign){ var v = Pop(); Locals[idx]=v; Push(v); }
+                    else { var lvd = new LValueDesc{ Kind=LValueKind.Local, LocalIdx=idx }; var sv = new SValueS(); sv.Value=SValue.NewLValue(lvd); sv.U.LValue=lvd; Push(sv); }
+                    break;
+                }
                 case F_POP:{ Pop(); break; }
                 case F_BRANCH:{ short off = LoadShort(Prog, ref Pc); Pc += off; break; }
                 case F_BRANCH_WHEN_ZERO:{ short off = LoadShort(Prog, ref Pc); var v = Pop(); if(v.U.Number==0) Pc+=off; break; }
@@ -457,7 +740,6 @@ public class InterpreterP9 {
                         else if (retVal.U.Array != null || retVal.Value.Array != null) num = retVal.U.Array?.Items.Count ?? retVal.Value.Array?.Items.Count ?? 0;
                         else if (retVal.U.String != null) num = retVal.U.String.Length;
                         else if (retVal.Value.String != null) num = retVal.Value.String.Length;
-                        Console.WriteLine($"[F_RETURN main] val {num}");
                         PushNumber(num);
                         return num;
                     }

@@ -220,8 +220,111 @@ public sealed class Parser
     private ParseNode ParseClosure() { Expect(TokenType.Punct, "(:"); var body = ParseExpression(); Expect(TokenType.Punct, ":)"); var closureNode = new ParseNode { Kind = NodeKind.NODE_CLOSURE, Line = _prev.Line }; if (body != null) closureNode.AddChild(body); return closureNode; }
     private ParseNode TryParseIndex(ParseNode baseNode)
     {
-        if (baseNode == null) return null;
-        while (Match(TokenType.Punct, "[")) { Advance(); var idx = ParseExpression(); Expect(TokenType.Punct, "]"); var indexNode = new ParseNode { Kind = NodeKind.NODE_ARRAY, Name = "[]", Line = baseNode.Line, Left = baseNode, Right = idx }; indexNode.Children.Add(baseNode); if (idx != null) indexNode.Children.Add(idx); baseNode = indexNode; }
+        while (Match(TokenType.Punct, "["))
+        {
+            int line = _current.Line;
+            Advance();
+            ParseNode startNode = null;
+            ParseNode endNode = null;
+            bool startReverse = false;
+            bool endReverse = false;
+            bool endExclusive = false;
+            bool isRange = false;
+
+            if (Match(TokenType.Punct, ".."))
+            {
+                isRange = true;
+                Advance();
+                if (Match(TokenType.Operator, "<"))
+                {
+                    endExclusive = true;
+                    Advance();
+                    // ..<1 with single < should be both exclusive and reverse (all but last)
+                    if (!Match(TokenType.Punct, "]") && !Match(TokenType.Punct, ".."))
+                    {
+                        // peek if next is number or <, then this < was reverse marker
+                        // For ..<1, we have consumed < as exclusive, now next is number 1, so reverse
+                        endReverse = true;
+                    }
+                }
+                if (Match(TokenType.Operator, "<"))
+                {
+                    endReverse = true;
+                    Advance();
+                }
+                if (!Match(TokenType.Punct, "]"))
+                {
+                    endNode = ParseExpression();
+                }
+            }
+            else
+            {
+                if (Match(TokenType.Operator, "<"))
+                {
+                    startReverse = true;
+                    Advance();
+                }
+                if (!Match(TokenType.Punct, "..") && !Match(TokenType.Punct, "]"))
+                {
+                    startNode = ParseExpression();
+                }
+                if (Match(TokenType.Punct, ".."))
+                {
+                    isRange = true;
+                    Advance();
+                    if (Match(TokenType.Operator, "<"))
+                    {
+                        endExclusive = true;
+                        Advance();
+                        if (!Match(TokenType.Punct, "]") && !Match(TokenType.Punct, "..") && !Match(TokenType.Operator, "<"))
+                        {
+                            endReverse = true;
+                        }
+                    }
+                    if (Match(TokenType.Operator, "<"))
+                    {
+                        endReverse = true;
+                        Advance();
+                    }
+                    if (!Match(TokenType.Punct, "]"))
+                    {
+                        endNode = ParseExpression();
+                    }
+                }
+            }
+
+            Expect(TokenType.Punct, "]");
+            ParseNode result;
+            if (isRange)
+            {
+                result = new ParseNode { Kind = NodeKind.NODE_RANGE, Line = line };
+                result.Name = $"{(startReverse?1:0)}{(endReverse?1:0)}0{(endExclusive?1:0)}";
+                result.Children.Add(baseNode);
+                result.Children.Add(startNode);
+                result.Children.Add(endNode);
+                result.Left = baseNode;
+                result.Right = startNode;
+            }
+            else
+            {
+                if (startReverse)
+                {
+                    result = new ParseNode { Kind = NodeKind.NODE_RINDEX, Line = line };
+                    result.Children.Add(baseNode);
+                    if (startNode != null) result.Children.Add(startNode);
+                    else result.Children.Add(ParseNode.NewNumber(0, line));
+                    result.Left = baseNode;
+                    result.Right = startNode;
+                }
+                else
+                {
+                    result = new ParseNode { Kind = NodeKind.NODE_ARRAY, Name = "[]", Line = line, Left = baseNode, Right = startNode };
+                    result.Children.Add(baseNode);
+                    if (startNode != null) result.Children.Add(startNode);
+                }
+            }
+            baseNode = result;
+        }
         return baseNode;
     }
 }
