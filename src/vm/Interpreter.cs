@@ -162,23 +162,58 @@ const byte F_NUMBER = 7; // Neolith // Neolith // Neolith
         if (localIdx<0 || localIdx>=Locals.Length) return;
         var rootSv = Locals[localIdx];
         SValueArray parentArr = null; int parentIdx=-1;
+        SValueMapping parentMap = null; SValue parentMapKey = default;
+        bool parentIsMap = false;
         var containerSv = rootSv;
         for (int i=1;i<stack.Count;i++){
             var d=stack[i];
             if (d.Kind==LValueKind.Index){
-                int idx = 0;
-                if (d.Index!=null) idx = (int)d.Index.U.Number;
+                int idxNum = 0;
+                bool isNumIdx = false;
+                if (d.Index!=null){
+                    if (d.Index.Value.Type==SValueType.T_NUMBER) { idxNum=(int)d.Index.Value.Number; isNumIdx=true; }
+                    else if (d.Index.U.Mapping==null && d.Index.U.Array==null && d.Index.U.String==null) { idxNum=(int)d.Index.U.Number; isNumIdx = d.Index.U.Number!=255 && d.Index.U.Number!=-1 || d.Index.Value.Type==SValueType.T_INVALID; }
+                    else { isNumIdx=false; }
+                }
+                // 先試 array
                 if (containerSv.U.Array!=null){
                     var arr=containerSv.U.Array;
-                    if (idx>=0 && idx<arr.Items.Count){
-                        if (i==stack.Count-1){ arr.Items[idx]=val.Value; return; }
-                        else { var nextVal = arr.Items[idx]; var nextSv = new SValueS(); nextSv.Value=nextVal; if (nextVal.Array!=null) nextSv.U.Array=nextVal.Array; if (nextVal.String!=null) nextSv.U.String=nextVal.String; parentArr=arr; parentIdx=idx; containerSv=nextSv; }
+                    int idx = idxNum;
+                    if (isNumIdx){
+                        if (idx>=0 && idx<arr.Items.Count){
+                            if (i==stack.Count-1){ arr.Items[idx]=val.Value; return; }
+                            else { var nextVal = arr.Items[idx]; var nextSv = new SValueS(); nextSv.Value=nextVal; if (nextVal.Array!=null) nextSv.U.Array=nextVal.Array; if (nextVal.Mapping!=null) nextSv.U.Mapping=nextVal.Mapping; if (nextVal.String!=null) nextSv.U.String=nextVal.String; parentArr=arr; parentIdx=idx; parentIsMap=false; containerSv=nextSv; continue; }
+                        } else if (idx>=0 && i==stack.Count-1){
+                            while (arr.Items.Count<=idx) arr.Items.Add(SValue.NewNumber(0));
+                            arr.Items[idx]=val.Value; return;
+                        }
                     }
-                } else if (containerSv.Value.Array!=null){
+                    // 若不是數字索引或超出，嘗試 mapping 鍵? array 不支援，跳過
+                }
+                if (containerSv.Value.Array!=null){
                     var arr=containerSv.Value.Array;
-                    if (idx>=0 && idx<arr.Items.Count){
+                    int idx = idxNum;
+                    if (isNumIdx && idx>=0 && idx<arr.Items.Count){
                         if (i==stack.Count-1){ arr.Items[idx]=val.Value; var newSv = new SValueS(); newSv.Value=SValue.NewArray(arr); newSv.U.Array=arr; Locals[localIdx]=newSv; return; }
-                        else { var nextVal = arr.Items[idx]; var nextSv = new SValueS(); nextSv.Value=nextVal; if (nextVal.Array!=null) nextSv.U.Array=nextVal.Array; if (nextVal.String!=null) nextSv.U.String=nextVal.String; parentArr=arr; parentIdx=idx; containerSv=nextSv; }
+                        else { var nextVal = arr.Items[idx]; var nextSv = new SValueS(); nextSv.Value=nextVal; if (nextVal.Array!=null) nextSv.U.Array=nextVal.Array; if (nextVal.Mapping!=null) nextSv.U.Mapping=nextVal.Mapping; if (nextVal.String!=null) nextSv.U.String=nextVal.String; parentArr=arr; parentIdx=idx; parentIsMap=false; containerSv=nextSv; continue; }
+                    }
+                }
+                // mapping 分支
+                var map = containerSv.U.Mapping ?? containerSv.Value.Mapping;
+                if (map!=null){
+                    SValue key = ToSValue(d.Index);
+                    if (i==stack.Count-1){ map.Map[key]=ToSValue(val); return; }
+                    else {
+                        if (map.Map.TryGetValue(key, out var nextVal)){
+                            var nextSv = new SValueS(); nextSv.Value=nextVal; nextSv.U.Array=nextVal.Array; nextSv.U.Mapping=nextVal.Mapping; nextSv.U.String=nextVal.String; nextSv.U.Number=nextVal.Number;
+                            parentMap=map; parentMapKey=key; parentIsMap=true; containerSv=nextSv; continue;
+                        } else {
+                            // 自動創建中間 mapping? 對於 a["b"]["c"]=1，如果中間不存在，先創空 mapping
+                            var newMap = new SValueMapping();
+                            map.Map[key]=SValue.NewMapping(newMap);
+                            var nextSv = new SValueS(); nextSv.Value=SValue.NewMapping(newMap); nextSv.U.Mapping=newMap;
+                            parentMap=map; parentMapKey=key; parentIsMap=true; containerSv=nextSv; continue;
+                        }
                     }
                 }
             } else if (d.Kind==LValueKind.Range){
@@ -660,6 +695,21 @@ const byte F_NUMBER = 7; // Neolith // Neolith // Neolith
                         if (contSv.U.Array!=null){
                             var arr=contSv.U.Array;
                             int i=(int)idxSv.U.Number;
+                            if (idxSv.Value.Type==SValueType.T_NUMBER) i=(int)idxSv.Value.Number;
+                            else if (idxSv.U.Number==255 || idxSv.U.Number==-1) i=0;
+                            if (i>=0 && i<arr.Items.Count) arr.Items[i]=valSv.Value;
+                            else if (i>=0){
+                                while (arr.Items.Count<=i) arr.Items.Add(SValue.NewNumber(0));
+                                arr.Items[i]=valSv.Value;
+                            }
+                            Push(valSv);
+                        } else if (contSv.U.Mapping!=null || contSv.Value.Mapping!=null){
+                            var map = contSv.U.Mapping ?? contSv.Value.Mapping;
+                            if (map!=null){ SValue k=ToSValue(idxSv); SValue v=ToSValue(valSv); map.Map[k]=v; }
+                            Push(valSv);
+                        } else if (contSv.Value.Array!=null){
+                            var arr=contSv.Value.Array;
+                            int i=(int)idxSv.U.Number;
                             if (i>=0 && i<arr.Items.Count) arr.Items[i]=valSv.Value;
                             Push(valSv);
                         } else Push(valSv);
@@ -669,7 +719,13 @@ const byte F_NUMBER = 7; // Neolith // Neolith // Neolith
                             var lvd = new LValueDesc{ Kind=LValueKind.Index, Parent=parentSv.U.LValue, Index=idxSv };
                             var sv = new SValueS(); sv.Value=SValue.NewLValue(lvd); sv.U.LValue=lvd;
                             Push(sv);
-                        } else Push(parentSv);
+                        } else {
+                            // 兼容舊的直接索引 LValue 也要能產生鏈，否則 mapping 字面量會被 Push(parent) 吃掉
+                            if (parentSv.U.Mapping!=null || parentSv.Value.Mapping!=null || parentSv.U.Array!=null || parentSv.Value.Array!=null || parentSv.U.String!=null){
+                                // 如果 parent 是具體容器但不是 LValue，我們仍需把它包裝成 Local? 實際上這條分支是當 base 是 Local LValue 時才會進，上層已經是 LValue，所以這裡只處理 LValue parent
+                                Push(parentSv);
+                            } else Push(parentSv);
+                        }
                     }
                     break;
                 }
