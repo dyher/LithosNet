@@ -10,5 +10,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="src/compiler/DriverConfig.cs" />
+    <Compile Remove="archive/**/*" />
+    <Compile Remove="docs/**/*" />
+    <Compile Remove="lib/**/*" />
+    <Compile Remove="P46_bundle/**/*" />
+    <Compile Remove="P53_bundle/**/*" />
   </ItemGroup>
 </Project>
