@@ -8,5 +8,7 @@
     <AssemblyName>LithosNet</AssemblyName>
     <RootNamespace>LithosNet</RootNamespace>
   </PropertyGroup>
-  <!-- 自動包含 src/**/* 和 Main.cs -->
+  <ItemGroup>
+    <Compile Remove="src/compiler/DriverConfig.cs" />
+  </ItemGroup>
 </Project>
