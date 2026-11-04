@@ -26,6 +26,8 @@ public sealed class ObjectManager
         var full = Path.Combine(MudlibRoot, lpcPath);
         if (File.Exists(full)) return full;
         if (File.Exists(full + ".c")) return full + ".c";
+        if (File.Exists(full + ".lpc")) return full + ".lpc";
+        if (File.Exists(full)) return full; // also try without ext already
         return full;
     }
 
@@ -33,7 +35,7 @@ public sealed class ObjectManager
     {
         string key = lpcPath.Trim();
         if (!key.StartsWith("/")) key = "/" + key;
-        key = key.Replace(".c","");
+        key = key.Replace(".c","").Replace(".lpc","");
 
         if (_objects.TryGetValue(key, out var existing)) return existing;
         if (_loading.Contains(key)) throw new Exception($"*Recursive load {key}");

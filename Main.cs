@@ -108,7 +108,24 @@ public static class ProgramDriver
             return;
         }
 
-        Console.WriteLine("Unknown args: use --compile <file> or --run <file>");
+        if (args[0] == "--boot" && args.Length >= 2)
+        {
+            var confPath = args[1];
+            var absConf = Path.GetFullPath(confPath);
+            var confDir = Path.GetDirectoryName(absConf) ?? Directory.GetCurrentDirectory();
+            // chdir to conf dir so relative MudlibDir works
+            var cfg = DriverConfig.ParseFile(absConf);
+            // resolve MudlibDir relative to conf file
+            if (!Path.IsPathRooted(cfg.MudlibDir))
+                cfg.MudlibDir = Path.GetFullPath(Path.Combine(confDir, cfg.MudlibDir));
+            cfg.Dump();
+            var driver = new Driver(cfg);
+            try { driver.Boot(); Console.WriteLine("[Boot] SUCCESS - MUD ready, objects: " + string.Join(",", driver.ObjectManager.AllObjects())); }
+            catch (Exception ex) { Console.WriteLine($"[Boot] FAILED: {ex}"); }
+            return;
+        }
+
+        Console.WriteLine("Unknown args: use --compile <file> or --run <file> or --boot <neolith.conf>");
     }
 }
 
