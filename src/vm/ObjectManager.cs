@@ -82,7 +82,7 @@ public sealed class ObjectManager
             interp.SetProgram(prog);
             if (obj.TryFindFunction("create", out _, out _))
             {
-                try { interp.CallApply(obj, "create"); Console.WriteLine($"[{key}::create] OK"); }
+                try { interp.CallApply("create", System.Array.Empty<SValueS>(), obj); Console.WriteLine($"[{key}::create] OK"); }
                 catch (Exception ex) { Console.WriteLine($"[{key}::create] {ex.Message}"); }
             }
 

@@ -15,5 +15,6 @@
     <Compile Remove="lib/**/*" />
     <Compile Remove="P46_bundle/**/*" />
     <Compile Remove="P53_bundle/**/*" />
+    <Compile Remove="bundle/**/*" />
   </ItemGroup>
 </Project>
