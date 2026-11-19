@@ -37,8 +37,12 @@ public sealed class CodeGenerator
 {
     private readonly CodeGenContext _ctx;
     private readonly LocalTable _locals = new();
+    private readonly Dictionary<string,int> _globalIdx = new(StringComparer.Ordinal);
+    private readonly List<GlobalDecl> _mergedGlobals = new();
+    private readonly List<GlobalDecl> _baseGlobals = new();
     private readonly Stack<LoopInfo2> _loopStack = new();
                                                                                                                                                                                                                                                         const byte F_SSCANF = 109;
+const byte F_SIMUL_EFUN = 108;
 const byte F_FUNCTION_CONSTRUCTOR = 107;
 const byte F_SHR = 103;
 const byte F_RSH = 103;
@@ -69,6 +73,7 @@ const byte F_RINDEX_LVALUE = 69;
 const byte F_RINDEX = 68;
 const byte F_INDEX_LVALUE = 67;
 const byte F_LOCAL_LVALUE = 61;
+    const byte F_GLOBAL = 62; const byte F_GLOBAL_LVALUE = 63;
 const byte F_LOCAL = 60;
 const byte F_GT = 52;
 const byte F_GE = 51;
@@ -85,6 +90,7 @@ const byte F_BBRANCH_WHEN_ZERO = 21;
 const byte F_BRANCH = 20;
 const byte F_BRANCH_WHEN_NON_ZERO = 19;
 const byte F_BRANCH_WHEN_ZERO = 18;
+const byte F_NOT = 104;
 const byte F_AGGREGATE_ASSOC = 17;
 const byte F_AGGREGATE = 16;
 const byte F_CONST1 = 15;
@@ -94,6 +100,7 @@ const byte F_NBYTE = 11;
 const byte F_BYTE = 10;
 const byte F_LONG = 9;
 const byte F_NUMBER = 7;
+const byte F_REAL = 8;
 const byte F_EFUNV = 6;
 const byte F_EFUN3 = 5;
 const byte F_EFUN2 = 4;
@@ -116,14 +123,184 @@ const byte F_PUSH_MAPPING = 117; // fixed
     const byte F_VOID_ADD_EQ = 91;
     const byte F_M_DELETE = 203; // Neolith
     const byte F_PUSH_CLOSURE = 107; // Neolith // Neolith
+    const byte F_PUSH_CLOSURE_CAPTURED = 118;
+    const byte F_CAPTURED = 119;
+const byte F_DUP = 120;
     const byte F_EVALUATE = 115; // Neolith // Neolith
     const byte F_CALL_OTHER = 114; // Neolith // Neolith // Neolith
     const byte F_CLONE_OBJECT = 122; // Neolith // Neolith
     private int _foreachCounter = 0;
     private int _closureCounter = 0;
     private int _filterCounter = 0;
+    private System.Collections.Generic.Dictionary<string, int> _funcArity = new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.Ordinal);
     private int _switchCounter = 0;
     public List<string> Inherits = new();
+    public List<GlobalDecl> Globals = new();
+    public static string MudlibRoot = null;
+    private static readonly System.Collections.Generic.Dictionary<string, byte> EfunMap = new System.Collections.Generic.Dictionary<string, byte>(System.StringComparer.Ordinal)
+    {
+        { "random", 4 },
+        { "notify_fail", 5 },
+        { "present", 6 },
+        { "add_action", 7 },
+        { "command", 21 },
+        { "printf", 22 },
+        { "wizardp", 23 },
+        { "living", 28 },
+        { "userp", 29 },
+        { "undefinedp", 31 },
+        { "capitalize", 44 },
+        { "function_exists", 45 },
+        { "objects", 46 },
+        { "find_player", 57 },
+        { "allocate_mapping", 60 },
+        { "tell_room", 62 },
+        { "say", 70 },
+        { "replace_program", 74 },
+        { "origin", 76 },
+        { "filter_array", 79 },
+        { "sort_array", 80 },
+        { "link", 83 },
+        { "children", 125 },
+        { "exec", 89 },
+        { "query_idle", 90 },
+        { "snoop", 93 },
+        { "eval_cost", 94 },
+        { "typeof", 95 },
+        { "inherit_list", 96 },
+        { "set_living_name", 97 },
+        { "get_config", 98 },
+        { "call_out_info", 99 },
+        { "livings", 100 },
+        { "repeat_string", 101 },
+        { "enable_commands", 103 },
+        { "nullp", 104 },
+        { "query_ip_port", 106 },
+        { "query_host_name", 108 },
+        { "resolve", 109 },
+        { "shutdown", 110 },
+        { "set_reset", 111 },
+        { "sqrt", 112 },
+        { "uptime", 113 },
+        { "deep_inherit_list", 114 },
+        { "query_load_average", 115 },
+        { "malloc_status", 116 },
+        { "mud_status", 117 },
+        { "reclaim_objects", 118 },
+        { "reset_eval_cost", 120 },
+        { "dump_prog", 121 },
+        { "dumpallobj", 122 },
+        { "ed", 123 },
+
+        { "pointerp", 85 },
+        { "this_interactive", 11 },
+        { "this_user", 12 },
+        { "debug_message", 205 },
+        { "sprintf", 151 },
+        { "read_file", 107 },
+        { "explode", 26 },
+        { "strlen", 18 },
+        { "query_ip_number", 127 },
+        { "ctime", 119 },
+        { "time", 139 },
+        { "filter", 9 },
+        { "file_size", 105 },
+        { "file_exists", 163 },
+        { "log_file", 241 },
+        { "shout", 65 },
+        { "write", 63 },
+        { "users", 13 },
+        { "query_heart_beat", 14 },
+        { "implode", 27 },
+        { "strsrch", 61 },
+        { "lower_case", 159 },
+        { "upper_case", 160 },
+        { "trim", 161 },
+        { "replace_string", 20 },
+        { "load_object", 69 },
+        { "find_object", 68 },
+        { "clone_object", 8 },
+        { "new", 24 },
+        { "destruct", 25 },
+        { "objectp", 88 },
+        { "stringp", 82 },
+        { "intp", 78 },
+        { "mapp", 87 },
+        { "arrayp", 86 },
+        { "mappingp", 87 },
+        { "write_file", 102 },
+        { "get_dir", 58 },
+        { "stat", 33 },
+        { "rm", 34 },
+        { "mkdir", 35 },
+        { "cp", 36 },
+        { "rename", 37 },
+        { "error", 38 },
+        { "throw", 39 },
+        { "call_out", 40 },
+        { "remove_call_out", 41 },
+        { "find_call_out", 42 },
+        { "set_heart_beat", 43 },
+        { "this_player", 10 },
+        { "this_object", 2 },
+        { "previous_object", 13 },
+        { "crypt", 47 },
+        { "to_int", 48 },
+        { "to_float", 49 },
+        { "to_string", 50 },
+        { "member_array", 51 },
+        { "shuffle", 52 },
+        { "unique_array", 53 },
+        { "uniq_array", 53 },
+        { "reverse_array", 152 },
+        { "copy", 54 },
+        { "allocate", 162 },
+        { "query_ip_name", 56 },
+        { "resolve_path", 242 },
+        { "getuid", 3 },
+        { "geteuid", 238 },
+        { "export_uid", 237 },
+        { "setuid", 243 },
+        { "setgid", 244 },
+        { "user_path", 245 },
+        { "save_variable", 55 },
+        { "restore_variable", 56 },
+        { "interactive", 153 },
+        { "tell_object", 64 },
+        { "move", 246 },
+        { "move_object", 246 },
+        { "first_inventory", 250 },
+        { "next_inventory", 251 },
+        { "deep_inventory", 252 },
+        { "clonep", 77 },
+        { "inherits", 92 },
+        { "object_name", 247 },
+        { "strcmp", 59 },
+        { "strncmp", 248 },
+        { "functionp", 84 },
+        { "floatp", 81 },
+        { "bufferp", 91 },
+        { "message", 67 },
+        { "receive", 66 },
+        { "input_to", 30 },
+        { "get_char", 164 },
+        { "in_input", 157 },
+        { "in_edit", 156 },
+        { "seteuid", 239 },
+        { "environment", 32 },
+        { "all_inventory", 33 },
+        { "file_name", 19 },
+        { "base_name", 249 },
+        { "regexp", 16 },
+        { "reg_assoc", 71 },
+        { "crc32", 124 },
+        { "c_str", 126 },
+        { "envsubst", 128 },
+        { "oldcrypt", 129 },
+        { "old_crypt", 129 },
+        { "strwrap", 130 },
+        { "match_path", 131 },
+    };
 
     public CodeGenerator(CodeGenContext ctx) { _ctx = ctx?? throw new ArgumentNullException(nameof(ctx)); }
     public CodeGenerator() : this(new CodeGenContext()) {}
@@ -145,13 +322,15 @@ const byte F_PUSH_MAPPING = 117; // fixed
         return new ParseFunction { Name = name, Line = 0, Args = new List<ParseNode>(), Body = body };
     }
 
-    private List<ParseFunction> TryLoadBaseFromFile(string inheritPath)
+    private List<ParseFunction> TryLoadBaseFromFile(string inheritPath, out List<GlobalDecl> baseGlobals)
     {
+        baseGlobals = new List<GlobalDecl>();
         var results = new List<ParseFunction>();
         try
         {
             string p = inheritPath.Trim().Trim('"').Trim('\'');
             var candidates = new List<string>();
+            if (!string.IsNullOrEmpty(MudlibRoot) && p.StartsWith("/")) candidates.Add(System.IO.Path.Combine(MudlibRoot, p.TrimStart('/') + ".c"));
             if (p.EndsWith(".c")) candidates.Add(p);
             else candidates.Add(p + ".c");
             candidates.Add(Path.GetFileName(p) + ".c");
@@ -168,6 +347,7 @@ const byte F_PUSH_MAPPING = 117; // fixed
                 var lexer = new Lexer(src, cand, null);
                 var parser = new Parser(lexer, ctx, cand);
                 var funcs = parser.ParseFunctions();
+                if (parser.Globals != null) baseGlobals = new List<GlobalDecl>(parser.Globals);
                 if (funcs != null && funcs.Count > 0)
                 {
                     results.AddRange(funcs);
@@ -189,9 +369,11 @@ const byte F_PUSH_MAPPING = 117; // fixed
     private List<ParseFunction> BuildBaseFunctions(List<ParseFunction> functions)
     {
         var list = new List<ParseFunction>();
+        _baseGlobals.Clear();
         foreach (var inh in Inherits)
         {
-            var loaded = TryLoadBaseFromFile(inh);
+            var loaded = TryLoadBaseFromFile(inh, out var bg);
+            _baseGlobals.AddRange(bg);
             if (loaded.Count > 0) list.AddRange(loaded);
             else if (inh.ToLowerInvariant().Contains("base")) list.Add(MakeReturnFunc("query_base", 41));
         }
@@ -215,6 +397,10 @@ const byte F_PUSH_MAPPING = 117; // fixed
     {
         var prog = new Program(); prog.Name = programName ?? "<prog>";
         var baseFuncs = BuildBaseFunctions(functions);
+        _mergedGlobals.Clear(); _globalIdx.Clear();
+        foreach (var g in _baseGlobals) if (!_globalIdx.ContainsKey(g.Name)) { _globalIdx[g.Name] = _mergedGlobals.Count; _mergedGlobals.Add(g); }
+        foreach (var g in Globals) if (!_globalIdx.ContainsKey(g.Name)) { _globalIdx[g.Name] = _mergedGlobals.Count; _mergedGlobals.Add(g); }
+        prog.NumGlobals = (ushort)_mergedGlobals.Count;
         var existingNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var f in functions) existingNames.Add(f.Name);
         var allFuncs = new List<ParseFunction>();
@@ -240,13 +426,24 @@ const byte F_PUSH_MAPPING = 117; // fixed
             }
         }
         allFuncs.AddRange(functions);
+        // Build function-name -> arity table for (: funcname :) closures
+        _funcArity.Clear();
+        foreach (var f in allFuncs) { if (!_funcArity.ContainsKey(f.Name)) _funcArity[f.Name] = f.Args != null ? f.Args.Count : 0; }
 
+        // Pre-register all function names so forward calls (e.g. create->test) resolve correctly
+        var funcIdxMap = new Dictionary<string, ushort>();
+        foreach (var func in allFuncs) {
+            if (!funcIdxMap.ContainsKey(func.Name)) {
+                ushort preIdx = _ctx.AddFunction(func.Name, 0);
+                funcIdxMap[func.Name] = preIdx;
+            }
+        }
         foreach (var func in allFuncs)
         {
             _locals.Clear(); _loopStack.Clear(); _foreachCounter=0;
             if (func.Args != null) foreach (var arg in func.Args) _locals.Define(arg.Name);
             ushort addr = (ushort)_ctx.CodeBlock.Position;
-            ushort idx = _ctx.AddFunction(func.Name, addr);
+            ushort idx = funcIdxMap[func.Name];
             // args already in locals via interpreter, skip
             if (false && func.Args != null && func.Args.Count > 0)
             {
@@ -256,6 +453,21 @@ const byte F_PUSH_MAPPING = 117; // fixed
             var codeArr = _ctx.CodeBlock.ToArray();
             if (codeArr.Length == addr || codeArr[codeArr.Length-1] != 0xFF) _ctx.CodeBlock.InsByte(F_RETURN);
             _ctx.PatchFunctionAddress(idx, addr);
+        }
+        if (_mergedGlobals.Exists(g => g.Init != null))
+        {
+            _locals.Clear(); _loopStack.Clear(); _foreachCounter=0;
+            ushort gaddr = (ushort)_ctx.CodeBlock.Position;
+            ushort gidx = _ctx.AddFunction("__global_init", 0);
+            foreach (var g in _mergedGlobals)
+            {
+                if (g.Init == null) continue;
+                _ctx.CodeBlock.InsByte(F_GLOBAL_LVALUE); _ctx.CodeBlock.InsShort((short)_globalIdx[g.Name]);
+                GenerateNode(g.Init, false);
+                _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            }
+            _ctx.CodeBlock.InsByte(F_RETURN);
+            _ctx.PatchFunctionAddress(gidx, gaddr);
         }
         prog.Code = _ctx.CodeBlock.ToArray();
         prog.ProgramSize = (ushort)prog.Code.Length;
@@ -277,6 +489,9 @@ const byte F_PUSH_MAPPING = 117; // fixed
                 if (_locals.TryGetIndex(node.Name, out int idx)){
                     _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE);
                     _ctx.CodeBlock.InsByte((byte)idx);
+                } else if (_globalIdx.TryGetValue(node.Name, out int gIdx)) {
+                    _ctx.CodeBlock.InsByte(F_GLOBAL_LVALUE);
+                    _ctx.CodeBlock.InsShort((short)gIdx);
                 } else _ctx.CodeBlock.InsByte(F_CONST0);
                 break;
             case NodeKind.NODE_ARRAY:
@@ -373,12 +588,20 @@ const byte F_PUSH_MAPPING = 117; // fixed
                 EmitNumber(node.NumberValue);
                 if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
                 break;
+            case NodeKind.NODE_REAL:
+                // F_REAL + 8-byte double. VM currently truncates to Number (T_REAL not yet in SValueType).
+                _ctx.CodeBlock.InsByte(F_REAL);
+                _ctx.CodeBlock.InsDouble(node.RealValue);
+                if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
+                break;
             case NodeKind.NODE_STRING:
                 { int strIdx = _ctx.AddString(node.StringValue); _ctx.CodeBlock.InsByte(F_STRING); _ctx.CodeBlock.InsShort((short)strIdx); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
             case NodeKind.NODE_IDENTIFIER:
                 {
+                    if (node.Name.StartsWith("__captured_")) { if (int.TryParse(node.Name.Substring("__captured_".Length), out int ci)) { _ctx.CodeBlock.InsByte(F_CAPTURED); _ctx.CodeBlock.InsByte((byte)ci); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; } }
                     if (node.Name.StartsWith("$")) { if (int.TryParse(node.Name.Substring(1), out int n) && n>=1) { int idx = n-1; _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idx); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; } }
                     if (_locals.TryGetIndex(node.Name, out int localIdx2)) { _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)localIdx2); }
+                    else if (_globalIdx.TryGetValue(node.Name, out int gIdx2)) { _ctx.CodeBlock.InsByte(F_GLOBAL); _ctx.CodeBlock.InsShort((short)gIdx2); }
                     else { int strIdx = _ctx.AddString(node.Name); _ctx.CodeBlock.InsByte(F_STRING); _ctx.CodeBlock.InsShort((short)strIdx); }
                     if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
                     break;
@@ -463,15 +686,9 @@ const byte F_PUSH_MAPPING = 117; // fixed
                     var operand = node.Children[0];
                     if (node.Name == "!")
                     {
-                        if (operand != null && operand.Kind == NodeKind.NODE_IDENTIFIER && _locals.TryGetIndex(operand.Name, out int pIdx2))
-                        {
-                            GenerateNode(operand, false); _ctx.CodeBlock.InsByte(F_CONST0); _ctx.CodeBlock.InsByte(F_EQ); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break;
-                        }
-                        else
-                        {
-                            if (operand != null) GenerateNode(operand, false); else _ctx.CodeBlock.InsByte(F_CONST0);
-                            _ctx.CodeBlock.InsByte(F_CONST0); _ctx.CodeBlock.InsByte(F_EQ); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break;
-                        }
+                        // !x is LPC truthiness (IsTrue), NOT x == 0: empty string is falsy but != 0
+                        if (operand != null) GenerateNode(operand, false); else _ctx.CodeBlock.InsByte(F_CONST0);
+                        _ctx.CodeBlock.InsByte(F_NOT); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break;
                     }
                     if (operand != null && operand.Kind == NodeKind.NODE_IDENTIFIER && _locals.TryGetIndex(operand.Name, out int pIdx))
                     {
@@ -490,6 +707,34 @@ const byte F_PUSH_MAPPING = 117; // fixed
                 }
                 if (node.Name == "&&") { GenerateAnd(node); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
                 if (node.Name == "||") { GenerateOr(node); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
+                // Compound assignment: s += v  =>  s = s + v (lvalue, current, rhs, op, assign)
+                if (node.Name == "+=" || node.Name == "-=" || node.Name == "*=" || node.Name == "/=" || node.Name == "%=" || node.Name == "&=" || node.Name == "|=" || node.Name == "^=" || node.Name == "<<=" || node.Name == ">>=")
+                {
+                    var cLeft = node.Left ?? (node.Children.Count>0 ? node.Children[0] : null);
+                    var cRight = node.Right ?? (node.Children.Count>1 ? node.Children[1] : null);
+                    if (cLeft != null)
+                    {
+                        GenerateLValue(cLeft);
+                        GenerateNode(cLeft, false);
+                        if (cRight != null) GenerateNode(cRight, false); else _ctx.CodeBlock.InsByte(F_CONST0);
+                        switch (node.Name)
+                        {
+                            case "+=": _ctx.CodeBlock.InsByte(F_ADD); break;
+                            case "-=": _ctx.CodeBlock.InsByte(F_SUB); break;
+                            case "*=": _ctx.CodeBlock.InsByte(F_MULTIPLY); break;
+                            case "/=": _ctx.CodeBlock.InsByte(F_DIVIDE); break;
+                            case "%=": _ctx.CodeBlock.InsByte(F_MOD); break;
+                            case "&=": _ctx.CodeBlock.InsByte(F_AND); break;
+                            case "|=": _ctx.CodeBlock.InsByte(F_OR); break;
+                            case "^=": _ctx.CodeBlock.InsByte(F_XOR); break;
+                            case "<<=": _ctx.CodeBlock.InsByte(F_LSH); break;
+                            case ">>=": _ctx.CodeBlock.InsByte(F_RSH); break;
+                        }
+                        if (isStmt) _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+                        else _ctx.CodeBlock.InsByte(F_ASSIGN);
+                    }
+                    break;
+                }
                 if (node.Left!= null || node.Right!= null) { if (node.Left!= null) GenerateNode(node.Left, false); if (node.Right!= null) GenerateNode(node.Right, false); }
                 else if (node.Children.Count >= 2) { GenerateNode(node.Children[0], false); GenerateNode(node.Children[1], false); }
                 switch (node.Name)
@@ -529,6 +774,72 @@ const byte F_PUSH_MAPPING = 117; // fixed
                 else if (node.Name == "switch") GenerateSwitch(node);
                 else GenerateWhile(node);
                 break;
+            case NodeKind.NODE_TERNARY:
+                {
+                    // cond ? trueExpr : falseExpr
+                    if (node.Children.Count < 3) break;
+                    var cond = node.Children[0];
+                    var trueExpr = node.Children[1];
+                    var falseExpr = node.Children[2];
+                    GenerateNode(cond, false);
+                    int branchFalsePos = _ctx.CodeBlock.Position;
+                    _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO);
+                    _ctx.CodeBlock.InsShort(0);
+                    GenerateNode(trueExpr, false);
+                    int branchEndPos = _ctx.CodeBlock.Position;
+                    _ctx.CodeBlock.InsByte(F_BRANCH);
+                    _ctx.CodeBlock.InsShort(0);
+                    int falseStart = _ctx.CodeBlock.Position;
+                    PatchShort(branchFalsePos+1, (short)(falseStart - (branchFalsePos+3)));
+                    GenerateNode(falseExpr, false);
+                    int after = _ctx.CodeBlock.Position;
+                    PatchShort(branchEndPos+1, (short)(after - (branchEndPos+3)));
+                    if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
+                    break;
+                }
+            case NodeKind.NODE_CATCH:
+                {
+                    // catch(expr): F_CATCH offset, expr, POP, F_END_CATCH, BRANCH over handler
+                    if (node.Children.Count < 1) { _ctx.CodeBlock.InsByte(F_CONST0); break; }
+                    var inner = node.Children[0];
+                    int catchPos = _ctx.CodeBlock.Position;
+                    _ctx.CodeBlock.InsByte(38); // F_CATCH
+                    _ctx.CodeBlock.InsShort(0); // placeholder
+                    GenerateNode(inner, false);
+                    _ctx.CodeBlock.InsByte(F_POP); // discard inner value
+                    _ctx.CodeBlock.InsByte(39); // F_END_CATCH
+                    int branchOverPos = _ctx.CodeBlock.Position;
+                    _ctx.CodeBlock.InsByte(F_BRANCH);
+                    _ctx.CodeBlock.InsShort(0);
+                    int handlerPos = _ctx.CodeBlock.Position;
+                    // handler: on error VM pushes error string and jumps here
+                    // nothing needed, error already on stack
+                    int afterHandler = _ctx.CodeBlock.Position;
+                    PatchShort(catchPos+1, (short)(handlerPos - (catchPos+3)));
+                    PatchShort(branchOverPos+1, (short)(afterHandler - (branchOverPos+3)));
+                    // normal path: F_END_CATCH pushes 0, so stack has 0
+                    if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
+                    break;
+                }
+            case NodeKind.NODE_NEW:
+                {
+                    // new(path) => clone_object alias for ES2
+                    if (node.Children.Count == 0)
+                    {
+                        _ctx.CodeBlock.InsByte(112); // F_NEW_EMPTY_CLASS
+                    }
+                    else
+                    {
+                        // first arg is path/class
+                        GenerateNode(node.Children[0], false);
+                        // for simplicity treat as clone_object
+                        _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(8);
+                        // extra args ignored for now
+                        for (int i=1;i<node.Children.Count;i++) { /* push but pop? */ }
+                    }
+                    if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
+                    break;
+                }
             case NodeKind.NODE_CALL:
                 {
                     if (node.Name == "sscanf" ) {
@@ -540,23 +851,35 @@ const byte F_PUSH_MAPPING = 117; // fixed
                         if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
                         break;
                     }
-                    if (node.Name == "write" ) { foreach (var arg in node.Children) GenerateNode(arg, false); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(23); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
-                    if (node.Name == "sizeof" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_SIZEOF); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
-                    if (node.Name == "keys" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_KEYS); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
-                    if (node.Name == "values" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_VALUES); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
-                    if ((node.Name == "m_delete" || node.Name == "map_delete") && node.Children.Count==2) { GenerateNode(node.Children[0], false); GenerateNode(node.Children[1], false); _ctx.CodeBlock.InsByte(F_M_DELETE); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
+                    if (node.Name == "write" ) { foreach (var arg in node.Children) GenerateNode(arg, false); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(63); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
+                    if (node.Name == "sizeof" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(17); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
+                    if (node.Name == "keys" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(73); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
+                    if (node.Name == "values" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(72); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
+                    if ((node.Name == "m_delete" || node.Name == "map_delete") && node.Children.Count==2) { GenerateNode(node.Children[0], false); GenerateNode(node.Children[1], false); _ctx.CodeBlock.InsByte(F_EFUN2); _ctx.CodeBlock.InsByte(75); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
+                    if ((node.Name == "acos" || node.Name == "asin" || node.Name == "atan" || node.Name == "cos" || node.Name == "sin" || node.Name == "tan" || node.Name == "exp" || node.Name == "ceil" || node.Name == "floor") && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte((byte)(node.Name=="acos"?132:node.Name=="asin"?133:node.Name=="atan"?134:node.Name=="cos"?135:node.Name=="sin"?136:node.Name=="tan"?137:node.Name=="exp"?138:node.Name=="ceil"?141:142)); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
+                    if (node.Name == "pow" && node.Children.Count==2) { GenerateNode(node.Children[0], false); GenerateNode(node.Children[1], false); _ctx.CodeBlock.InsByte(F_EFUN2); _ctx.CodeBlock.InsByte(140); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
+                    if ((node.Name == "set_bit" || node.Name == "clear_bit" || node.Name == "test_bit") && node.Children.Count==2) { GenerateNode(node.Children[0], false); GenerateNode(node.Children[1], false); _ctx.CodeBlock.InsByte(F_EFUN2); _ctx.CodeBlock.InsByte((byte)(node.Name=="set_bit"?143:node.Name=="clear_bit"?144:145)); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
                     if (node.Name == "evaluate") { foreach (var arg in node.Children) GenerateNode(arg, false); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte((byte)node.Children.Count); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
-                    if (node.Name == "filter" && node.Children.Count==2) { GenerateFilter(node, isStmt); break; }
-                    if (node.Name == "map" && node.Children.Count==2) { GenerateMap(node, isStmt); break; }
+                    if ((node.Name == "filter" || node.Name == "filter_array" || node.Name == "filter_objects" || node.Name == "filter_mapping") && node.Children.Count>=3 && node.Children[1].Kind==NodeKind.NODE_STRING) { foreach (var ch in node.Children) GenerateNode(ch, false); _ctx.CodeBlock.InsByte(F_EFUNV); _ctx.CodeBlock.InsByte((byte)146); _ctx.CodeBlock.InsByte((byte)node.Children.Count); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
+                    if ((node.Name == "map" || node.Name == "map_array" || node.Name == "map_objects" || node.Name == "map_mapping") && node.Children.Count>=3 && node.Children[1].Kind==NodeKind.NODE_STRING) { foreach (var ch in node.Children) GenerateNode(ch, false); _ctx.CodeBlock.InsByte(F_EFUNV); _ctx.CodeBlock.InsByte((byte)147); _ctx.CodeBlock.InsByte((byte)node.Children.Count); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
+                    if (node.Name == "unique_mapping" && node.Children.Count>=3 && node.Children[1].Kind==NodeKind.NODE_STRING) { foreach (var ch in node.Children) GenerateNode(ch, false); _ctx.CodeBlock.InsByte(F_EFUNV); _ctx.CodeBlock.InsByte((byte)150); _ctx.CodeBlock.InsByte((byte)node.Children.Count); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
+                    if (node.Name == "filter_mapping" && (node.Children.Count==2 || node.Children.Count==3)) { GenerateFilter(node, isStmt); break; }
+                    if (node.Name == "map_mapping" && (node.Children.Count==2 || node.Children.Count==3)) { GenerateMapMapping(node, isStmt); break; }
+                    if (node.Name == "unique_mapping" && (node.Children.Count==2 || node.Children.Count==3)) { GenerateUniqueMapping(node, isStmt); break; }
+                    if ((node.Name == "filter" || node.Name == "filter_array" || node.Name == "filter_objects") && node.Children.Count==2) { GenerateFilter(node, isStmt); break; }
+                    if ((node.Name == "map" || node.Name == "map_array" || node.Name == "map_objects") && node.Children.Count==2) { GenerateMap(node, isStmt); break; }
+                    if ((node.Name == "filter" || node.Name == "filter_array" || node.Name == "filter_objects") && node.Children.Count==3) { GenerateFilter(node, isStmt); break; }
+                    if ((node.Name == "map" || node.Name == "map_array" || node.Name == "map_objects") && node.Children.Count==3) { GenerateMap(node, isStmt); break; }
+                    if (node.Name == "sort_array" && node.Children.Count>=3 && node.Children[1].Kind==NodeKind.NODE_STRING) { foreach (var ch in node.Children) GenerateNode(ch, false); _ctx.CodeBlock.InsByte(F_EFUNV); _ctx.CodeBlock.InsByte((byte)155); _ctx.CodeBlock.InsByte((byte)node.Children.Count); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
                     if (node.Name == "sort_array" && node.Children.Count==2) { GenerateSortArray(node, isStmt); break; }
-                    if (node.Name == "clone_object" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_CLONE_OBJECT); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
+                    if (node.Name == "clone_object" && node.Children.Count==1) { GenerateNode(node.Children[0], false); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(8); if (isStmt) _ctx.CodeBlock.InsByte(F_POP); break; }
                     string callName = node.Name;
                     if (callName.StartsWith("::"))
                     {
                         string baseName = callName.Substring(2);
                         string parentName = "__parent_" + baseName;
                         ushort pIdx = FindFunction(parentName);
-                        if (pIdx != 0 || (_ctx.Functions.Count>0 && _ctx.Functions[0].Name == parentName))
+                        if (pIdx != 0xFFFF)
                         {
                             callName = parentName;
                         }
@@ -565,8 +888,40 @@ const byte F_PUSH_MAPPING = 117; // fixed
                             callName = baseName;
                         }
                     }
+                    // strip efun:: prefix
+                    string efunCheckName = callName;
+                    if (efunCheckName.Contains("::")) efunCheckName = efunCheckName.Substring(efunCheckName.LastIndexOf("::")+2);
+                    if (EfunMap.TryGetValue(efunCheckName, out byte efunIdx))
+                    {
+                        foreach (var arg in node.Children) GenerateNode(arg, false);
+                        int nargs = node.Children.Count;
+                        if (nargs==0) { _ctx.CodeBlock.InsByte(F_EFUN0); _ctx.CodeBlock.InsByte(efunIdx); }
+                        else if (nargs==1) { _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(efunIdx); }
+                        else if (nargs==2) { _ctx.CodeBlock.InsByte(F_EFUN2); _ctx.CodeBlock.InsByte(efunIdx); }
+                        else if (nargs==3) { _ctx.CodeBlock.InsByte(F_EFUN3); _ctx.CodeBlock.InsByte(efunIdx); }
+                        else { _ctx.CodeBlock.InsByte(F_EFUNV); _ctx.CodeBlock.InsByte(efunIdx); _ctx.CodeBlock.InsByte((byte)nargs); }
+                        if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
+                        break;
+                    }
+                    if (callName == "call_other") {
+                        foreach (var arg in node.Children) GenerateNode(arg, false);
+                        _ctx.CodeBlock.InsByte(F_EFUNV); _ctx.CodeBlock.InsByte(0);
+                        _ctx.CodeBlock.InsByte((byte)node.Children.Count);
+                        if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
+                        break;
+                    }
                     foreach (var arg in node.Children) GenerateNode(arg, false);
                     ushort fIdx = FindFunction(callName);
+                    if (fIdx == 0xFFFF) {
+                        // Unknown in this object: try simul_efun at runtime (cursor_translate, message_vision, gender_*, cjk_wrap, etc.)
+                        // Args already on stack. Emit F_SIMUL_EFUN <strIdx> <nargs>; Interpreter falls back to 0 if not in simul_efun either.
+                        int strIdx = _ctx.AddString(callName);
+                        _ctx.CodeBlock.InsByte(F_SIMUL_EFUN);
+                        _ctx.CodeBlock.InsShort((short)strIdx);
+                        _ctx.CodeBlock.InsByte((byte)node.Children.Count);
+                        if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
+                        break;
+                    }
                     _ctx.CodeBlock.InsByte(43) /* F_CALL */; _ctx.CodeBlock.InsShort((short)fIdx); _ctx.CodeBlock.InsByte((byte)node.Children.Count);
                     if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
                     break;
@@ -653,62 +1008,166 @@ const byte F_PUSH_MAPPING = 117; // fixed
     private void GenerateDotCall(ParseNode node, bool isStmt)
     {
         if (node.Children.Count == 0) return;
-        var objNode = node.Children[0];
-        GenerateNode(objNode, false);
+        // special handling for .len() / .length / .sizeof() -> sizeof
+        string m = node.Name;
+        if (m == "len" || m == "length" || m == "sizeof" || m == "size")
+        {
+            var objNode = node.Children[0];
+            GenerateNode(objNode, false);
+            _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(17);
+            if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
+            return;
+        }
+        var objNode2 = node.Children[0];
+        GenerateNode(objNode2, false);
         int strIdx = _ctx.AddString(node.Name);
         _ctx.CodeBlock.InsByte(F_STRING); _ctx.CodeBlock.InsShort((short)strIdx);
         for (int i=1;i<node.Children.Count;i++) GenerateNode(node.Children[i], false);
-        byte nargs = (byte)(node.Children.Count - 1);
-        _ctx.CodeBlock.InsByte(F_CALL_OTHER);
+        byte nargs = (byte)(node.Children.Count + 1); // total: obj + funcName + args
+        _ctx.CodeBlock.InsByte(F_EFUNV); _ctx.CodeBlock.InsByte(0);
         _ctx.CodeBlock.InsByte(nargs);
         if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
     }
 
+
+        private void GenerateMapMapping(ParseNode node, bool isStmt)
+        {
+            var arrNode = node.Children[0]; var clNode = node.Children[1]; var extraNode = node.Children.Count>2 ? node.Children[2] : null;
+            string id = $"{_filterCounter++}";
+            string srcName = $"__mapmap_src_{id}"; string clName = $"__mapmap_cl_{id}"; string resName = $"__mapmap_res_{id}"; string idxName = $"__mapmap_idx_{id}"; string extraName = $"__mapmap_extra_{id}";
+            int srcIdx = _locals.Define(srcName); int clIdx = _locals.Define(clName); int resIdx = _locals.Define(resName); int idxLocal = _locals.Define(idxName); int extraIdx = _locals.Define(extraName);
+            string keysName = $"__mapmap_keys_{id}"; string keyName = $"__mapmap_key_{id}"; string valName = $"__mapmap_val_{id}"; string tmpName = $"__mapmap_tmp_{id}";
+            int keysIdx = _locals.Define(keysName); int keyIdx = _locals.Define(keyName); int valIdx = _locals.Define(valName); int tmpIdx = _locals.Define(tmpName);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)srcIdx); GenerateNode(arrNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)clIdx); GenerateNode(clNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            if (extraNode != null) { _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)extraIdx); GenerateNode(extraNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN); }
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(F_PUSH_MAPPING); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)keysIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(73); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_CONST0); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            int loopCondPos = _ctx.CodeBlock.Position; var loopInfo = new LoopInfo2 { CondPos = loopCondPos }; _loopStack.Push(loopInfo);
+            _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keysIdx); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(17); _ctx.CodeBlock.InsByte(F_LT);
+            int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keysIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            if (extraNode != null) { _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)extraIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(4); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN); }
+            else { _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(3); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN); }
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_INDEX_LVALUE); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_CONST1); _ctx.CodeBlock.InsByte(F_ADD); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BBRANCH); short backOffset = (short)(loopCondPos - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset);
+            int afterLoop = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop();
+            _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)resIdx); if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
+        }
+
+
+        private void GenerateUniqueMapping(ParseNode node, bool isStmt)
+        {
+            var arrNode = node.Children[0]; var clNode = node.Children[1]; var extraNode = node.Children.Count>2 ? node.Children[2] : null;
+            string id = $"{_filterCounter++}";
+            string srcName = $"__uniq_src_{id}"; string clName = $"__uniq_cl_{id}"; string resName = $"__uniq_res_{id}"; string idxName = $"__uniq_idx_{id}"; string extraName = $"__uniq_extra_{id}";
+            int srcIdx = _locals.Define(srcName); int clIdx = _locals.Define(clName); int resIdx = _locals.Define(resName); int idxLocal = _locals.Define(idxName); int extraIdx = _locals.Define(extraName);
+            string elemName = $"__uniq_elem_{id}"; string keyName = $"__uniq_key_{id}"; string existName = $"__uniq_exist_{id}"; string tmpName = $"__uniq_tmp_{id}"; string singleName = $"__uniq_single_{id}";
+            int elemIdx = _locals.Define(elemName); int keyIdx = _locals.Define(keyName); int existIdx = _locals.Define(existName); int tmpIdx = _locals.Define(tmpName); int singleIdx = _locals.Define(singleName);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)srcIdx); GenerateNode(arrNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)clIdx); GenerateNode(clNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            if (extraNode != null) { _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)extraIdx); GenerateNode(extraNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN); }
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(F_PUSH_MAPPING); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_CONST0); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            int loopCondPos = _ctx.CodeBlock.Position; var loopInfo = new LoopInfo2 { CondPos = loopCondPos }; _loopStack.Push(loopInfo);
+            _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(17); _ctx.CodeBlock.InsByte(F_LT);
+            int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            if (extraNode != null) { _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)extraIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(3); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN); }
+            else { _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN); }
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)singleIdx); _ctx.CodeBlock.InsByte(F_CONST1); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)singleIdx); _ctx.CodeBlock.InsByte(F_BYTE); _ctx.CodeBlock.InsByte(0); _ctx.CodeBlock.InsByte(F_INDEX_LVALUE); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)existIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)existIdx); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(86);
+            int brNotArray = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)existIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)singleIdx); _ctx.CodeBlock.InsByte(F_ADD); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            int jmpStore = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH); _ctx.CodeBlock.InsShort(0);
+            int createPos = _ctx.CodeBlock.Position; PatchShort(brNotArray+1, (short)(createPos - (brNotArray+3)));
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)singleIdx); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            int storePos = _ctx.CodeBlock.Position; PatchShort(jmpStore+1, (short)(storePos - (jmpStore+3)));
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_INDEX_LVALUE); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_CONST1); _ctx.CodeBlock.InsByte(F_ADD); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+            int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BBRANCH); short backOffset = (short)(loopCondPos - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset);
+            int afterLoop = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop();
+            _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)resIdx); if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
+        }
+
         private void GenerateFilter(ParseNode node, bool isStmt)
     {
-        var arrNode = node.Children[0]; var clNode = node.Children[1];
+        var arrNode = node.Children[0]; var clNode = node.Children[1]; var extraNode = node.Children.Count>2 ? node.Children[2] : null;
         string id = $"{_filterCounter++}";
-        string srcName = $"__filter_src_{id}"; string clName = $"__filter_cl_{id}"; string resName = $"__filter_res_{id}"; string idxName = $"__filter_idx_{id}"; string elemName = $"__filter_elem_{id}";
-        int srcIdx = _locals.Define(srcName); int clIdx = _locals.Define(clName); int resIdx = _locals.Define(resName); int idxLocal = _locals.Define(idxName); int elemIdx = _locals.Define(elemName);
+        string srcName = $"__filter_src_{id}"; string clName = $"__filter_cl_{id}"; string resName = $"__filter_res_{id}"; string idxName = $"__filter_idx_{id}"; string elemName = $"__filter_elem_{id}"; string extraName = $"__filter_extra_{id}";
+        int srcIdx = _locals.Define(srcName); int clIdx = _locals.Define(clName); int resIdx = _locals.Define(resName); int idxLocal = _locals.Define(idxName); int elemIdx = _locals.Define(elemName); int extraIdx = _locals.Define(extraName);
+        string keysName = $"__filter_keys_{id}"; string keyName = $"__filter_key_{id}"; string valName = $"__filter_val_{id}";
+        int keysIdx = _locals.Define(keysName); int keyIdx = _locals.Define(keyName); int valIdx = _locals.Define(valName);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)srcIdx); GenerateNode(arrNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)clIdx); GenerateNode(clNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+        if (extraNode != null) { _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)extraIdx); GenerateNode(extraNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN); }
+        // if (!mapp(src)) goto array_path
+        _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(87);
+        int branchToArrayPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0);
+        // ---- mapping path: filter(mapping, func(key, val [, extra])) -> mapping ----
+        _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(F_PUSH_MAPPING); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+        _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)keysIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(73); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+        _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_CONST0); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+        int mapLoopCondPos = _ctx.CodeBlock.Position; var mapLoopInfo = new LoopInfo2 { CondPos = mapLoopCondPos }; _loopStack.Push(mapLoopInfo);
+        _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keysIdx); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(17); _ctx.CodeBlock.InsByte(F_LT);
+        int mapBranchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0);
+        _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keysIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+        _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+        if (extraNode != null) { _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)extraIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(4); }
+        else { _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(3); }
+        int mapBranchIfFalse = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0);
+        _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keyIdx); _ctx.CodeBlock.InsByte(F_INDEX_LVALUE); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+        int mapAfterIf = _ctx.CodeBlock.Position; PatchShort(mapBranchIfFalse+1, (short)(mapAfterIf - (mapBranchIfFalse+3)));
+        _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_CONST1); _ctx.CodeBlock.InsByte(F_ADD); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+        int mapBranchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BBRANCH); short mapBackOffset = (short)(mapLoopCondPos - (mapBranchBackPos + 3)); _ctx.CodeBlock.InsShort(mapBackOffset);
+        int mapAfterLoop = _ctx.CodeBlock.Position; PatchShort(mapBranchFalsePos + 1, (short)(mapAfterLoop - (mapBranchFalsePos + 3))); foreach (var bp in mapLoopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(mapAfterLoop - (bp + 3))); _loopStack.Pop();
+        _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)resIdx); if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
+        int jumpToEndPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH); _ctx.CodeBlock.InsShort(0);
+        // ---- array path (existing) ----
+        int arrayPathPos = _ctx.CodeBlock.Position; PatchShort(branchToArrayPos + 1, (short)(arrayPathPos - (branchToArrayPos + 3)));
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(F_CONST0); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_CONST0); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         int loopCondPos = _ctx.CodeBlock.Position; var loopInfo = new LoopInfo2 { CondPos = loopCondPos }; _loopStack.Push(loopInfo);
-        _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_SIZEOF); _ctx.CodeBlock.InsByte(F_LT);
+        _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(17); _ctx.CodeBlock.InsByte(F_LT);
         int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
-        _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(2);
+        if (extraNode != null) { _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)extraIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(3); }
+        else { _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(2); }
         int branchIfFalse = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0);
-        // tmp array for single element
         string tmpArr = $"__filter_tmp_{id}"; int tmpIdx = _locals.Define(tmpArr);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(F_CONST1); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(F_BYTE); _ctx.CodeBlock.InsByte(0); _ctx.CodeBlock.InsByte(F_INDEX_LVALUE); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
-        // res += tmp  => res = res + tmp
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(F_ADD); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         int afterIf = _ctx.CodeBlock.Position; PatchShort(branchIfFalse+1, (short)(afterIf - (branchIfFalse+3)));
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_CONST1); _ctx.CodeBlock.InsByte(F_ADD); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BBRANCH); short backOffset = (short)(loopCondPos - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset);
         int afterLoop = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop();
         _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)resIdx); if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
+        int endPos = _ctx.CodeBlock.Position; PatchShort(jumpToEndPos + 1, (short)(endPos - (jumpToEndPos + 3)));
     }
-
 
         private void GenerateMap(ParseNode node, bool isStmt)
     {
-        var arrNode = node.Children[0]; var clNode = node.Children[1];
+        var arrNode = node.Children[0]; var clNode = node.Children[1]; var extraNode = node.Children.Count>2 ? node.Children[2] : null;
         string id = $"{_filterCounter++}";
-        string srcName = $"__map_src_{id}"; string clName = $"__map_cl_{id}"; string resName = $"__map_res_{id}"; string idxName = $"__map_idx_{id}"; string elemName = $"__map_elem_{id}"; string valName = $"__map_val_{id}";
-        int srcIdx = _locals.Define(srcName); int clIdx = _locals.Define(clName); int resIdx = _locals.Define(resName); int idxLocal = _locals.Define(idxName); int elemIdx = _locals.Define(elemName); int valIdx = _locals.Define(valName);
+        string srcName = $"__map_src_{id}"; string clName = $"__map_cl_{id}"; string resName = $"__map_res_{id}"; string idxName = $"__map_idx_{id}"; string elemName = $"__map_elem_{id}"; string valName = $"__map_val_{id}"; string extraName = $"__map_extra_{id}";
+        int srcIdx = _locals.Define(srcName); int clIdx = _locals.Define(clName); int resIdx = _locals.Define(resName); int idxLocal = _locals.Define(idxName); int elemIdx = _locals.Define(elemName); int valIdx = _locals.Define(valName); int extraIdx = _locals.Define(extraName);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)srcIdx); GenerateNode(arrNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)clIdx); GenerateNode(clNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+        if (extraNode != null) { _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)extraIdx); GenerateNode(extraNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN); }
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)resIdx); _ctx.CodeBlock.InsByte(F_CONST0); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_CONST0); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         int loopCondPos = _ctx.CodeBlock.Position; var loopInfo = new LoopInfo2 { CondPos = loopCondPos }; _loopStack.Push(loopInfo);
-        _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_SIZEOF); _ctx.CodeBlock.InsByte(F_LT);
+        _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(17); _ctx.CodeBlock.InsByte(F_LT);
         int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
-        _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+        if (extraNode != null) { _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)extraIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(3); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN); }
+        else { _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)clIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)elemIdx); _ctx.CodeBlock.InsByte(F_EVALUATE); _ctx.CodeBlock.InsByte(2); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN); }
         string tmpArr = $"__map_tmp_{id}"; int tmpIdx = _locals.Define(tmpArr);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(F_CONST1); _ctx.CodeBlock.InsByte(F_PUSH_ARRAY); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)tmpIdx); _ctx.CodeBlock.InsByte(F_BYTE); _ctx.CodeBlock.InsByte(0); _ctx.CodeBlock.InsByte(F_INDEX_LVALUE); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)valIdx); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
@@ -728,7 +1187,7 @@ const byte F_PUSH_MAPPING = 117; // fixed
         int srcIdx = _locals.Define(srcName); int clIdx = _locals.Define(clName); int iIdx = _locals.Define(iName); int jIdx = _locals.Define(jName); int nIdx = _locals.Define(nName); int aIdx = _locals.Define(aName); int bIdx = _locals.Define(bName); int tmpIdx = _locals.Define(tmpName);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)srcIdx); GenerateNode(arrNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)clIdx); GenerateNode(clNode, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
-        _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)nIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_SIZEOF); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+        _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)nIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)srcIdx); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(17); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)iIdx); _ctx.CodeBlock.InsByte(F_CONST0); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         int outerCondPos = _ctx.CodeBlock.Position;
         var outerLoop = new LoopInfo2 { CondPos = outerCondPos }; _loopStack.Push(outerLoop);
@@ -780,10 +1239,48 @@ const byte F_PUSH_MAPPING = 117; // fixed
         var savedLocals = _locals.Clone();
         _locals.Clear();
         for (int i=1;i<=maxArg;i++) _locals.Define($"${i}");
-        foreach (var child in node.Children)
-        {
-            if (child.Kind == NodeKind.NODE_FUNCTION_DEF) { foreach (var stmt in child.Children) GenerateNode(stmt, true); }
-            else { GenerateNode(child, false); _ctx.CodeBlock.InsByte(F_RETURN); break; }
+        if (node.Children.Count > 1) {
+            // Multi-arg closure: (: func, bound1, bound2, ... :) => return func(bound1, bound2, ..., $1)
+            // First child is callee (identifier or expression), rest are bound args
+            var callee = node.Children[0];
+            // If callee is identifier call_other, handle specially: it needs F_CALL_OTHER with total args
+            // Build a synthetic CALL node: callee(boundArgs + $1)
+            var callNode = new ParseNode { Kind = NodeKind.NODE_CALL, Line = node.Line };
+            if (callee.Kind == NodeKind.NODE_IDENTIFIER) {
+                callNode.Name = callee.Name;
+            } else {
+                // For non-identifier callee (e.g. $1->func), we fallback to generating first child only
+                GenerateNode(callee, false); _ctx.CodeBlock.InsByte(F_RETURN);
+            }
+            if (callee.Kind == NodeKind.NODE_IDENTIFIER) {
+                for (int i=1;i<node.Children.Count;i++) { var ph = ParseNode.NewIdentifier($"__captured_{i-1}", node.Line); callNode.AddChild(ph); }
+                // Forward $1 as extra arg if closure is evaluated with an argument (e.g. evaluate(closure, opt))
+                // We need to ensure $1 is defined as local
+                int dollar1Idx = _locals.Define("$1");
+                // Actually $1 local already defined via maxArg loop if needed, but ensure it exists
+                // Generate $1 identifier node
+                var dollar1 = ParseNode.NewIdentifier("$1", node.Line);
+                // Only add $1 if maxArg was 0? We always add $1 for multi-arg to forward evaluate arg
+                // To avoid pushing Invalid when no extra arg, we still push $1; Interpreter will have Invalid if not provided, which is harmless for call_other
+                callNode.AddChild(dollar1);
+                // Ensure $1 local is defined (if maxArg was 0, we didn't define it yet, so define now)
+                // _locals already has $1 if maxArg>=1, else we just defined it
+                GenerateNode(callNode, false);
+                _ctx.CodeBlock.InsByte(F_RETURN);
+            }
+        } else if (node.Children.Count == 1 && node.Children[0].Kind == NodeKind.NODE_IDENTIFIER && _funcArity.TryGetValue(node.Children[0].Name, out int arity)) {
+            // (: funcname :) => funcname($1, ..., $arity) : forward closure args to the named function
+            var callNode = new ParseNode { Kind = NodeKind.NODE_CALL, Line = node.Line };
+            callNode.Name = node.Children[0].Name;
+            for (int i = 1; i <= arity; i++) { _locals.Define($"${i}"); callNode.AddChild(ParseNode.NewIdentifier($"${i}", node.Line)); }
+            GenerateNode(callNode, false);
+            _ctx.CodeBlock.InsByte(F_RETURN);
+        } else {
+            foreach (var child in node.Children)
+            {
+                if (child.Kind == NodeKind.NODE_FUNCTION_DEF) { foreach (var stmt in child.Children) GenerateNode(stmt, true); }
+                else { GenerateNode(child, false); _ctx.CodeBlock.InsByte(F_RETURN); break; }
+            }
         }
         var codeArr = _ctx.CodeBlock.ToArray();
         if (codeArr.Length == closureAddr || codeArr[codeArr.Length-1] != 0xFF) _ctx.CodeBlock.InsByte(F_RETURN);
@@ -791,8 +1288,16 @@ const byte F_PUSH_MAPPING = 117; // fixed
         int afterClosure = _ctx.CodeBlock.Position;
         PatchShort(branchPos+1, (short)(afterClosure - (branchPos+3)));
         _locals.Restore(savedLocals);
-        _ctx.CodeBlock.InsByte(F_PUSH_CLOSURE);
-        _ctx.CodeBlock.InsShort((short)closureIdx);
+        if (node.Children.Count > 1) {
+            // Evaluate bound args NOW in outer scope and capture them
+            for (int i=1;i<node.Children.Count;i++) GenerateNode(node.Children[i], false);
+            _ctx.CodeBlock.InsByte(F_PUSH_CLOSURE_CAPTURED);
+            _ctx.CodeBlock.InsShort((short)closureIdx);
+            _ctx.CodeBlock.InsByte((byte)(node.Children.Count-1));
+        } else {
+            _ctx.CodeBlock.InsByte(F_PUSH_CLOSURE);
+            _ctx.CodeBlock.InsShort((short)closureIdx);
+        }
         if (isStmt) _ctx.CodeBlock.InsByte(F_POP);
     }
 
@@ -813,15 +1318,30 @@ const byte F_PUSH_MAPPING = 117; // fixed
         string keyName = keyNode?.Name; string valName = valNode?.Name;
         if (!string.IsNullOrEmpty(keyName)) _locals.Define(keyName);
         if (!string.IsNullOrEmpty(valName)) _locals.Define(valName);
-        string idxName = $"__foreach_idx_{_foreachCounter}"; string keysName = $"__foreach_keys_{_foreachCounter}"; _foreachCounter++;
-        int idxLocal = _locals.Define(idxName); int keysLocal = _locals.Define(keysName);
+        string idxName = $"__foreach_idx_{_foreachCounter}"; string keysName = $"__foreach_keys_{_foreachCounter}"; string contName = $"__foreach_cont_{_foreachCounter}"; _foreachCounter++;
+        int idxLocal = _locals.Define(idxName); int keysLocal = _locals.Define(keysName); int contLocal = _locals.Define(contName);
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_CONST0); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
-        _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)keysLocal); GenerateNode(container, false); _ctx.CodeBlock.InsByte(F_KEYS); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+        _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)contLocal); GenerateNode(container, false); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+        _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)keysLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)contLocal); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(73); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
         int loopCondPos = _ctx.CodeBlock.Position; var loopInfo = new LoopInfo2 { CondPos = loopCondPos }; _loopStack.Push(loopInfo);
-        _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keysLocal); _ctx.CodeBlock.InsByte(F_SIZEOF); _ctx.CodeBlock.InsByte(F_LT);
+        _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keysLocal); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(17); _ctx.CodeBlock.InsByte(F_LT);
         int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0);
         if (!string.IsNullOrEmpty(keyName)) { if (_locals.TryGetIndex(keyName, out int kIdx)) { _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)kIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)keysLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN); } }
-        if (!string.IsNullOrEmpty(valName) && !string.IsNullOrEmpty(keyName)) { if (_locals.TryGetIndex(valName, out int vIdx)) { _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)vIdx); GenerateNode(container, false); if (_locals.TryGetIndex(keyName, out int kIdx2)) { _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)kIdx2); } _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN); } }
+        // Single-var foreach over array: x should be value, not index. If container is array, deref: x = container[x]
+        if (string.IsNullOrEmpty(valName) && !string.IsNullOrEmpty(keyName)) {
+            if (_locals.TryGetIndex(keyName, out int kIdx3)) {
+                _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)contLocal); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(86); // arrayp
+                int arrCheckPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0);
+                _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)kIdx3); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)contLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)kIdx3); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+                int afterDeref = _ctx.CodeBlock.Position; PatchShort(arrCheckPos+1, (short)(afterDeref - (arrCheckPos+3)));
+                // string: also deref to single-char string
+                _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)contLocal); _ctx.CodeBlock.InsByte(F_EFUN1); _ctx.CodeBlock.InsByte(82); // stringp
+                int strCheckPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0);
+                _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)kIdx3); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)contLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)kIdx3); _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
+                int afterStrDeref = _ctx.CodeBlock.Position; PatchShort(strCheckPos+1, (short)(afterStrDeref - (strCheckPos+3)));
+            }
+        }
+        if (!string.IsNullOrEmpty(valName) && !string.IsNullOrEmpty(keyName)) { if (_locals.TryGetIndex(valName, out int vIdx)) { _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)vIdx); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)contLocal); if (_locals.TryGetIndex(keyName, out int kIdx2)) { _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)kIdx2); } _ctx.CodeBlock.InsByte(F_INDEX); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN); } }
         if (body != null) GenerateNode(body, true);
         int incStart = _ctx.CodeBlock.Position; foreach (var cp in loopInfo.ContinuePatchPositions) PatchShort(cp + 1, (short)(incStart - (cp + 3))); loopInfo.ContinuePatchPositions.Clear();
         _ctx.CodeBlock.InsByte(F_LOCAL_LVALUE); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_LOCAL); _ctx.CodeBlock.InsByte((byte)idxLocal); _ctx.CodeBlock.InsByte(F_CONST1); _ctx.CodeBlock.InsByte(F_ADD); _ctx.CodeBlock.InsByte(F_VOID_ASSIGN);
@@ -829,8 +1349,8 @@ const byte F_PUSH_MAPPING = 117; // fixed
         int afterLoop = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop();
     }
 
-    private void GenerateAnd(ParseNode node) { ParseNode left = node.Left ?? (node.Children.Count>0? node.Children[0]:null); ParseNode right = node.Right ?? (node.Children.Count>1? node.Children[1]:null); if (left != null) GenerateNode(left, false); int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0); if (right != null) GenerateNode(right, false); int branchFalse2Pos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0); _ctx.CodeBlock.InsByte(F_CONST1); int branchEndPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH); _ctx.CodeBlock.InsShort(0); int falseLabel = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_CONST0); int endLabel = _ctx.CodeBlock.Position; PatchShort(branchFalsePos+1, (short)(falseLabel - (branchFalsePos+3))); PatchShort(branchFalse2Pos+1, (short)(falseLabel - (branchFalse2Pos+3))); PatchShort(branchEndPos+1, (short)(endLabel - (branchEndPos+3))); }
-    private void GenerateOr(ParseNode node) { ParseNode left = node.Left ?? (node.Children.Count>0? node.Children[0]:null); ParseNode right = node.Right ?? (node.Children.Count>1? node.Children[1]:null); if (left != null) GenerateNode(left, false); int branchTruePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_NON_ZERO); _ctx.CodeBlock.InsShort(0); if (right != null) GenerateNode(right, false); int branchTrue2Pos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_NON_ZERO); _ctx.CodeBlock.InsShort(0); _ctx.CodeBlock.InsByte(F_CONST0); int branchEndPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH); _ctx.CodeBlock.InsShort(0); int trueLabel = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_CONST1); int endLabel = _ctx.CodeBlock.Position; PatchShort(branchTruePos+1, (short)(trueLabel - (branchTruePos+3))); PatchShort(branchTrue2Pos+1, (short)(trueLabel - (branchTrue2Pos+3))); PatchShort(branchEndPos+1, (short)(endLabel - (branchEndPos+3))); }
+    private void GenerateAnd(ParseNode node) { ParseNode left = node.Left ?? (node.Children.Count>0? node.Children[0]:null); ParseNode right = node.Right ?? (node.Children.Count>1? node.Children[1]:null); if (left != null) GenerateNode(left, false); _ctx.CodeBlock.InsByte(F_DUP); int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0); _ctx.CodeBlock.InsByte(F_POP); if (right != null) GenerateNode(right, false); int endLabel = _ctx.CodeBlock.Position; PatchShort(branchFalsePos+1, (short)(endLabel - (branchFalsePos+3))); }
+    private void GenerateOr(ParseNode node) { ParseNode left = node.Left ?? (node.Children.Count>0? node.Children[0]:null); ParseNode right = node.Right ?? (node.Children.Count>1? node.Children[1]:null); if (left != null) GenerateNode(left, false); _ctx.CodeBlock.InsByte(F_DUP); int branchTruePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_NON_ZERO); _ctx.CodeBlock.InsShort(0); _ctx.CodeBlock.InsByte(F_POP); if (right != null) GenerateNode(right, false); int endLabel = _ctx.CodeBlock.Position; PatchShort(branchTruePos+1, (short)(endLabel - (branchTruePos+3))); }
     private void GenerateIf(ParseNode node) { if (node.Children.Count == 0) return; var cond = node.Children[0]; var thenStmt = node.Children.Count > 1 ? node.Children[1] : null; var elseStmt = node.Children.Count > 2 ? node.Children[2] : null; GenerateNode(cond, false); int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0); if (thenStmt != null) GenerateNode(thenStmt, true); if (elseStmt != null) { int branchEndPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH); _ctx.CodeBlock.InsShort(0); int elseStart = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(elseStart - (branchFalsePos + 3))); GenerateNode(elseStmt, true); int afterElse = _ctx.CodeBlock.Position; PatchShort(branchEndPos + 1, (short)(afterElse - (branchEndPos + 3))); } else { int afterThen = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(afterThen - (branchFalsePos + 3))); } }
     private void GenerateWhile(ParseNode node) { if (node.Children.Count == 0) return; var cond = node.Children[0]; var body = node.Children.Count > 1 ? node.Children[1] : null; int loopStart = _ctx.CodeBlock.Position; var loopInfo = new LoopInfo2 { CondPos = loopStart }; _loopStack.Push(loopInfo); GenerateNode(cond, false); int branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0); if (body != null) GenerateNode(body, true); foreach (var cp in loopInfo.ContinuePatchPositions) PatchShort(cp + 1, (short)(loopStart - (cp + 3))); int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BBRANCH); short backOffset = (short)(loopStart - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset); int afterLoop = _ctx.CodeBlock.Position; PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop(); }
     private void GenerateFor(ParseNode node) { if (node.Children.Count < 4) return; var init = node.Children[0]; var cond = node.Children[1]; var inc = node.Children[2]; var body = node.Children[3]; if (init != null && !(init.Name != null && init.Name.StartsWith("__empty"))) GenerateNode(init, true); int loopCondPos = _ctx.CodeBlock.Position; bool hasCond = !(cond.Name != null && cond.Name.StartsWith("__empty")); int branchFalsePos = -1; if (hasCond) { GenerateNode(cond, false); branchFalsePos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BRANCH_WHEN_ZERO); _ctx.CodeBlock.InsShort(0); } var loopInfo = new LoopInfo2 { CondPos = loopCondPos }; _loopStack.Push(loopInfo); if (body != null) GenerateNode(body, true); int incStart = _ctx.CodeBlock.Position; foreach (var cp in loopInfo.ContinuePatchPositions) PatchShort(cp + 1, (short)(incStart - (cp + 3))); loopInfo.ContinuePatchPositions.Clear(); bool hasInc = !(inc.Name != null && inc.Name.StartsWith("__empty")); if (hasInc) GenerateNode(inc, true); int branchBackPos = _ctx.CodeBlock.Position; _ctx.CodeBlock.InsByte(F_BBRANCH); short backOffset = (short)(loopCondPos - (branchBackPos + 3)); _ctx.CodeBlock.InsShort(backOffset); int afterLoop = _ctx.CodeBlock.Position; if (hasCond) PatchShort(branchFalsePos + 1, (short)(afterLoop - (branchFalsePos + 3))); foreach (var bp in loopInfo.BreakPatchPositions) PatchShort(bp + 1, (short)(afterLoop - (bp + 3))); _loopStack.Pop(); }
@@ -883,7 +1403,7 @@ const byte F_PUSH_MAPPING = 117; // fixed
         // last resort: try to get array via ToArray and reconstruct? We need to at least log
         System.Console.Error.WriteLine($"[PatchShort] failed to patch at {pos} val {val}, type {type.FullName}");
     }
-    private ushort FindFunction(string name) { for (int i = 0; i < _ctx.Functions.Count; i++) if (_ctx.Functions[i].Name == name) return (ushort)i; return 0; }
+    private ushort FindFunction(string name) { for (int i = 0; i < _ctx.Functions.Count; i++) if (_ctx.Functions[i].Name == name) return (ushort)i; return 0xFFFF; }
     private void EmitNumber(long val) { if (val == 0) _ctx.CodeBlock.InsByte(F_CONST0); else if (val == 1) _ctx.CodeBlock.InsByte(F_CONST1); else if (val >= -128 && val <= 127) { _ctx.CodeBlock.InsByte(F_BYTE); _ctx.CodeBlock.InsByte((byte)(sbyte)val); } else if (val >= int.MinValue && val <= int.MaxValue) { _ctx.CodeBlock.InsByte(F_NUMBER); _ctx.CodeBlock.InsInt((int)val); } else { _ctx.CodeBlock.InsByte(F_LONG); _ctx.CodeBlock.InsLong(val); } }
 }
 

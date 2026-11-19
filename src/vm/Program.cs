@@ -10,7 +10,13 @@ public sealed class LpcObject
     public Dictionary<string, int> Functions { get; } = new();
     public SValueS[] Variables { get; set; }
     public Program CurrentProgram { get; set; }
-    public LpcObject(string programName = "<obj>", Program prog = null) { ProgramName = programName; CurrentProgram = prog; }
+    public LpcObject Environment { get; set; }
+    public bool Destructed { get; set; }
+    public System.Collections.Generic.List<LpcObject> Inventory { get; } = new();
+    public string FailMessage { get; set; }
+    public string LivingName { get; set; }
+    public System.Collections.Generic.List<System.ValueTuple<string,string>> Actions { get; } = new();
+    public LpcObject(string programName = "<obj>", Program prog = null) { ProgramName = programName; CurrentProgram = prog; if (prog != null && prog.NumGlobals > 0) { Variables = new SValueS[prog.NumGlobals]; for (int i = 0; i < Variables.Length; i++) Variables[i] = new SValueS(); } }
     public bool TryFindFunction(string name, out int fIdx, out int target)
     {
         fIdx = -1; target = -1;
@@ -51,5 +57,6 @@ public sealed class Program
     public ushort NumStrings { get; set; }
     public ushort NumFunctionsDefined { get; set; }
     public ushort NumFunctionsTotal { get; set; }
+    public ushort NumGlobals { get; set; }
 }
 

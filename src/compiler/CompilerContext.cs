@@ -63,6 +63,7 @@ namespace LithosNet.Compiler
         public void InsShort(ushort s) { _buf[_pos++] = (byte)(s & 0xFF); _buf[_pos++] = (byte)(s >> 8); }
         public void InsInt(int i) { var b = BitConverter.GetBytes(i); Buffer.BlockCopy(b, 0, _buf, _pos, 4); _pos += 4; }
         public void InsLong(long l) { var b = BitConverter.GetBytes(l); Buffer.BlockCopy(b, 0, _buf, _pos, 8); _pos += 8; }
+        public void InsDouble(double d) { var b = BitConverter.GetBytes(d); Buffer.BlockCopy(b, 0, _buf, _pos, 8); _pos += 8; }
         public byte[] ToArray() { var r = new byte[_pos]; Buffer.BlockCopy(_buf, 0, r, 0, _pos); return r; }
     }
 }

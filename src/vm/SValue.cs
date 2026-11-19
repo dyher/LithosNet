@@ -74,6 +74,7 @@ public readonly struct SValue : IEquatable<SValue>
     public static SValue NewMapping(SValueMapping map) => new(SValueType.T_MAPPING, map: map);
     public static SValue NewObject(object obj) => new(SValueType.T_OBJECT, obj: obj);
     public static SValue NewFunction(int funcIdx) => new(SValueType.T_FUNCTION, number: funcIdx, funcIdx: funcIdx);
+    public static SValue NewFunctionCaptured(int funcIdx, object cap) => new(SValueType.T_FUNCTION, number: funcIdx, funcIdx: funcIdx, obj: cap);
     public static SValue Invalid => new(SValueType.T_INVALID);
     public static SValue NewLValue(LValueDesc lvd=null) => new(SValueType.T_LVALUE, obj: lvd);
 
@@ -150,8 +151,8 @@ public sealed class SValueS
 }
 
 
-public enum LValueKind : byte { Local=0, Index=1, RIndex=2, Range=3 }
-public sealed class LValueDesc { public LValueKind Kind; public int LocalIdx=-1; public LValueDesc Parent; public SValueS Index; public SValueS Start; public SValueS End; public bool SRev; public bool ERev; public bool EExcl; }
+public enum LValueKind : byte { Local=0, Index=1, RIndex=2, Range=3, Global=4 }
+public sealed class LValueDesc { public LValueKind Kind; public int LocalIdx=-1; public int GlobalIdx=-1; public LValueDesc Parent; public SValueS Index; public SValueS Start; public SValueS End; public bool SRev; public bool ERev; public bool EExcl; }
 
 public sealed class SValueU
 {

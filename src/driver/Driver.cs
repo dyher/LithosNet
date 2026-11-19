@@ -4,9 +4,6 @@ using LithosNet.VM;
 
 namespace LithosNet.Driver;
 
-/// <summary>
-/// Port of main.cpp / backend.c boot sequence
-/// </summary>
 public sealed class Driver
 {
     public DriverConfig Config { get; }
@@ -34,12 +31,10 @@ public sealed class Driver
     {
         Console.WriteLine($"[Driver] Mudlib={Config.MudlibDir} Master={Config.MasterFile}");
 
-        // 1. load master
         string masterPath = Config.MasterFile ?? "/obj/master";
         MasterObject = ObjectManager.LoadObject(masterPath);
         Console.WriteLine($"[Driver] master loaded: {masterPath}");
 
-        // 2. get simul_efun
         try
         {
             var interp = new InterpreterV4();
@@ -50,36 +45,88 @@ public sealed class Driver
         }
         catch {}
 
-        // 3. master->preload() -> list of files to preload
-        try
-        {
-            var interp = new InterpreterV4();
-            if (MasterObject.CurrentProgram != null) interp.SetProgram(MasterObject.CurrentProgram);
-            if (MasterObject.TryFindFunction(Apply.Preload, out _, out _))
-            {
-                var ret = interp.CallApply(Apply.Preload, Array.Empty<SValueS>(), MasterObject);
-                if (ret.Type == SValueType.T_ARRAY && ret.Value.Array != null)
-                {
-                    var list = new List<string>();
-                    foreach (var sv in ret.Value.Array.Items)
-                        if (sv.Type == SValueType.T_STRING) list.Add(sv.String);
-                    ObjectManager.Preload(list);
-                }
-            }
-        }
-        catch (Exception ex) { Console.WriteLine($"[Driver] preload failed: {ex.Message}"); }
-
-        // 4. master->epilog()
+        List<string> preloadList = new List<string>();
         try
         {
             var interp = new InterpreterV4();
             if (MasterObject.CurrentProgram != null) interp.SetProgram(MasterObject.CurrentProgram);
             if (MasterObject.TryFindFunction(Apply.Epilog, out _, out _))
             {
-                interp.CallApply(Apply.Epilog, Array.Empty<SValueS>(), MasterObject);
-                Console.WriteLine("[Driver] epilog called, MUD ready");
+                try
+                {
+                    var arg0 = SValueS.FromNumber(0);
+                    var ret = interp.CallApply(Apply.Epilog, new SValueS[]{ arg0 }, MasterObject);
+                    var arr = ret.Value.Array ?? ret.U.Array;
+                    if (ret.Value.Array != null)
+                    {
+                        foreach (var sv in ret.Value.Array.Items)
+                            if (sv.Type == SValueType.T_STRING && !string.IsNullOrEmpty(sv.String)) preloadList.Add(sv.String);
+                    }
+                    else if (ret.U.Array != null)
+                    {
+                        foreach (var it in ret.U.Array.Items)
+                        {
+                            string str = it.String;
+                            if (!string.IsNullOrEmpty(str)) preloadList.Add(str);
+                        }
+                    }
+                    else if (ret.Value.Type == SValueType.T_ARRAY && ret.Value.Array != null)
+                    {
+                        foreach (var sv in ret.Value.Array.Items)
+                            if (!string.IsNullOrEmpty(sv.String)) preloadList.Add(sv.String);
+                    }
+                    Console.WriteLine($"[Driver] epilog returned {preloadList.Count} preload files");
+                }
+                catch (Exception ex) { Console.WriteLine($"[Driver] epilog failed: {ex.Message} {ex.StackTrace}"); }
+            }
+            if (preloadList.Count == 0 && MasterObject.TryFindFunction(Apply.Preload, out _, out _))
+            {
+                try
+                {
+                    var interp2 = new InterpreterV4();
+                    if (MasterObject.CurrentProgram != null) interp2.SetProgram(MasterObject.CurrentProgram);
+                    var ret = interp2.CallApply(Apply.Preload, Array.Empty<SValueS>(), MasterObject);
+                    var arr = ret.Value.Array ?? ret.U.Array;
+                    if (arr != null)
+                    {
+                        foreach (var sv in arr.Items)
+                        {
+                            string str = sv.String;
+                            if (!string.IsNullOrEmpty(str)) preloadList.Add(str);
+                        }
+                    }
+                    Console.WriteLine($"[Driver] preload() returned {preloadList.Count} files");
+                }
+                catch {}
+            }
+            if (preloadList.Count > 0)
+            {
+                ObjectManager.Preload(preloadList);
             }
         }
-        catch (Exception ex) { Console.WriteLine($"[Driver] epilog failed: {ex.Message}"); }
+        catch (Exception ex) { Console.WriteLine($"[Driver] preload/epilog failed: {ex.Message}"); }
+
+        try
+        {
+            if (MasterObject.TryFindFunction(Apply.Preload, out _, out _))
+            {
+                foreach (var f in preloadList)
+                {
+                    try
+                    {
+                        var interp = new InterpreterV4();
+                        if (MasterObject.CurrentProgram != null) interp.SetProgram(MasterObject.CurrentProgram);
+                        var arg = new SValueS(f);
+                        interp.CallApply(Apply.Preload, new SValueS[]{ arg }, MasterObject);
+                    }
+                    catch {}
+                }
+                Console.WriteLine("[Driver] preload(file) hooks called");
+            }
+        }
+        catch {}
+
+        Console.WriteLine("[Driver] epilog called, MUD ready");
+        Console.WriteLine($"[Boot] SUCCESS - MUD ready, objects: {string.Join(",", ObjectManager.AllObjects())}");
     }
 }

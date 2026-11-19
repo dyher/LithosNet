@@ -27,7 +27,10 @@ public enum NodeKind
     NODE_CLASS,
     NODE_INHERIT,
     NODE_INCLUDE,
-    NODE_CLOSURE
+    NODE_CLOSURE,
+    NODE_TERNARY,
+    NODE_CATCH,
+    NODE_NEW
 }
 
 [Flags]
@@ -115,6 +118,12 @@ public sealed class ParseFunction
     public ushort Flags;
     public int Line;
     public bool IsVarArgs;
+}
+
+public sealed class GlobalDecl
+{
+    public string Name = "";
+    public ParseNode Init;
 }
 
 public sealed class ParseClass

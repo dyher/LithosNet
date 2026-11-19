@@ -9,9 +9,12 @@ namespace LithosNet.VM;
 /// </summary>
 public sealed class HeartBeatManager
 {
+    public static HeartBeatManager Current { get; } = new HeartBeatManager();
     private readonly HashSet<LpcObject> _active = new();
     private int _intervalMs = 1000;
     private long _lastTick = 0;
+
+    public bool HasHeartBeat(LpcObject ob) => ob != null && _active.Contains(ob);
 
     public void SetHeartBeat(LpcObject ob, bool on)
     {

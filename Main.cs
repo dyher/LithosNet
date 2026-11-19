@@ -45,6 +45,7 @@ public static class ProgramDriver
             }
 
             var codegen = new CodeGenerator(ctx.InnerContext);
+            codegen.Globals = new System.Collections.Generic.List<LithosNet.Compiler.GlobalDecl>(parser.Globals);
             try { var fld = parser.GetType().GetField("Inherits"); if (fld != null) { var inh = fld.GetValue(parser) as List<string>; if (inh != null) codegen.Inherits = new List<string>(inh); } else { var prop = parser.GetType().GetProperty("Inherits"); if (prop != null) { var inh = prop.GetValue(parser) as List<string>; if (inh != null) codegen.Inherits = new List<string>(inh); } } } catch {}
             var prog = codegen.GenerateProgram(Path.GetFileNameWithoutExtension(path), funcs);
 
@@ -90,6 +91,7 @@ public static class ProgramDriver
             }
 
             var codegen = new CodeGenerator(ctx.InnerContext);
+            codegen.Globals = new System.Collections.Generic.List<LithosNet.Compiler.GlobalDecl>(parser.Globals);
             try { var fld = parser.GetType().GetField("Inherits"); if (fld != null) { var inh = fld.GetValue(parser) as List<string>; if (inh != null) codegen.Inherits = new List<string>(inh); } else { var prop = parser.GetType().GetProperty("Inherits"); if (prop != null) { var inh = prop.GetValue(parser) as List<string>; if (inh != null) codegen.Inherits = new List<string>(inh); } } } catch {}
             var prog = codegen.GenerateProgram(Path.GetFileNameWithoutExtension(path), funcs);
 
@@ -119,7 +121,7 @@ public static class ProgramDriver
             if (!Path.IsPathRooted(cfg.MudlibDir))
                 cfg.MudlibDir = Path.GetFullPath(Path.Combine(confDir, cfg.MudlibDir));
             cfg.Dump();
-            var driver = new Driver(cfg);
+            var driver = new global::LithosNet.Driver.Driver(cfg);
             try { driver.Boot(); Console.WriteLine("[Boot] SUCCESS - MUD ready, objects: " + string.Join(",", driver.ObjectManager.AllObjects())); }
             catch (Exception ex) { Console.WriteLine($"[Boot] FAILED: {ex}"); }
             return;

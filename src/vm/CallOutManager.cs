@@ -9,6 +9,7 @@ namespace LithosNet.VM;
 /// </summary>
 public sealed class CallOutManager
 {
+    public static CallOutManager Current { get; } = new CallOutManager();
     private sealed class Entry
     {
         public long DueTick;
@@ -34,6 +35,14 @@ public sealed class CallOutManager
         _queue.Add(e);
         _queue.Sort((a,b)=>a.DueTick.CompareTo(b.DueTick));
         return e.Handle;
+    }
+
+    public int FindCallOut(LpcObject obj, string func)
+    {
+        foreach(var e in _queue) {
+            if(e.Obj == obj && e.Func == func) return e.Handle;
+        }
+        return -1;
     }
 
     public bool RemoveCallOut(int handle)
