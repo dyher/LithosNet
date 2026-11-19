@@ -254,6 +254,7 @@ public sealed class InterpreterP9
         }
     }
     string CurrentOrigin = "driver";
+    string CurrentVerb = "";
     public static PendingInput GlobalPending = null;
     public static void FeedInput(string input) {
         var pend = GlobalPending; if(pend==null) return; GlobalPending=null;
@@ -1543,6 +1544,12 @@ void HandleEfun(byte efunIdx, byte nargs)
                 PushString(s160.ToUpperInvariant());
                 break;
             }
+            case 166: // query_verb() - 目前 command 的 verb
+            {
+                Sp-=nargs;
+                PushString(CurrentVerb ?? "");
+                break;
+            }
             case 165: // query_ip_name([ob]) - stub, return localhost
             {
                 Sp-=nargs;
@@ -2715,6 +2722,7 @@ void HandleEfun(byte efunIdx, byte nargs)
                     int sp3 = cmd.IndexOf(' ');
                     if(sp3 > 0) { verb = cmd.Substring(0, sp3); rest = cmd.Substring(sp3+1); }
                     // 1) 自己的動作表  2) 環境內其他物件的動作表（Neolith 命令搜尋順序）
+                    CurrentVerb = verb;
                     System.Collections.Generic.List<LpcObject> search = new();
                     if(CurrentObject != null) search.Add(CurrentObject);
                     if(CurrentObject?.Environment != null) search.AddRange(CurrentObject.Environment.Inventory);
