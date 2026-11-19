@@ -2512,6 +2512,23 @@ void HandleEfun(byte efunIdx, byte nargs)
                 PushArray(arr);
                 break;
             }
+            case 99: // call_out_info() - ({ ({ob, func, delay_sec}), ... })
+            {
+                var arr99 = new SValueArray();
+                try {
+                    foreach(var e in CallOutManager.Current.ListAll()) {
+                        var inner = new SValueArray();
+                        var obSv = new SValueS(); obSv.Value = SValue.NewObject(e.Obj); obSv.U.Object = e.Obj;
+                        inner.Items.Add(obSv.Value);
+                        inner.Items.Add(SValue.NewString(e.Func));
+                        inner.Items.Add(SValue.NewNumber(e.DelayMs / 1000));
+                        arr99.Items.Add(SValue.NewArray(inner));
+                    }
+                } catch {}
+                Sp-=nargs;
+                PushArray(arr99);
+                break;
+            }
             case 100: // livings()
             {
                 var arr = new SValueArray();

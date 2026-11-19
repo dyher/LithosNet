@@ -65,5 +65,13 @@ public sealed class CallOutManager
         }
     }
 
+    public System.Collections.Generic.List<(int Handle, LpcObject Obj, string Func, long DelayMs)> ListAll()
+    {
+        long now = Environment.TickCount64;
+        var r = new System.Collections.Generic.List<(int, LpcObject, string, long)>();
+        foreach(var e in _queue) r.Add((e.Handle, e.Obj, e.Func, System.Math.Max(0, e.DueTick - now)));
+        return r;
+    }
+
     public int Count => _queue.Count;
 }
