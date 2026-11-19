@@ -170,6 +170,7 @@ public sealed class ObjectManager
     public bool Destruct(LpcObject ob)
     {
         if(ob == null) return false;
+        if(ob.Destructed) return false;
         ob.Destructed = true;
         string key = ob.ProgramName ?? "";
         if(string.IsNullOrEmpty(key)) return true;

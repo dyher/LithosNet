@@ -220,7 +220,7 @@ const byte F_DUP = 120;
         { "load_object", 69 },
         { "find_object", 68 },
         { "clone_object", 8 },
-        { "new", 24 },
+        { "new", 8 },
         { "destruct", 25 },
         { "objectp", 88 },
         { "stringp", 82 },
