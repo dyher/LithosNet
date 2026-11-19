@@ -1011,6 +1011,21 @@ void HandleEfun(byte efunIdx, byte nargs)
                 PushString(result);
                 break;
             }
+            case 108: // query_host_name()
+            {
+                Sp-=nargs;
+                PushString(System.Environment.MachineName);
+                break;
+            }
+            case 113: // uptime() - seconds since process start
+            {
+                long up113 = 0;
+                try { up113 = (long)(System.DateTime.UtcNow - System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime()).TotalSeconds; } catch {}
+                if(up113<0) up113 = 0;
+                Sp-=nargs;
+                PushNumber(up113);
+                break;
+            }
             case 107: // read_file
             {
                 string path = GetArgString(0);
@@ -1122,10 +1137,16 @@ void HandleEfun(byte efunIdx, byte nargs)
                 PushString("127.0.0.1");
                 break;
             }
-            case 119: // ctime
+            case 119: // ctime([time])
             {
+                string s119;
+                if(nargs>=1) {
+                    long t119 = GetArgNumber(0);
+                    try { s119 = System.DateTimeOffset.FromUnixTimeSeconds(t119).ToLocalTime().ToString(); }
+                    catch { s119 = System.DateTime.Now.ToString(); }
+                } else s119 = System.DateTime.Now.ToString();
                 Sp-=nargs;
-                PushString(System.DateTime.Now.ToString());
+                PushString(s119);
                 break;
             }
             case 139: // time
@@ -1520,6 +1541,12 @@ void HandleEfun(byte efunIdx, byte nargs)
                 string s160=GetArgString(0);
                 Sp-=nargs;
                 PushString(s160.ToUpperInvariant());
+                break;
+            }
+            case 165: // query_ip_name([ob]) - stub, return localhost
+            {
+                Sp-=nargs;
+                PushString("localhost");
                 break;
             }
             case 163: // file_exists(path) - 1=file, -1=dir, 0=missing

@@ -255,7 +255,7 @@ const byte F_DUP = 120;
         { "reverse_array", 152 },
         { "copy", 54 },
         { "allocate", 162 },
-        { "query_ip_name", 56 },
+        { "query_ip_name", 165 },
         { "resolve_path", 242 },
         { "getuid", 3 },
         { "geteuid", 238 },
