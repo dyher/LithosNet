@@ -1544,6 +1544,22 @@ void HandleEfun(byte efunIdx, byte nargs)
                 PushString(s160.ToUpperInvariant());
                 break;
             }
+            case 167: // regreplace(str, pattern, replacement [, flag]) - flag&1=replace all, else first only
+            {
+                string s167 = GetArgString(0);
+                string pat167 = GetArgString(1);
+                string rep167 = GetArgString(2);
+                int flag167 = nargs > 3 ? (int)GetArgNumber(3) : 0;
+                string out167 = s167;
+                try {
+                    var re167 = new System.Text.RegularExpressions.Regex(pat167);
+                    if ((flag167 & 1) != 0) out167 = re167.Replace(s167, rep167);
+                    else out167 = re167.Replace(s167, rep167, 1);
+                } catch { out167 = s167; }
+                Sp-=nargs;
+                PushString(out167);
+                break;
+            }
             case 166: // query_verb() - 目前 command 的 verb
             {
                 Sp-=nargs;

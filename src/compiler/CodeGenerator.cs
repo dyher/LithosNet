@@ -142,6 +142,7 @@ const byte F_DUP = 120;
         { "random", 4 },
         { "notify_fail", 5 },
         { "query_verb", 166 },
+        { "regreplace", 167 },
         { "present", 6 },
         { "add_action", 7 },
         { "command", 21 },
