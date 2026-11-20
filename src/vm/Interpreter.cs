@@ -1544,6 +1544,39 @@ void HandleEfun(byte efunIdx, byte nargs)
                 PushString(s160.ToUpperInvariant());
                 break;
             }
+            case 168: // shadow(ob, flag) - CurrentObject shadow ob (flag!=0) / unshadow (flag==0)
+            {
+                LpcObject tgt168 = null;
+                if(nargs>=1) { var o168 = GetArg(0); if(o168.U.Object is LpcObject l168) tgt168 = l168; else if(o168.Value.Object is LpcObject l168b) tgt168 = l168b; }
+                long flag168 = nargs>=2 ? GetArgNumber(1) : 1;
+                int ok168 = 0;
+                if(CurrentObject!=null && tgt168!=null && tgt168!=CurrentObject && !tgt168.Destructed && !CurrentObject.Destructed) {
+                    if(flag168!=0) {
+                        if(tgt168.ShadowedBy==null && CurrentObject.Shadowing==null) { tgt168.ShadowedBy = CurrentObject; CurrentObject.Shadowing = tgt168; ok168 = 1; }
+                    } else {
+                        if(tgt168.ShadowedBy==CurrentObject && CurrentObject.Shadowing==tgt168) { tgt168.ShadowedBy = null; CurrentObject.Shadowing = null; ok168 = 1; }
+                    }
+                }
+                Sp-=nargs;
+                if(ok168==1 && flag168!=0) PushObject(tgt168); else PushNumber(0);
+                break;
+            }
+            case 169: // query_shadowing(ob) - 誰在 shadow ob
+            {
+                LpcObject tgt169 = null;
+                if(nargs>=1) { var o169 = GetArg(0); if(o169.U.Object is LpcObject l169) tgt169 = l169; else if(o169.Value.Object is LpcObject l169b) tgt169 = l169b; }
+                Sp-=nargs;
+                if(tgt169!=null && tgt169.ShadowedBy!=null && !tgt169.ShadowedBy.Destructed) PushObject(tgt169.ShadowedBy); else PushNumber(0);
+                break;
+            }
+            case 170: // query_shadowed(ob?) - ob 正在 shadow 誰（無 arg 時查 CurrentObject）
+            {
+                LpcObject sh170 = CurrentObject;
+                if(nargs>=1) { var o170 = GetArg(0); if(o170.U.Object is LpcObject l170) sh170 = l170; else if(o170.Value.Object is LpcObject l170b) sh170 = l170b; }
+                Sp-=nargs;
+                if(sh170!=null && sh170.Shadowing!=null && !sh170.Shadowing.Destructed) PushObject(sh170.Shadowing); else PushNumber(0);
+                break;
+            }
             case 167: // regreplace(str, pattern, replacement [, flag]) - flag&1=replace all, else first only
             {
                 string s167 = GetArgString(0);
@@ -3491,6 +3524,17 @@ void HandleEfun(byte efunIdx, byte nargs)
 
     SValueS CallApplyInObject(LpcObject obj, string funcName, SValueS[] args)
     {
+        // shadow chain: 最外層優先；caller 就是 shadower 本人時 bypass（讓 shadow 能呼叫原物件）
+        if(obj!=null && obj.ShadowedBy!=null) {
+            LpcObject caller = CurrentObject;
+            var chain = new System.Collections.Generic.List<LpcObject>(); chain.Add(obj);
+            var cur = obj;
+            while(cur.ShadowedBy!=null && cur.ShadowedBy!=caller && !cur.ShadowedBy.Destructed && !chain.Contains(cur.ShadowedBy)) { chain.Add(cur.ShadowedBy); cur = cur.ShadowedBy; }
+            for(int ci=chain.Count-1; ci>=0; ci--) {
+                var cand = chain[ci];
+                if(cand.CurrentProgram!=null && cand.TryFindFunction(funcName, out int fIdx, out int tgt) && tgt>=0) { obj = cand; break; }
+            }
+        }
         if(obj.CurrentProgram==null) return SValueS.FromNumber(0);
         int target=-1;
         for(int i=0;i<obj.CurrentProgram.FunctionTable.Length;i++)

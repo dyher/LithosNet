@@ -16,6 +16,8 @@ public sealed class LpcObject
     public string FailMessage { get; set; }
     public string LivingName { get; set; }
     public System.Collections.Generic.List<System.ValueTuple<string,string>> Actions { get; } = new();
+    public LpcObject ShadowedBy; // 正在 shadow 這個物件的物件
+    public LpcObject Shadowing; // 這個物件正在 shadow 的物件
     public LpcObject(string programName = "<obj>", Program prog = null) { ProgramName = programName; CurrentProgram = prog; if (prog != null && prog.NumGlobals > 0) { Variables = new SValueS[prog.NumGlobals]; for (int i = 0; i < Variables.Length; i++) Variables[i] = new SValueS(); } }
     public bool TryFindFunction(string name, out int fIdx, out int target)
     {
