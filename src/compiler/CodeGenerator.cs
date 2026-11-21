@@ -270,6 +270,8 @@ const byte F_DUP = 120;
         { "user_path", 245 },
         { "save_variable", 55 },
         { "save_object", 171 },
+        { "json_encode", 173 },
+        { "json_decode", 174 },
         { "restore_object", 172 },
         { "restore_variable", 56 },
         { "interactive", 153 },

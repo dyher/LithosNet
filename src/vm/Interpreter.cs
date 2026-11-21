@@ -937,6 +937,97 @@ void HandleEfun(byte efunIdx, byte nargs)
             s.U = new SValueU { Number = v.Number, String = v.String, Array = v.Array, Mapping = v.Mapping, Object = v.Object };
             return s;
         }
+        string JsonEncodeSValue(SValue v) {
+            switch(v.Type) {
+                case SValueType.T_NUMBER: return v.Number.ToString();
+                case SValueType.T_STRING: {
+                    string s = v.String ?? "";
+                    var sb = new System.Text.StringBuilder(); sb.Append('"');
+                    foreach(char c in s) {
+                        switch(c) { case '"': sb.Append("\\\""); break; case '\\': sb.Append("\\\\"); break; case '\n': sb.Append("\\n"); break; case '\r': sb.Append("\\r"); break; case '\t': sb.Append("\\t"); break; case '\b': sb.Append("\\b"); break; case '\f': sb.Append("\\f"); break; default: if(c < 0x20) sb.Append("\\u" + ((int)c).ToString("x4")); else sb.Append(c); break; }
+                    }
+                    sb.Append('"'); return sb.ToString();
+                }
+                case SValueType.T_ARRAY: {
+                    var arr = v.Array; if(arr==null) return "[]";
+                    var parts = new System.Collections.Generic.List<string>();
+                    foreach(var it in arr.Items) parts.Add(JsonEncodeSValue(it));
+                    return "[" + string.Join(",", parts) + "]";
+                }
+                case SValueType.T_MAPPING: {
+                    var map = v.Mapping; if(map==null) return "{}";
+                    var parts2 = new System.Collections.Generic.List<string>();
+                    foreach(var kv in map.Map) {
+                        string ks = kv.Key.Type==SValueType.T_STRING ? (kv.Key.String ?? "") : (kv.Key.Type==SValueType.T_NUMBER ? kv.Key.Number.ToString() : kv.Key.ToString());
+                        parts2.Add(JsonEncodeSValue(SValue.NewString(ks)) + ":" + JsonEncodeSValue(kv.Value));
+                    }
+                    return "{" + string.Join(",", parts2) + "}";
+                }
+                default: return "null";
+            }
+        }
+        bool JsonSkipWs(string s, ref int pos) { while(pos<s.Length && char.IsWhiteSpace(s[pos])) pos++; return pos<s.Length; }
+        bool JsonParseValue(string s, ref int pos, out SValue result) {
+            result = SValue.Invalid;
+            if(!JsonSkipWs(s, ref pos)) return false;
+            char c = s[pos];
+            if(c=='"') {
+                pos++;
+                var sb = new System.Text.StringBuilder();
+                while(pos<s.Length) {
+                    char ch = s[pos++];
+                    if(ch=='"') { result = SValue.NewString(sb.ToString()); return true; }
+                    if(ch=='\\') {
+                        if(pos>=s.Length) return false;
+                        char e = s[pos++];
+                        switch(e) { case '"': sb.Append('"'); break; case '\\': sb.Append('\\'); break; case '/': sb.Append('/'); break; case 'b': sb.Append('\b'); break; case 'f': sb.Append('\f'); break; case 'n': sb.Append('\n'); break; case 'r': sb.Append('\r'); break; case 't': sb.Append('\t'); break; case 'u': if(pos+4>s.Length) return false; string hex = s.Substring(pos, 4); pos+=4; if(!int.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out int cp)) return false; sb.Append((char)cp); break; default: return false; }
+                    } else sb.Append(ch);
+                }
+                return false;
+            }
+            if(c=='{') {
+                pos++;
+                var map = new SValueMapping();
+                if(!JsonSkipWs(s, ref pos)) return false;
+                if(pos<s.Length && s[pos]=='}') { pos++; result = SValue.NewMapping(map); return true; }
+                while(true) {
+                    if(!JsonParseValue(s, ref pos, out SValue k) || k.Type!=SValueType.T_STRING) return false;
+                    if(!JsonSkipWs(s, ref pos) || pos>=s.Length || s[pos]!=':') return false;
+                    pos++;
+                    if(!JsonParseValue(s, ref pos, out SValue v)) return false;
+                    map.Map[k]=v;
+                    if(!JsonSkipWs(s, ref pos)) return false;
+                    if(pos<s.Length && s[pos]==',') { pos++; continue; }
+                    if(pos<s.Length && s[pos]=='}') { pos++; result = SValue.NewMapping(map); return true; }
+                    return false;
+                }
+            }
+            if(c=='[') {
+                pos++;
+                var arr = new SValueArray();
+                if(!JsonSkipWs(s, ref pos)) return false;
+                if(pos<s.Length && s[pos]==']') { pos++; result = SValue.NewArray(arr); return true; }
+                while(true) {
+                    if(!JsonParseValue(s, ref pos, out SValue el)) return false;
+                    arr.Items.Add(el);
+                    if(!JsonSkipWs(s, ref pos)) return false;
+                    if(pos<s.Length && s[pos]==',') { pos++; continue; }
+                    if(pos<s.Length && s[pos]==']') { pos++; result = SValue.NewArray(arr); return true; }
+                    return false;
+                }
+            }
+            if(s.Substring(pos).StartsWith("true")) { pos+=4; result = SValue.NewNumber(1); return true; }
+            if(s.Substring(pos).StartsWith("false")) { pos+=5; result = SValue.NewNumber(0); return true; }
+            if(s.Substring(pos).StartsWith("null")) { pos+=4; result = SValue.Invalid; return true; }
+            int start = pos;
+            if(pos<s.Length && (s[pos]=='-' || s[pos]=='+')) pos++;
+            bool anyDigit = false;
+            while(pos<s.Length && (char.IsDigit(s[pos]) || s[pos]=='.' || s[pos]=='e' || s[pos]=='E' || s[pos]=='+' || s[pos]=='-')) { if(char.IsDigit(s[pos])) anyDigit=true; pos++; }
+            if(!anyDigit) return false;
+            string numStr = s.Substring(start, pos-start);
+            if(double.TryParse(numStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double d)) { result = SValue.NewNumber((long)d); return true; }
+            return false;
+        }
         string ResolveLpcPath(string lpcPath)
         {
             if(string.IsNullOrEmpty(lpcPath)) return "";
@@ -1425,6 +1516,23 @@ void HandleEfun(byte efunIdx, byte nargs)
                 SValue v56 = SValue.Invalid; bool ok56 = TryParseSaveVar(s56, ref pos56, out v56) && pos56==s56.Length;
                 Sp-=nargs;
                 if(ok56) Push(SValueToSValueS(v56)); else PushNumber(0);
+                break;
+            }
+            case 173: // json_encode(mixed) -> string
+            {
+                SValue v173 = nargs>=1 ? CanonicalSaveVar(GetArg(0)) : SValue.Invalid;
+                string s173 = JsonEncodeSValue(v173);
+                Sp-=nargs;
+                PushString(s173);
+                break;
+            }
+            case 174: // json_decode(string) -> mixed (失敗回 0)
+            {
+                string s174 = nargs>=1 ? GetArgString(0) : "";
+                int pos174 = 0;
+                bool parse174 = JsonParseValue(s174, ref pos174, out SValue v174); JsonSkipWs(s174, ref pos174); bool ok174 = parse174 && pos174==s174.Length;
+                Sp-=nargs;
+                if(ok174) Push(SValueToSValueS(v174)); else PushNumber(0);
                 break;
             }
             case 171: // save_object(file [, ob]) - 把 Variables 當 array 存檔
