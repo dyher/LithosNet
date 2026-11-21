@@ -862,6 +862,81 @@ void HandleEfun(byte efunIdx, byte nargs)
             PushNumber(0);
         }
 
+        SValue CanonicalSaveVar(SValueS sv) {
+            if(sv.Value.Type!=SValueType.T_INVALID) return sv.Value;
+            if(sv.U!=null) {
+                if(sv.U.String!=null) return SValue.NewString(sv.U.String);
+                if(sv.U.Array!=null) return SValue.NewArray(sv.U.Array);
+                if(sv.U.Mapping!=null) return SValue.NewMapping(sv.U.Mapping);
+                if(sv.U.Object!=null) return SValue.NewObject(sv.U.Object);
+                if(sv.U.Number!=0) return SValue.NewNumber(sv.U.Number);
+            }
+            return SValue.Invalid;
+        }
+        string SerializeSaveVar(SValue v) {
+            switch(v.Type) {
+                case SValueType.T_NUMBER: return "i" + v.Number.ToString() + ";";
+                case SValueType.T_STRING: { string s = v.String ?? ""; return "s" + s.Length.ToString() + ":" + s + ";"; }
+                case SValueType.T_ARRAY: {
+                    var arr = v.Array; if(arr==null) return "a0:";
+                    var sb = new System.Text.StringBuilder(); sb.Append("a"); sb.Append(arr.Items.Count); sb.Append(":");
+                    foreach(var it in arr.Items) sb.Append(SerializeSaveVar(it));
+                    return sb.ToString();
+                }
+                case SValueType.T_MAPPING: {
+                    var map = v.Mapping; if(map==null) return "m0:";
+                    var sb2 = new System.Text.StringBuilder(); sb2.Append("m"); sb2.Append(map.Map.Count); sb2.Append(":");
+                    foreach(var kv in map.Map) { sb2.Append(SerializeSaveVar(kv.Key)); sb2.Append(SerializeSaveVar(kv.Value)); }
+                    return sb2.ToString();
+                }
+                default: return "0;";
+            }
+        }
+        bool TryParseSaveVar(string s, ref int pos, out SValue result) {
+            result = SValue.Invalid;
+            if(pos>=s.Length) return false;
+            char tag = s[pos++];
+            if(tag=='i') {
+                int semi = s.IndexOf(';', pos); if(semi<0) return false;
+                if(!long.TryParse(s.Substring(pos, semi-pos), out long n)) return false;
+                pos = semi+1; result = SValue.NewNumber(n); return true;
+            }
+            if(tag=='s') {
+                int colon = s.IndexOf(':', pos); if(colon<0) return false;
+                if(!int.TryParse(s.Substring(pos, colon-pos), out int len)) return false;
+                pos = colon+1;
+                if(pos+len > s.Length) return false;
+                string str = s.Substring(pos, len); pos += len;
+                if(pos>=s.Length || s[pos]!=';') return false;
+                pos++; result = SValue.NewString(str); return true;
+            }
+            if(tag=='a') {
+                int colon = s.IndexOf(':', pos); if(colon<0) return false;
+                if(!int.TryParse(s.Substring(pos, colon-pos), out int cnt)) return false;
+                pos = colon+1;
+                var arr = new SValueArray();
+                for(int i=0;i<cnt;i++) { if(!TryParseSaveVar(s, ref pos, out SValue el)) return false; arr.Items.Add(el); }
+                result = SValue.NewArray(arr); return true;
+            }
+            if(tag=='m') {
+                int colon = s.IndexOf(':', pos); if(colon<0) return false;
+                if(!int.TryParse(s.Substring(pos, colon-pos), out int cnt)) return false;
+                pos = colon+1;
+                var map = new SValueMapping();
+                for(int i=0;i<cnt;i++) { if(!TryParseSaveVar(s, ref pos, out SValue k)) return false; if(!TryParseSaveVar(s, ref pos, out SValue v)) return false; map.Map[k]=v; }
+                result = SValue.NewMapping(map); return true;
+            }
+            if(tag=='0') {
+                if(pos>=s.Length || s[pos]!=';') return false;
+                pos++; result = SValue.Invalid; return true;
+            }
+            return false;
+        }
+        SValueS SValueToSValueS(SValue v) {
+            var s = new SValueS(); s.Value = v;
+            s.U = new SValueU { Number = v.Number, String = v.String, Array = v.Array, Mapping = v.Mapping, Object = v.Object };
+            return s;
+        }
         string ResolveLpcPath(string lpcPath)
         {
             if(string.IsNullOrEmpty(lpcPath)) return "";
@@ -1335,16 +1410,73 @@ void HandleEfun(byte efunIdx, byte nargs)
                 PushString($"/data/{uid}/");
                 break;
             }
-            case 55: // save_variable
+            case 55: // save_variable(mixed) -> string
             {
+                SValue v55 = nargs>=1 ? CanonicalSaveVar(GetArg(0)) : SValue.Invalid;
+                string s55 = SerializeSaveVar(v55);
                 Sp-=nargs;
-                PushString("0");
+                PushString(s55);
                 break;
             }
-            case 56: // restore_variable
+            case 56: // restore_variable(string) -> mixed
             {
+                string s56 = nargs>=1 ? GetArgString(0) : "";
+                int pos56 = 0;
+                SValue v56 = SValue.Invalid; bool ok56 = TryParseSaveVar(s56, ref pos56, out v56) && pos56==s56.Length;
                 Sp-=nargs;
-                PushNumber(0);
+                if(ok56) Push(SValueToSValueS(v56)); else PushNumber(0);
+                break;
+            }
+            case 171: // save_object(file [, ob]) - 把 Variables 當 array 存檔
+            {
+                string file171 = nargs>=1 ? GetArgString(0) : "";
+                LpcObject tgt171 = CurrentObject;
+                if(nargs>=2) { var o171 = GetArg(1); if(o171.U.Object is LpcObject l171) tgt171 = l171; else if(o171.Value.Object is LpcObject l171b) tgt171 = l171b; }
+                bool ok171 = false;
+                try {
+                    var arr171 = new SValueArray();
+                    if(tgt171!=null && tgt171.Variables!=null) foreach(var vs in tgt171.Variables) arr171.Items.Add(CanonicalSaveVar(vs));
+                    string ser171 = SerializeSaveVar(SValue.NewArray(arr171));
+                    string full171 = ResolveLpcPath(file171);
+                    if(!string.IsNullOrEmpty(full171)) {
+                        string dir171 = System.IO.Path.GetDirectoryName(full171);
+                        if(!string.IsNullOrEmpty(dir171) && !System.IO.Directory.Exists(dir171)) System.IO.Directory.CreateDirectory(dir171);
+                        System.IO.File.WriteAllText(full171, ser171);
+                        ok171 = true;
+                    }
+                } catch {}
+                Sp-=nargs;
+                PushNumber(ok171 ? 1 : 0);
+                break;
+            }
+            case 172: // restore_object(file [, ob])
+            {
+                string file172 = nargs>=1 ? GetArgString(0) : "";
+                LpcObject tgt172 = CurrentObject;
+                if(nargs>=2) { var o172 = GetArg(1); if(o172.U.Object is LpcObject l172) tgt172 = l172; else if(o172.Value.Object is LpcObject l172b) tgt172 = l172b; }
+                bool ok172 = false;
+                try {
+                    string full172 = ResolveLpcPath(file172);
+                    if(!string.IsNullOrEmpty(full172) && System.IO.File.Exists(full172)) {
+                        string content172 = System.IO.File.ReadAllText(full172);
+                        int pos172 = 0;
+                        if(TryParseSaveVar(content172, ref pos172, out SValue v172) && pos172==content172.Length && v172.Type==SValueType.T_ARRAY && v172.Array!=null) {
+                            if(tgt172!=null) {
+                                int cnt = v172.Array.Items.Count;
+                                if(tgt172.Variables==null || tgt172.Variables.Length < cnt) {
+                                    var nv = new SValueS[Math.Max(cnt, tgt172.Variables?.Length ?? 0)];
+                                    if(tgt172.Variables!=null) System.Array.Copy(tgt172.Variables, nv, tgt172.Variables.Length);
+                                    for(int i=(tgt172.Variables?.Length ?? 0); i<nv.Length; i++) nv[i]=new SValueS();
+                                    tgt172.Variables = nv;
+                                }
+                                for(int i=0;i<cnt;i++) tgt172.Variables[i] = SValueToSValueS(v172.Array.Items[i]);
+                                ok172 = true;
+                            }
+                        }
+                    }
+                } catch {}
+                Sp-=nargs;
+                PushNumber(ok172 ? 1 : 0);
                 break;
             }
             case 152: // reverse_array(arr)

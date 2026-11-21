@@ -269,6 +269,8 @@ const byte F_DUP = 120;
         { "setgid", 244 },
         { "user_path", 245 },
         { "save_variable", 55 },
+        { "save_object", 171 },
+        { "restore_object", 172 },
         { "restore_variable", 56 },
         { "interactive", 153 },
         { "tell_object", 64 },
