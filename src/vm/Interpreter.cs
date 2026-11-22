@@ -1950,6 +1950,28 @@ void HandleEfun(byte efunIdx, byte nargs)
                 Sp-=nargs; PushNumber(0);
                 break;
             }
+            case 74: // replace_program - stub
+            case 83: // link - stub
+            case 89: // exec - stub
+            case 90: // query_idle - stub, no interactive tracking yet
+            case 93: // snoop - stub
+            case 94: // eval_cost - stub
+            case 98: // get_config - stub
+            case 106: // query_ip_port - stub
+            case 109: // resolve - stub
+            case 110: // shutdown - stub, never actually shutdown in test
+            case 111: // set_reset - stub
+            case 115: // query_load_average - stub
+            case 116: // malloc_status - stub
+            case 117: // mud_status - stub
+            case 118: // reclaim_objects - stub
+            case 120: // reset_eval_cost - stub
+            case 121: // dump_prog - stub
+            case 122: // dumpallobj - stub
+            case 123: // ed - stub
+            {
+                Sp-=nargs; PushNumber(0); break;
+            }
             case 3: // getuid
             {
                 Sp-=nargs; PushString("root"); break;
