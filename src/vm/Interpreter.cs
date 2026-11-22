@@ -180,6 +180,7 @@ public sealed class InterpreterP9
 
     SValueS[] Locals = new SValueS[256];
     Stack<CallFrame> CallStack = new();
+    Stack<LpcObject> CallerStack = new();
     Dictionary<int,int> FuncAddr = new();
     LpcObject CurrentObject = null;
     LpcObject CommandGiver = null;
@@ -1470,12 +1471,34 @@ void HandleEfun(byte efunIdx, byte nargs)
                 if(CommandGiver != null) PushObject(CommandGiver); else PushNumber(0);
                 break;
             }
-            case 11: case 12: // this_interactive/this_user
             case 2: // this_object
-            case 13: case 15: // previous_object/all_previous_objects
             {
                 Sp-=nargs;
                 if(CurrentObject!=null) PushObject(CurrentObject); else PushNumber(0);
+                break;
+            }
+            case 11: case 12: // this_interactive/this_user - TODO: needs interactive tracking, currently CurrentObject
+            {
+                Sp-=nargs;
+                if(CurrentObject!=null) PushObject(CurrentObject); else PushNumber(0);
+                break;
+            }
+            case 13: // previous_object - CallStack 頂是同物件 caller，否則 CallerStack 頂是跨物件 caller
+            {
+                Sp-=nargs;
+                LpcObject prev13 = null;
+                if(CallStack.Count>0) prev13 = CallStack.Peek().CurrentObject;
+                else if(CallerStack.Count>0) prev13 = CallerStack.Peek();
+                if(prev13!=null) PushObject(prev13); else PushNumber(0);
+                break;
+            }
+            case 15: // all_previous_objects - CallStack 由近到遠 + CallerStack 由近到遠
+            {
+                Sp-=nargs;
+                var arr15 = new SValueArray();
+                foreach(var f15 in CallStack) { if(f15.CurrentObject!=null) arr15.Items.Add(SValue.NewObject(f15.CurrentObject)); }
+                foreach(var c15 in CallerStack) { if(c15!=null) arr15.Items.Add(SValue.NewObject(c15)); }
+                PushArray(arr15);
                 break;
             }
             case 242: // resolve_path
@@ -3793,6 +3816,7 @@ void HandleEfun(byte efunIdx, byte nargs)
         var savedCaptured=CurrentCaptured;
         var savedCallStack=new Stack<CallFrame>(CallStack);
         var savedStack2=new SValueS[STACK_SIZE]; Array.Copy(Stack, savedStack2, STACK_SIZE);
+        CallerStack.Push(savedObj);
 
         CurrentProgram=obj.CurrentProgram;
         Prog=obj.CurrentProgram.Code;
@@ -3821,6 +3845,7 @@ void HandleEfun(byte efunIdx, byte nargs)
         CurrentObject=savedObj;
         CurrentCaptured=savedCaptured;
         CallStack=new Stack<CallFrame>(savedCallStack);
+        if(CallerStack.Count>0) CallerStack.Pop();
         return result;
     }
 

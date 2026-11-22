@@ -249,6 +249,7 @@ const byte F_DUP = 120;
         { "this_player", 10 },
         { "this_object", 2 },
         { "previous_object", 13 },
+        { "all_previous_objects", 15 },
         { "crypt", 47 },
         { "to_int", 48 },
         { "to_float", 49 },
