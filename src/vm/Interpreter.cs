@@ -1483,15 +1483,22 @@ void HandleEfun(byte efunIdx, byte nargs)
                 if(CurrentObject!=null) PushObject(CurrentObject); else PushNumber(0);
                 break;
             }
-            case 13: // previous_object - CallStack 頂是同物件 caller，否則 CallerStack 頂是跨物件 caller
-            {
-                Sp-=nargs;
-                LpcObject prev13 = null;
-                if(CallStack.Count>0) prev13 = CallStack.Peek().CurrentObject;
-                else if(CallerStack.Count>0) prev13 = CallerStack.Peek();
-                if(prev13!=null) PushObject(prev13); else PushNumber(0);
-                break;
-            }
+case 13: // previous_object([n]) - n=0 immediate caller, n=1 caller's caller
+{
+    int idx13 = 0;
+    if (nargs >= 1)
+    {
+        var a13 = GetArg(0);
+        if (a13.Type == SValueType.T_NUMBER) idx13 = (int)a13.Number;
+    }
+    Sp -= nargs;
+    var list13 = new List<LpcObject>();
+    foreach (var f13 in CallStack) { if (f13.CurrentObject != null) list13.Add(f13.CurrentObject); }
+    foreach (var c13 in CallerStack) { if (c13 != null) list13.Add(c13); }
+    LpcObject prev13 = (idx13 >= 0 && idx13 < list13.Count) ? list13[idx13] : null;
+    if (prev13 != null) PushObject(prev13); else PushNumber(0);
+    break;
+}
             case 15: // all_previous_objects - CallStack 由近到遠 + CallerStack 由近到遠
             {
                 Sp-=nargs;
