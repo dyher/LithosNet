@@ -1197,6 +1197,7 @@ void HandleEfun(byte efunIdx, byte nargs)
             case 107: // read_file
             {
                 string path = GetArgString(0);
+                if (!CheckValidRead(path, "read_file")) { Sp-=nargs; PushString(""); break; }
                 string content = "";
                 try{
                     string mudlib = System.Environment.GetEnvironmentVariable("MUDLIB") ?? "";
@@ -1428,6 +1429,7 @@ void HandleEfun(byte efunIdx, byte nargs)
                 string path = GetArgString(0);
                 string content = GetArgString(1);
                 long append = nargs >= 3 ? GetArgNumber(2) : 0;
+                if (!CheckValidWrite(path, "write_file")) { Sp-=nargs; PushNumber(0); break; }
                 bool ok = false;
                 try {
                     string full = ResolveLpcPath(path);
@@ -3814,6 +3816,36 @@ case 13: // previous_object([n]) - n=0 immediate caller, n=1 caller's caller
         return result;
     }
 
+
+    private bool _inValidCheck = false;
+    SValueS MakeObjectSValue(LpcObject ob) {
+        if (ob == null) return SValueS.FromNumber(0);
+        var s = new SValueS(); s.Value = SValue.NewObject(ob); s.U.Object = ob; return s;
+    }
+    bool CheckValidRead(string file, string func) {
+        if (_inValidCheck) return true;
+        var master = ObjectManager.Current?.MasterObject;
+        if (master == null || master.CurrentProgram == null) return true;
+        if (CurrentObject == master) return true;
+        if (!master.TryFindFunction("valid_read", out _, out _)) return true;
+        _inValidCheck = true;
+        try {
+            var r = CallApplyInObject(master, "valid_read", new SValueS[]{ new SValueS(file), MakeObjectSValue(CurrentObject), new SValueS(func) });
+            return IsTrue(r);
+        } catch { return true; } finally { _inValidCheck = false; }
+    }
+    bool CheckValidWrite(string file, string func) {
+        if (_inValidCheck) return true;
+        var master = ObjectManager.Current?.MasterObject;
+        if (master == null || master.CurrentProgram == null) return true;
+        if (CurrentObject == master) return true;
+        if (!master.TryFindFunction("valid_write", out _, out _)) return true;
+        _inValidCheck = true;
+        try {
+            var r = CallApplyInObject(master, "valid_write", new SValueS[]{ new SValueS(file), MakeObjectSValue(CurrentObject), new SValueS(func) });
+            return IsTrue(r);
+        } catch { return true; } finally { _inValidCheck = false; }
+    }
     SValueS CallApplyInObject(LpcObject obj, string funcName, SValueS[] args)
     {
         // shadow chain: 最外層優先；caller 就是 shadower 本人時 bypass（讓 shadow 能呼叫原物件）
